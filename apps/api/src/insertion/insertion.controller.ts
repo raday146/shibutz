@@ -1,6 +1,6 @@
-import { Controller, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
-import { insertionQuerySchema } from '@shibutz/contracts';
-import type { InsertionQuery, InsertionSuggestions } from '@shibutz/contracts';
+import { Body, Controller, HttpCode, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { insertCommitSchema, insertionQuerySchema } from '@shibutz/contracts';
+import type { InsertCommit, InsertionQuery, InsertionSuggestions, Job } from '@shibutz/contracts';
 import { ZodValidationPipe } from '../zod-validation.pipe';
 import { InsertionService } from './insertion.service';
 
@@ -14,5 +14,11 @@ export class InsertionController {
     @Query(new ZodValidationPipe(insertionQuerySchema)) { limit }: InsertionQuery,
   ): Promise<InsertionSuggestions> {
     return this.insertion.suggest(id, limit);
+  }
+
+  @Post(':id/insert')
+  @HttpCode(200)
+  insert(@Param('id', ParseIntPipe) id: number, @Body(new ZodValidationPipe(insertCommitSchema)) body: InsertCommit): Promise<Job> {
+    return this.insertion.insert(id, body);
   }
 }

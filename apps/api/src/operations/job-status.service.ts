@@ -1,5 +1,5 @@
 import { ConflictException, Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { Job, JobStatus, LonLat } from '@shibutz/contracts';
 import { CLOCK, type Clock } from '../clock/clock';
 import { DB, type Db } from '../db/db.module';
@@ -7,6 +7,7 @@ import { jobs, routeStops, routes, technicians } from '../db/schema';
 import { requireReachable, ROUTING_GATEWAY } from '../gateways/ports';
 import type { RoutingGateway } from '../gateways/ports';
 import { JobsService } from '../jobs/jobs.service';
+import { loadStops, type StopRow } from '../routes/stops';
 import { currentPosition, toPositionStop } from '../planning/position';
 import { scheduleRoute } from '../planning/schedule';
 import { fromDaySeconds, toDaySeconds, wallClockDaySeconds } from '../planning/time';
@@ -28,20 +29,6 @@ interface RouteContext {
   home: LonLat;
   shiftStart: string;
   shiftEnd: string;
-}
-
-interface StopRow {
-  id: number;
-  jobId: number;
-  sequence: number;
-  eta: Date;
-  etd: Date;
-  actualArrival: Date | null;
-  actualDeparture: Date | null;
-  location: LonLat;
-  serviceS: number;
-  window: [Date, Date];
-  status: JobStatus;
 }
 
 interface NewTimes {
@@ -76,7 +63,7 @@ export class JobStatusService {
     const now = this.clock.now();
     // The version is read before the stops, so any write in between makes the guarded bump fail.
     const route = await this.loadRoute(jobId);
-    const stops = await this.loadStops(route.routeId);
+    const stops = await loadStops(this.db, eq(routes.id, route.routeId));
     const index = stops.findIndex((s) => s.jobId === jobId);
     const stop = stops[index];
     if (!stop) throw new ConflictException('Job has no stop on a route');
@@ -129,29 +116,6 @@ export class JobStatusService {
     return row;
   }
 
-  private async loadStops(routeId: number): Promise<StopRow[]> {
-    const rows = await this.db
-      .select({
-        id: routeStops.id,
-        jobId: routeStops.jobId,
-        sequence: routeStops.sequence,
-        eta: routeStops.eta,
-        etd: routeStops.etd,
-        actualArrival: routeStops.actualArrival,
-        actualDeparture: routeStops.actualDeparture,
-        location: jobs.location,
-        serviceS: jobs.serviceDurationS,
-        windowStart: jobs.windowStart,
-        windowEnd: jobs.windowEnd,
-        status: jobs.status,
-      })
-      .from(routeStops)
-      .innerJoin(jobs, eq(jobs.id, routeStops.jobId))
-      .where(eq(routeStops.routeId, routeId))
-      .orderBy(asc(routeStops.sequence));
-    return rows.map(({ windowStart, windowEnd, ...r }) => ({ ...r, window: [windowStart, windowEnd] }));
-  }
-
   private async assertCanStart(technicianId: number, stops: StopRow[], index: number): Promise<void> {
     if (stops.slice(0, index).some((s) => s.status !== 'done')) {
       throw new ConflictException('Only the first not-done stop of a route can be started');
@@ -190,7 +154,7 @@ export class JobStatusService {
     const schedule = scheduleRoute(
       {
         start: { index: 0, departureS: origin.departureS },
-        stops: after.map((s, i) => ({ index: i + 1, window: [at(s.window[0]), at(s.window[1])], serviceS: s.serviceS })),
+        stops: after.map((s, i) => ({ index: i + 1, window: [at(s.windowStart), at(s.windowEnd)], serviceS: s.serviceS })),
         home: { index: after.length + 1, shiftEndS: wallClockDaySeconds(route.shiftEnd, route.date) },
       },
       matrix,
