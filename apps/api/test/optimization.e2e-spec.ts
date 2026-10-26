@@ -133,6 +133,106 @@ describeIfUp('vroom')('POST /optimization/day/:date (real VROOM, fake routing)',
   });
 });
 
+// Points at lon 35 have no road connection.
+const nullRouting: RoutingGateway = {
+  ...fakeRouting,
+  durationMatrix: async (points: LonLat[]): Promise<DurationMatrix> =>
+    points.map((a) => points.map((b) => (a[0] === 35 || b[0] === 35 ? (a === b ? 0 : null) : travel(a, b)))),
+};
+
+describeIfUp('vroom')('POST /optimization/day/:date unassigned reasons and replace (real VROOM)', () => {
+  const app = setupTestApp((b) => b.overrideProvider(ROUTING_GATEWAY).useValue(nullRouting));
+  const http: Http = () => request(app().getHttpServer());
+  const db = (): Db => app().get<Db>(DB);
+
+  async function skill(code: string): Promise<number> {
+    return (await http().post('/skills').send({ code, name: code }).expect(201)).body.id;
+  }
+  async function tech(skillIds: number[]): Promise<number> {
+    const body = { name: 'Avi', home: at(34.0), shiftStart: '08:00:00', shiftEnd: '12:00:00', skillIds };
+    return (await http().post('/technicians').send(body).expect(201)).body.id;
+  }
+  async function job(skillIds: number[], lon: number, from: string, to: string, priority = 50, serviceDurationS = 1800): Promise<number> {
+    const body = { location: at(lon), skillIds, serviceDurationS, windowStart: local(from), windowEnd: local(to), priority };
+    return (await http().post('/jobs').send(body).expect(201)).body.id;
+  }
+  async function snapshot(): Promise<unknown[]> {
+    const { rows } = await db().execute(sql`
+      select r.technician_id, r.version, s.job_id, s.sequence, s.eta, s.etd, j.status
+      from routes r left join route_stops s on s.route_id = r.id left join jobs j on j.id = s.job_id
+      order by r.technician_id, s.sequence`);
+    return rows;
+  }
+
+  it('gives each pre-check reason, and NOT_FEASIBLE_IN_PLAN for what VROOM drops', async () => {
+    const elec = await skill('ELEC');
+    const carp = await skill('CARP');
+    await tech([elec]);
+    const noSkill = await job([carp], 34.01, '09:00', '10:00');
+    const outsideShift = await job([elec], 34.01, '13:00', '15:00');
+    const tooLong = await job([elec], 34.01, '09:00', '09:10');
+    const unreachable = await job([elec], 35, '09:00', '11:00');
+    // Both need the 08:00-08:30 slot; the lower priority one loses.
+    const kept = await job([elec], 34.01, '08:00', '08:30', 90);
+    const dropped = await job([elec], 34.01, '08:00', '08:30', 10);
+
+    const plan: DayPlan = (await http().post(`/optimization/day/${DATE}`).expect(201)).body;
+
+    expect(plan.routes.flatMap((r) => r.stops.map((s) => s.jobId))).toEqual([kept]);
+    expect(plan.unassigned).toEqual(
+      [
+        { jobId: noSkill, reason: 'NO_SKILLED_TECHNICIAN' },
+        { jobId: outsideShift, reason: 'WINDOW_OUTSIDE_ALL_SHIFTS' },
+        { jobId: tooLong, reason: 'SERVICE_EXCEEDS_WINDOW' },
+        { jobId: unreachable, reason: 'UNREACHABLE' },
+        { jobId: dropped, reason: 'NOT_FEASIBLE_IN_PLAN' },
+      ].sort((a, b) => a.jobId - b.jobId),
+    );
+  });
+
+  it('replaces the day idempotently, bumps versions and releases jobs that no longer fit', async () => {
+    const elec = await skill('ELEC');
+    const carp = await skill('CARP');
+    await tech([elec]);
+    const a = await job([elec], 34.01, '08:00', '11:00');
+    const b = await job([elec], 34.02, '08:00', '11:00');
+
+    const first: DayPlan = (await http().post(`/optimization/day/${DATE}`).expect(201)).body;
+    const afterFirst = await snapshot();
+    const second: DayPlan = (await http().post(`/optimization/day/${DATE}`).expect(201)).body;
+    const afterSecond = await snapshot();
+
+    expect(second).toEqual(first);
+    expect(afterFirst.map((r) => (r as { version: number }).version)).toEqual([1, 1]);
+    expect(afterSecond.map((r) => (r as { version: number }).version)).toEqual([2, 2]);
+    expect(afterSecond.map((r) => ({ ...(r as object), version: 0 }))).toEqual(afterFirst.map((r) => ({ ...(r as object), version: 0 })));
+
+    // b becomes unplaceable: it must go back to unassigned and leave the route.
+    await http().patch(`/jobs/${b}`).send({ skillIds: [carp] }).expect(200);
+    const third: DayPlan = (await http().post(`/optimization/day/${DATE}`).expect(201)).body;
+
+    expect(third.routes.flatMap((r) => r.stops.map((s) => s.jobId))).toEqual([a]);
+    expect(third.unassigned).toEqual([{ jobId: b, reason: 'NO_SKILLED_TECHNICIAN' }]);
+    const jobs: Job[] = (await http().get('/jobs').expect(200)).body;
+    expect(jobs.find((j) => j.id === b)?.status).toBe('unassigned');
+    expect(jobs.find((j) => j.id === a)?.status).toBe('assigned');
+  });
+
+  it.each(['in_progress', 'done'])('returns 409 and changes nothing when a stop that day is %s', async (status) => {
+    const elec = await skill('ELEC');
+    await tech([elec]);
+    const a = await job([elec], 34.01, '08:00', '11:00');
+    await job([elec], 34.02, '08:00', '11:00');
+    await http().post(`/optimization/day/${DATE}`).expect(201);
+    await db().execute(sql`update jobs set status = ${status}::job_status where id = ${a}`);
+    const before = await snapshot();
+
+    await http().post(`/optimization/day/${DATE}`).expect(409);
+
+    expect(await snapshot()).toEqual(before);
+  });
+});
+
 describe.each([
   ['OSRM', ROUTING_GATEWAY, new OsrmRoutingGateway('http://127.0.0.1:9')],
   ['VROOM', SOLVER_GATEWAY, new VroomSolverGateway('http://127.0.0.1:9')],
