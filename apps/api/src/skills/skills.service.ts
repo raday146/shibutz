@@ -2,7 +2,7 @@ import { ConflictException, Inject, Injectable, NotFoundException } from '@nestj
 import { asc, eq } from 'drizzle-orm';
 import type { CreateSkill, Skill, UpdateSkill } from '@shibutz/contracts';
 import { DB, type Db } from '../db/db.module';
-import { isUniqueViolation } from '../db/errors';
+import { isForeignKeyViolation, isUniqueViolation } from '../db/errors';
 import { skills } from '../db/schema';
 
 @Injectable()
@@ -29,8 +29,13 @@ export class SkillsService {
   }
 
   async remove(id: number): Promise<void> {
-    const [row] = await this.db.delete(skills).where(eq(skills.id, id)).returning();
-    found(row);
+    try {
+      const [row] = await this.db.delete(skills).where(eq(skills.id, id)).returning();
+      found(row);
+    } catch (err) {
+      if (isForeignKeyViolation(err)) throw new ConflictException('Skill is still used by technicians or jobs');
+      throw err;
+    }
   }
 }
 
