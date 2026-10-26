@@ -46,44 +46,56 @@ export class OptimizationService {
     }));
     const { passing, unassigned } = precheckJobs(planTechnicians, planJobs);
 
-    const routes = await this.solve(date, planTechnicians, passing, unassigned);
+    const { routes, unassigned: dropped } = await this.solve(date, planTechnicians, passing);
     await this.replace(date, jobs.map((j) => j.id), routes);
 
     return {
       date,
       totalDriveS: routes.reduce((sum, r) => sum + r.driveS, 0),
       routes,
-      unassigned: unassigned.sort((a, b) => a.jobId - b.jobId),
+      unassigned: [...unassigned, ...dropped].sort((a, b) => a.jobId - b.jobId),
     };
   }
 
-  /** Drops unreachable jobs, solves the rest; appends every unassigned job with its reason to `unassigned`. */
-  private async solve(date: string, technicians: PlanTechnician[], passing: PlanJob[], unassigned: UnassignedJob[]): Promise<PlannedRoutes> {
-    if (!passing.length) return [];
+  /** Drops unreachable jobs, solves the rest; returns the routes and the jobs dropped here with their reasons. */
+  private async solve(
+    date: string,
+    technicians: PlanTechnician[],
+    passing: PlanJob[],
+  ): Promise<{ routes: PlannedRoutes; unassigned: UnassignedJob[] }> {
+    const unassigned: UnassignedJob[] = [];
+    if (!passing.length) return { routes: [], unassigned };
     const full = await this.routing.durationMatrix(planLocations(technicians, passing));
     const unreachable = new Set(unreachableJobIds(technicians, passing, full));
     for (const jobId of unreachable) unassigned.push({ jobId, reason: 'UNREACHABLE' });
     const keep = passing.filter((j) => !unreachable.has(j.id));
-    if (!keep.length) return [];
+    if (!keep.length) return { routes: [], unassigned };
 
     // Matrix rows/columns of homes and surviving jobs only; remaining nulls (e.g. job to job) cost NO_ROAD_S.
-    const idx = [...technicians.map((_, i) => i), ...keep.map((j) => technicians.length + passing.indexOf(j))];
+    const position = new Map(passing.map((j, i) => [j.id, i]));
+    const idx = [...technicians.map((_, i) => i), ...keep.map((j) => technicians.length + (position.get(j.id) ?? 0))];
     const matrix = idx.map((i) => idx.map((k) => full[i]?.[k] ?? NO_ROAD_S));
     const solution = fromVroomSolution(await this.solver.solve(toVroomPayload(technicians, keep, matrix)));
     for (const jobId of solution.unassignedJobIds) unassigned.push({ jobId, reason: 'NOT_FEASIBLE_IN_PLAN' });
 
     const at = (seconds: number): string => fromDaySeconds(seconds, date).toISOString();
-    return solution.routes.map((r) => ({
+    const routes = solution.routes.map((r) => ({
       technicianId: r.technicianId,
       driveS: r.driveS,
       jobCount: r.stops.length,
       stops: r.stops.map((s, i) => ({ jobId: s.jobId, sequence: i + 1, eta: at(s.arrivalS), etd: at(s.departureS) })),
     }));
+    return { routes, unassigned };
   }
 
-  // ponytail: the started-day check is not repeated inside the transaction, so a status change racing a batch is unguarded.
   private replace(date: string, jobIds: number[], routes: PlannedRoutes): Promise<void> {
     return this.db.transaction(async (tx) => {
+      // Re-check under row locks (no external calls here): a status change racing the batch either committed
+      // before this point (409) or waits until we are done.
+      const day = await tx.select({ status: jobsTable.status }).from(jobsTable).where(eq(jobsTable.day, date)).for('update');
+      if (day.some((j) => j.status === 'in_progress' || j.status === 'done')) {
+        throw new ConflictException('A stop that day has already started');
+      }
       const existing = await tx
         .select({ id: routesTable.id, technicianId: routesTable.technicianId })
         .from(routesTable)
