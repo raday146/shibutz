@@ -209,4 +209,79 @@ describe('POST /jobs/:id/insertion-suggestions (fake routing, fake clock)', () =
     expect(await snapshot()).toEqual(before);
     expect((await db().select().from(routes).where(eq(routes.id, routeId)))[0]?.version).toBe(1);
   });
+
+  describe('POST /jobs/:id/insert', () => {
+    const insert = (id: number, technicianId: number, afterJobId: number | null, beforeJobId: number | null, routeVersion: number): request.Test =>
+      http().post(`/jobs/${id}/insert`).send({ technicianId, position: { afterJobId, beforeJobId }, routeVersion });
+    const snapshot = async (): Promise<unknown> => ({
+      routes: await db().select().from(routes),
+      stops: await db().select().from(routeStops),
+      jobs: (await db().execute(sql`select id, status from jobs order by id`)).rows,
+    });
+
+    it('inserts the stop, renumbers, rewrites later ETAs, assigns the job and bumps the version', async () => {
+      const avi = await technician(34.0);
+      const stop = await job(34.02, { status: 'assigned' });
+      await route(avi, [{ job: stop }]);
+      const target = await job(34.01);
+
+      await insert(target.id, avi, null, stop.id, 1).expect(200);
+
+      const stops = await db().select().from(routeStops).orderBy(routeStops.sequence);
+      expect(stops.map((s) => [s.jobId, s.sequence, s.eta.toISOString(), s.etd.toISOString()])).toEqual([
+        [target.id, 1, local('08:01:40'), local('08:11:40')],
+        [stop.id, 2, local('08:13:20'), local('08:23:20')],
+      ]);
+      expect((await db().select().from(jobsTable).where(eq(jobsTable.id, target.id)))[0]?.status).toBe('assigned');
+      expect((await db().select().from(routes))[0]?.version).toBe(2);
+      const shown = (await http().get(`/routes/${avi}/${DATE}`).expect(200)).body;
+      expect(shown.stops.map((s: { jobId: number }) => s.jobId)).toEqual([target.id, stop.id]);
+    });
+
+    it('409s on a stale route version and changes nothing', async () => {
+      const avi = await technician(34.0);
+      const stop = await job(34.02, { status: 'assigned' });
+      await route(avi, [{ job: stop }]);
+      const target = await job(34.01);
+      const before = await snapshot();
+
+      await insert(target.id, avi, null, stop.id, 0).expect(409);
+
+      expect(await snapshot()).toEqual(before);
+    });
+
+    it('409s when the option became infeasible or the position no longer exists', async () => {
+      const avi = await technician(34.0);
+      const stop = await job(34.02, { status: 'assigned', window: ['08:00:00', '08:05:00'] });
+      await route(avi, [{ job: stop }]);
+      const target = await job(34.01);
+      const other = await job(34.03);
+      const before = await snapshot();
+
+      await insert(target.id, avi, null, stop.id, 1).expect(409); // detour pushes the stop past its window
+      await insert(target.id, avi, other.id, null, 1).expect(409); // no such neighbours
+
+      expect(await snapshot()).toEqual(before);
+    });
+
+    it('lets exactly one of two simultaneous first inserts for a technician without a route win', async () => {
+      const bea = await technician(34.05);
+      const one = await job(34.04);
+      const two = await job(34.06);
+
+      const statuses = (await Promise.all([insert(one.id, bea, null, null, 0), insert(two.id, bea, null, null, 0)])).map((r) => r.status);
+
+      expect(statuses.sort()).toEqual([200, 409]);
+      expect(await db().select().from(routeStops)).toHaveLength(1);
+      expect((await db().select().from(routes))[0]?.version).toBe(1);
+    });
+
+    it('refuses a job that is not unassigned and an unknown technician', async () => {
+      const avi = await technician(34.0);
+      const assigned = await job(34.01, { status: 'assigned' });
+      await insert(assigned.id, avi, null, null, 0).expect(409);
+      const target = await job(34.02);
+      await insert(target.id, 9999, null, null, 0).expect(404);
+    });
+  });
 });
