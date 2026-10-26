@@ -1,13 +1,36 @@
 import { useCallback, useEffect, useState } from 'react';
-import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip } from 'react-leaflet';
+import { latLngBounds } from 'leaflet';
+import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import type { Job, RouteView, Technician } from '@shibutz/contracts';
 import { fetchJobs, fetchRoute, fetchTechnicians, runOptimization } from './api';
-import { statusColor, toLatLng, toLatLngs } from './map';
+import { JOB_STATUSES, statusColor, toLatLng, toLatLngs, unassignedRows } from './map';
 
 const SEED_DAY = '2026-11-02';
 const CENTER: [number, number] = [32.05, 34.85];
 const time = (iso: string): string => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' });
 const errorText = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
+type Point = [number, number];
+
+/** Fits the map to `points` when `fitKey` changes or the points first appear; later reloads keep the user's view. */
+function FitTo({ points, fitKey }: { points: Point[]; fitKey: string }): null {
+  const map = useMap();
+  const hasPoints = points.length > 0;
+  useEffect(() => {
+    if (hasPoints) map.fitBounds(latLngBounds(points), { padding: [30, 30] });
+    // points is deliberately not a dependency: refit on a new target only, not on every reload
+  }, [map, fitKey, hasPoints]);
+  return null;
+}
+
+/** Moves the map to a clicked unassigned job. */
+function FlyTo({ target }: { target: Point | null }): null {
+  const map = useMap();
+  useEffect(() => {
+    if (target) map.flyTo(target, 14);
+  }, [map, target]);
+  return null;
+}
 
 export function App(): React.JSX.Element {
   const [date, setDate] = useState(SEED_DAY);
@@ -17,9 +40,14 @@ export function App(): React.JSX.Element {
   const [route, setRoute] = useState<RouteView | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [reasons, setReasons] = useState<Map<number, string>>(new Map());
+  const [focus, setFocus] = useState<Point | null>(null);
 
   // One reload for everything the map shows; also called after a batch run.
   const reload = useCallback(async (): Promise<void> => {
+    setLoading(true);
+    setRoute((r) => (r && r.technicianId === selected ? r : null)); // do not show another technician's route while loading
     try {
       const [t, j, r] = await Promise.all([
         fetchTechnicians(),
@@ -33,6 +61,8 @@ export function App(): React.JSX.Element {
     } catch (e) {
       setRoute(null); // never leave another technician's route on screen next to this error
       setError(errorText(e));
+    } finally {
+      setLoading(false);
     }
   }, [selected, date]);
 
@@ -43,7 +73,8 @@ export function App(): React.JSX.Element {
   async function optimize(): Promise<void> {
     setBusy(true);
     try {
-      await runOptimization(date);
+      const plan = await runOptimization(date);
+      setReasons(new Map(plan.unassigned.map((u) => [u.jobId, u.reason])));
       await reload();
     } catch (e) {
       setError(errorText(e));
@@ -54,6 +85,8 @@ export function App(): React.JSX.Element {
 
   const dayJobs = jobs.filter((j) => j.day === date);
   const jobById = new Map(jobs.map((j) => [j.id, j]));
+  const unassigned = unassignedRows(dayJobs, date, reasons);
+  const allPoints: Point[] = [...technicians.map((t) => toLatLng(t.home)), ...dayJobs.map((j) => toLatLng(j.location))];
 
   return (
     <div className="app">
@@ -63,6 +96,17 @@ export function App(): React.JSX.Element {
           {busy ? 'Running...' : 'Run optimization'}
         </button>
         {error && <p className="error">{error}</p>}
+        {loading && <p className="muted">Loading...</p>}
+        <ul className="legend">
+          {JOB_STATUSES.map((s) => (
+            <li key={s}>
+              <span className="dot" style={{ background: statusColor(s) }} /> {s.replace('_', ' ')}
+            </li>
+          ))}
+          <li>
+            <span className="dot home" /> technician home
+          </li>
+        </ul>
         <h2>Technicians</h2>
         <ul>
           {technicians.map((t) => (
@@ -73,6 +117,20 @@ export function App(): React.JSX.Element {
             </li>
           ))}
         </ul>
+        {unassigned.length > 0 && (
+          <>
+            <h2>Unassigned ({unassigned.length})</h2>
+            <ul>
+              {unassigned.map((u) => (
+                <li key={u.jobId}>
+                  <button onClick={() => setFocus(toLatLng(u.location))}>
+                    Job {u.jobId}{u.reason ? `: ${u.reason}` : ''}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
         {route && (
           <>
             <h2>Route {route.date}</h2>
@@ -93,6 +151,8 @@ export function App(): React.JSX.Element {
           maxZoom={19}
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
+        <FitTo points={route?.geometry ? toLatLngs(route.geometry.coordinates) : allPoints} fitKey={route ? `route${route.technicianId}` : 'all'} />
+        <FlyTo target={focus} />
         {route?.geometry && <Polyline positions={toLatLngs(route.geometry.coordinates)} color="#111827" weight={4} />}
         {dayJobs.map((j) => (
           <CircleMarker key={`j${j.id}`} center={toLatLng(j.location)} radius={6} pathOptions={{ color: statusColor(j.status), fillOpacity: 0.8 }}>

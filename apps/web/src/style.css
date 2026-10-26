@@ -7,3 +7,7 @@ html, body, #root { height: 100%; margin: 0; font: 14px system-ui, sans-serif; }
 .side li button.on { background: #dbeafe; }
 .error { color: #b91c1c; }
 .map { flex: 1; }
+.muted { color: #6b7280; }
+.legend { list-style: none; padding: 0; margin: 12px 0 0; font-size: 12px; }
+.legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
+.legend .dot.home { background: #fff; border: 2px solid #111827; box-sizing: border-box; }
