@@ -9,7 +9,9 @@
     "test": "jest --passWithNoTests",
     "test:e2e": "jest -c jest.e2e.config.js --runInBand",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "pnpm build && node dist/db/migrate.js"
+    "db:migrate": "pnpm build && node dist/db/migrate.js",
+    "db:seed": "pnpm build && node dist/seed/load.js seed",
+    "db:scenario": "pnpm build && node dist/seed/load.js scenario"
   },
   "dependencies": {
     "@nestjs/common": "11.2.7",
