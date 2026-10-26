@@ -3,7 +3,9 @@ import { DEFAULT_DATABASE_URL } from '../src/db/db.module';
 import { runMigrations } from '../src/db/migrate';
 import { OSRM_URL, VROOM_URL } from './stack';
 
-const TEST_DB = 'shibutz_test';
+// Override per worktree so parallel e2e runs don't truncate each other's data.
+const TEST_DB = process.env.TEST_DB_NAME ?? 'shibutz_test';
+if (!/^[a-z_][a-z0-9_]*$/.test(TEST_DB)) throw new Error(`Invalid TEST_DB_NAME: ${TEST_DB}`);
 
 async function isUp(url: string): Promise<boolean> {
   try {
@@ -14,7 +16,7 @@ async function isUp(url: string): Promise<boolean> {
   }
 }
 
-/** Runs once per jest run: ensures shibutz_test exists and is migrated, and probes OSRM/VROOM. */
+/** Runs once per jest run: ensures the test DB exists and is migrated, and probes OSRM/VROOM. */
 export default async function globalSetup(): Promise<void> {
   const adminUrl = process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
   const admin = new Client({ connectionString: adminUrl });
