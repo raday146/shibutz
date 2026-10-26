@@ -4,7 +4,8 @@ Field technician routing (see `docs/BRIEF.md`, spec in GitHub issue #1).
 
 ## Layout
 - `apps/api`: NestJS API (strict TS, Drizzle, migrations in `apps/api/drizzle`)
-- `packages/contracts`: zod schemas shared by API and (later) the web app
+- `apps/web`: Vite + React + Leaflet map UI (needs API, seeded data and OSRM for route lines)
+- `packages/contracts`: zod schemas shared by API and web
 
 ## Run
 Requires Node 24 (`nvm use`) and pnpm. Start the docker stack first (`docker compose up -d`, see `docs/infra.md`).
@@ -16,6 +17,7 @@ pnpm lint
 pnpm test          # unit tests: apps/api/src/**/*.spec.ts
 pnpm test:e2e      # e2e (*.e2e-spec.ts) + integration (*.int-spec.ts), see below
 pnpm --filter @shibutz/api start          # migrate + run on :3001
+pnpm --filter web dev                     # map UI on :5173, proxies API calls to :3001 (API_URL overrides)
 pnpm --filter @shibutz/api db:generate    # new migration after editing src/db/schema.ts
 ```
 
