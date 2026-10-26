@@ -18,3 +18,17 @@ write `specs/requirements.md`, `specs/design.md`, `specs/tasks.md` and wait for 
 ## Rules that bite
 - Coordinates are always `[lon, lat]` (OSRM, VROOM, `ST_MakePoint(lon, lat)`); use one helper.
 - VROOM uses integer ids and seconds; keep a mapping layer at that boundary. Store UTC.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs are tracked in GitHub Issues on `raday146/shibutz` via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root, created lazily. See `docs/agents/domain.md`.
