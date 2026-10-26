@@ -1,8 +1,8 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { CreateJob, Job, UpdateJob } from '@shibutz/contracts';
 import { DB, type Db } from '../db/db.module';
-import { rejectInvalid } from '../db/errors';
+import { isForeignKeyViolation, rejectInvalid } from '../db/errors';
 import { jobSkills, jobs } from '../db/schema';
 
 const columns = {
@@ -97,7 +97,14 @@ export class JobsService {
   }
 
   async remove(id: number): Promise<void> {
-    const [row] = await this.db.delete(jobs).where(eq(jobs.id, id)).returning({ id: jobs.id });
+    const [row] = await this.db
+      .delete(jobs)
+      .where(eq(jobs.id, id))
+      .returning({ id: jobs.id })
+      .catch((err: unknown) => {
+        if (isForeignKeyViolation(err)) throw new ConflictException('Job is on a route; unassign or cancel it first');
+        throw err;
+      });
     if (!row) throw new NotFoundException('Job not found');
   }
 }
