@@ -1,9 +1,9 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { CreateTechnician, Technician, UpdateTechnician } from '@shibutz/contracts';
 import { DB, type Db } from '../db/db.module';
 import { rejectInvalid } from '../db/errors';
-import { routeStops, routes, technicianSkills, technicians } from '../db/schema';
+import { jobs, routeStops, routes, technicianSkills, technicians } from '../db/schema';
 
 const columns = {
   id: technicians.id,
@@ -45,6 +45,18 @@ export class TechniciansService {
   async update(id: number, { skillIds, ...fields }: UpdateTechnician): Promise<Technician> {
     await rejectInvalid(
       this.db.transaction(async (tx) => {
+        // Home, shift and skills feed the stored ETAs and the skill match, so they are frozen while active stops exist.
+        // Done stops are history and do not block edits.
+        if (skillIds || Object.keys(fields).some((k) => k !== 'name')) {
+          const [stop] = await tx
+            .select({ id: routeStops.id })
+            .from(routeStops)
+            .innerJoin(routes, eq(routes.id, routeStops.routeId))
+            .innerJoin(jobs, eq(jobs.id, routeStops.jobId))
+            .where(and(eq(routes.technicianId, id), inArray(jobs.status, ['assigned', 'in_progress'])))
+            .limit(1);
+          if (stop) throw new ConflictException('Technician has stops on a route; unassign or cancel those jobs first');
+        }
         const [row] = Object.keys(fields).length
           ? await tx.update(technicians).set(fields).where(eq(technicians.id, id)).returning({ id: technicians.id })
           : await tx.select({ id: technicians.id }).from(technicians).where(eq(technicians.id, id)).for('update');
