@@ -1,4 +1,4 @@
-import { ServiceUnavailableException } from '@nestjs/common';
+import { ServiceUnavailableException, UnprocessableEntityException } from '@nestjs/common';
 import type { z } from 'zod';
 import type { LonLat } from '@shibutz/contracts';
 import type { VroomPayload, VroomSolution } from '../planning/vroom-mapping';
@@ -8,6 +8,16 @@ export type DurationMatrix = (number | null)[][];
 export interface LineString {
   type: 'LineString';
   coordinates: LonLat[];
+}
+
+// ponytail: no UNREACHABLE pre-check yet (#7); a null cell fails the whole request.
+export function requireReachable(matrix: DurationMatrix): number[][] {
+  return matrix.map((row) =>
+    row.map((cell) => {
+      if (cell === null) throw new UnprocessableEntityException('Some locations are not reachable by road');
+      return cell;
+    }),
+  );
 }
 
 export const ROUTING_GATEWAY = Symbol('ROUTING_GATEWAY');

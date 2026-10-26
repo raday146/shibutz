@@ -1,10 +1,10 @@
-import { Inject, Injectable, UnprocessableEntityException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { inArray } from 'drizzle-orm';
 import type { DayPlan } from '@shibutz/contracts';
 import { DB, type Db } from '../db/db.module';
 import { jobs as jobsTable, routeStops, routes as routesTable } from '../db/schema';
-import { ROUTING_GATEWAY, SOLVER_GATEWAY } from '../gateways/ports';
-import type { DurationMatrix, RoutingGateway, SolverGateway } from '../gateways/ports';
+import { requireReachable, ROUTING_GATEWAY, SOLVER_GATEWAY } from '../gateways/ports';
+import type { RoutingGateway, SolverGateway } from '../gateways/ports';
 import { JobsService } from '../jobs/jobs.service';
 import { fromDaySeconds, toDaySeconds, wallClockDaySeconds } from '../planning/time';
 import { fromVroomSolution, planLocations, toVroomPayload } from '../planning/vroom-mapping';
@@ -12,16 +12,6 @@ import type { PlanJob, PlanTechnician } from '../planning/vroom-mapping';
 import { TechniciansService } from '../technicians/technicians.service';
 
 type PlannedRoutes = DayPlan['routes'];
-
-// ponytail: no UNREACHABLE pre-check yet (#7); a null cell fails the whole request.
-function requireReachable(matrix: DurationMatrix): number[][] {
-  return matrix.map((row) =>
-    row.map((cell) => {
-      if (cell === null) throw new UnprocessableEntityException('Some locations are not reachable by road');
-      return cell;
-    }),
-  );
-}
 
 @Injectable()
 export class OptimizationService {
