@@ -45,3 +45,14 @@ pnpm --filter @shibutz/api db:scenario   # heuristic-vs-VROOM comparison scenari
 - Integration tests against OSRM/VROOM use `describeIfUp('osrm' | 'vroom', ...)` from `apps/api/test/stack.ts`
   and are skipped when the service does not answer.
 - Env overrides: `DATABASE_URL` (admin/dev DB; tests switch to `TEST_DB_NAME`), `INSERTION_RADIUS_M` (default 10000), `OSRM_URL`, `VROOM_URL`, `PORT`.
+
+## Known limitations
+Accepted on purpose for this learning project (see the closed issues for the reasoning):
+- **Cancelling an `in_progress` job deletes its stop**, so its `actual_departure` is not stored; the cancel time is
+  only used as the start of the ETA recompute (#13). Planned-vs-actual metrics can't see cancelled stops.
+- **Check-then-write guards**: `DELETE /technicians/:id` and edits to a routed job's location, window, service
+  duration or skills are refused by a pre-check, not a lock, so a batch or insert committing in the same
+  instant can slip past. Re-running the batch for the day repairs the result (#15).
+- After a `done` stop the technician is assumed to still be at that stop (no GPS).
+- Planned `eta`/`etd` of later stops are not rewritten when a stop is marked `done` or `in_progress`; actual times
+  live in `actual_arrival`/`actual_departure`.
