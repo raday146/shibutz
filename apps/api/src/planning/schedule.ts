@@ -24,7 +24,11 @@ export interface Schedule {
 
 /** arrival = previous departure + travel; service starts at max(arrival, window start); departure = start + service. */
 export function scheduleRoute({ start, stops, home }: ScheduleInput, matrix: number[][]): Schedule {
-  const travel = (from: number, to: number): number => matrix[from]?.[to] ?? Number.NaN;
+  // A missing or non-finite cell fails closed: infinite travel makes every violation check fire.
+  const travel = (from: number, to: number): number => {
+    const t = matrix[from]?.[to];
+    return t !== undefined && Number.isFinite(t) ? t : Number.POSITIVE_INFINITY;
+  };
   const violations: Violation[] = [];
   let at = start.index;
   let departureS = start.departureS;
