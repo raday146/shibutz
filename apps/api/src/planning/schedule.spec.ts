@@ -94,4 +94,21 @@ describe('scheduleRoute', () => {
 
     expect(result).toEqual({ stops: [], returnS: 650, violations: [] });
   });
+
+  it.each([[Number.NaN], [undefined]])('treats a %s travel time as infeasible', (cell) => {
+    const holey = [[0, 100, 200], [150, 0, cell as number], [250, 60, 0]];
+    const result = scheduleRoute(
+      {
+        start: { index: 0, departureS: 1000 },
+        stops: [
+          { index: 1, window: [0, 5000], serviceS: 300 },
+          { index: 2, window: [0, 5000], serviceS: 200 },
+        ],
+        home,
+      },
+      holey,
+    );
+
+    expect(result.violations).toEqual([{ kind: 'late', stop: 1 }, { kind: 'after_shift_end' }]);
+  });
 });
