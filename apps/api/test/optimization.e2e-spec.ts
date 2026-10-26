@@ -208,6 +208,7 @@ describeIfUp('vroom')('POST /optimization/day/:date unassigned reasons and repla
     expect(afterSecond.map((r) => ({ ...(r as object), version: 0 }))).toEqual(afterFirst.map((r) => ({ ...(r as object), version: 0 })));
 
     // b becomes unplaceable: it must go back to unassigned and leave the route.
+    await http().patch(`/jobs/${b}/status`).send({ status: 'unassigned' }).expect(200);
     await http().patch(`/jobs/${b}`).send({ skillIds: [carp] }).expect(200);
     const third: DayPlan = (await http().post(`/optimization/day/${DATE}`).expect(201)).body;
 
@@ -230,6 +231,27 @@ describeIfUp('vroom')('POST /optimization/day/:date unassigned reasons and repla
     await http().post(`/optimization/day/${DATE}`).expect(409);
 
     expect(await snapshot()).toEqual(before);
+  });
+});
+
+describe('POST /optimization/day/:date racing a status change', () => {
+  let startJob: (() => Promise<void>) | undefined;
+  const routing: RoutingGateway = { ...fakeRouting, durationMatrix: async (p) => (await startJob?.(), fakeRouting.durationMatrix(p)) };
+  const solver = { solve: async (): Promise<never> => ({ code: 0, routes: [], unassigned: [] }) as never };
+  const app = setupTestApp((b) => b.overrideProvider(ROUTING_GATEWAY).useValue(routing).overrideProvider(SOLVER_GATEWAY).useValue(solver));
+  const http: Http = () => request(app().getHttpServer());
+
+  it('returns 409 when a job of the day starts after the first check, and writes nothing', async () => {
+    const { id: elec } = (await http().post('/skills').send({ code: 'ELEC', name: 'ELEC' }).expect(201)).body;
+    await http().post('/technicians').send({ name: 'Avi', home: at(34.0), shiftStart: '08:00:00', shiftEnd: '12:00:00', skillIds: [elec] }).expect(201);
+    const body = { location: at(34.01), skillIds: [elec], serviceDurationS: 600, windowStart: local('08:00'), windowEnd: local('11:00'), priority: 50 };
+    const { id } = (await http().post('/jobs').send(body).expect(201)).body;
+    startJob = async () => void (await app().get<Db>(DB).execute(sql`update jobs set status = 'done'::job_status where id = ${id}`));
+
+    await http().post(`/optimization/day/${DATE}`).expect(409);
+
+    expect(await countPlanRows(app().get<Db>(DB))).toBe(0);
+    expect(((await http().get(`/jobs/${id}`)).body as Job).status).toBe('done');
   });
 });
 
