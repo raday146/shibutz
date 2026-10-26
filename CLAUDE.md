@@ -8,12 +8,14 @@ Two flows: batch day optimization (VROOM) and dynamic insertion of a new job int
 existing routes with minimum detour (hand-written heuristic, compared against VROOM).
 
 ## Source of truth
-`docs/BRIEF.md` is the source of truth for scope, decisions, domain model, phases and
-acceptance criteria. Read it before any work. If this file and the brief disagree, the brief wins.
+Spec issue #1 (`gh issue view 1`) is the source of truth for scope, decisions and acceptance criteria.
+`docs/BRIEF.md` is the original planning brief and background; where the two disagree, the spec wins.
 
 ## Current status
-Pre-spec. No implementation code yet. Next step per brief §10: resolve open questions, then
-write `specs/requirements.md`, `specs/design.md`, `specs/tasks.md` and wait for approval.
+Implemented on `feat/field-routing` (draft PR against `main`). The spec is GitHub issue #1 and supersedes
+`docs/BRIEF.md` wherever they differ; tickets #2-#12 (closed) are the build history. Open follow-ups are the
+`needs-triage` issues. How to run the stack, tests and demo commands: `README.md`; infra pins: `docs/infra.md`;
+heuristic vs VROOM numbers: `docs/comparison-report.md`.
 
 ## Rules that bite
 - Coordinates are always `[lon, lat]` (OSRM, VROOM, `ST_MakePoint(lon, lat)`); use one helper.
