@@ -6,7 +6,6 @@ const seconds = z.number().int().nonnegative();
 export const unassignedReasonSchema = z.enum([
   'NO_SKILLED_TECHNICIAN',
   'WINDOW_OUTSIDE_ALL_SHIFTS',
-  'SERVICE_EXCEEDS_WINDOW',
   'UNREACHABLE',
   'NOT_FEASIBLE_IN_PLAN',
 ]);

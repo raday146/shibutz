@@ -170,6 +170,7 @@ describeIfUp('vroom')('POST /optimization/day/:date unassigned reasons and repla
     await tech([elec]);
     const noSkill = await job([carp], 34.01, '09:00', '10:00');
     const outsideShift = await job([elec], 34.01, '13:00', '15:00');
+    // Service (30 min) is longer than the window (10 min): only the start is bounded, so it is planned.
     const tooLong = await job([elec], 34.01, '09:00', '09:10');
     const unreachable = await job([elec], 35, '09:00', '11:00');
     // Both need the 08:00-08:30 slot; the lower priority one loses.
@@ -178,12 +179,11 @@ describeIfUp('vroom')('POST /optimization/day/:date unassigned reasons and repla
 
     const plan: DayPlan = (await http().post(`/optimization/day/${DATE}`).expect(201)).body;
 
-    expect(plan.routes.flatMap((r) => r.stops.map((s) => s.jobId))).toEqual([kept]);
+    expect(plan.routes.flatMap((r) => r.stops.map((s) => s.jobId))).toEqual([kept, tooLong]);
     expect(plan.unassigned).toEqual(
       [
         { jobId: noSkill, reason: 'NO_SKILLED_TECHNICIAN' },
         { jobId: outsideShift, reason: 'WINDOW_OUTSIDE_ALL_SHIFTS' },
-        { jobId: tooLong, reason: 'SERVICE_EXCEEDS_WINDOW' },
         { jobId: unreachable, reason: 'UNREACHABLE' },
         { jobId: dropped, reason: 'NOT_FEASIBLE_IN_PLAN' },
       ].sort((a, b) => a.jobId - b.jobId),

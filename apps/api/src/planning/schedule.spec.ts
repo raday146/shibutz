@@ -75,6 +75,16 @@ describe('scheduleRoute', () => {
     expect(result.violations).toEqual([]);
   });
 
+  it('accepts a service longer than its window as long as it starts inside the window', () => {
+    const result = scheduleRoute(
+      { start: { index: 0, departureS: 1000 }, stops: [{ index: 1, window: [1100, 1200], serviceS: 5000 }], home },
+      matrix,
+    );
+
+    expect(result.violations).toEqual([]);
+    expect(result.stops[0]?.departureS).toBe(6100);
+  });
+
   it('reports returning home after shift end, and accepts exactly at shift end', () => {
     const input = {
       start: { index: 0, departureS: 1000 },

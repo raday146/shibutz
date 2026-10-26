@@ -10,11 +10,11 @@ export interface UnassignedJob {
 const skilled = (technicians: PlanTechnician[], job: PlanJob): PlanTechnician[] =>
   technicians.filter((t) => job.skillIds.every((s) => t.skillIds.includes(s)));
 
+// A time window constrains when service STARTS (VROOM's semantics), so a long service is not a reason to drop a job.
 function reasonFor(technicians: PlanTechnician[], job: PlanJob): UnassignedReason | undefined {
   const eligible = skilled(technicians, job);
   if (!eligible.length) return 'NO_SKILLED_TECHNICIAN';
   if (!eligible.some((t) => job.window[0] < t.shift[1] && job.window[1] > t.shift[0])) return 'WINDOW_OUTSIDE_ALL_SHIFTS';
-  if (job.serviceS > job.window[1] - job.window[0]) return 'SERVICE_EXCEEDS_WINDOW';
   return undefined;
 }
 
