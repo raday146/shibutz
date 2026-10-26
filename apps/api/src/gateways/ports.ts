@@ -43,6 +43,7 @@ export async function postJson<T>(service: string, url: string, body: unknown, s
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(timeoutMs),
     });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
     return schema.parse(await res.json());
   } catch (err) {
     throw new ServiceUnavailableException(`${service} unavailable: ${err instanceof Error ? err.message : String(err)}`);
