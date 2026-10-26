@@ -20,6 +20,9 @@ export function requireReachable(matrix: DurationMatrix): number[][] {
   );
 }
 
+/** Duration standing in for "no road": longer than any shift, so such a leg is always infeasible. */
+export const NO_ROAD_S = 1_000_000;
+
 export const ROUTING_GATEWAY = Symbol('ROUTING_GATEWAY');
 export interface RoutingGateway {
   durationMatrix(points: LonLat[]): Promise<DurationMatrix>;
