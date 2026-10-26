@@ -1,58 +1,107 @@
 # shibutz
 
-Field technician routing (see `docs/BRIEF.md`, spec in GitHub issue #1).
+Field technician routing, built as a learning project. Technicians have skills and shifts; jobs have a location,
+required skills, a service duration, a time window and a priority. The system plans a whole day in one batch
+(OSRM travel times + the VROOM solver) and, when a new job arrives mid-day, finds the technician and position
+with the smallest detour using a hand-written insertion heuristic that is compared against VROOM. It
+demonstrates PostGIS geography queries, routing on OpenStreetMap data, vehicle-routing optimization, forward
+time propagation with waiting, and optimistic concurrency, with tests at every seam.
 
-## Layout
-- `apps/api`: NestJS API (strict TS, Drizzle, migrations in `apps/api/drizzle`)
-- `apps/web`: Vite + React + Leaflet map UI (needs API, seeded data and OSRM for route lines)
-- `packages/contracts`: zod schemas shared by API and web
+![A technician's route and ETAs on the map](docs/screenshots/route.jpg)
 
-## Run
-Requires Node 24 (`nvm use`) and pnpm. Start the docker stack first (`docker compose up -d`, see `docs/infra.md`).
+## Architecture
+
+```mermaid
+flowchart LR
+    Web["Web: React + Leaflet<br/>:5173"] -->|"HTTP (Vite proxy)"| API["API: NestJS<br/>:3001"]
+    API -->|"Drizzle, ST_DWithin"| DB[("PostGIS<br/>:5432")]
+    API -->|"/table, /route"| OSRM["OSRM (MLD, car)<br/>:5001"]
+    API -->|"solve with custom matrix"| VROOM["VROOM<br/>:3000"]
+```
+
+- `apps/api`: NestJS (strict TS). `planning/` is the pure core (no I/O); `gateways/` holds the OSRM and VROOM ports.
+- `apps/web`: map UI. `packages/contracts`: zod schemas shared by both.
+
+## Quickstart
+Needs Docker, Node 24 and pnpm (`corepack enable` is enough).
 
 ```sh
+git clone https://github.com/raday146/shibutz.git && cd shibutz
+nvm use                                    # Node 24
+docker compose up -d                       # PostGIS, OSRM, VROOM; first run downloads the Israel extract (~1 min)
 pnpm install
-pnpm typecheck     # tsc -b over all packages
-pnpm lint
-pnpm test          # unit tests: apps/api/src/**/*.spec.ts
-pnpm test:e2e      # e2e (*.e2e-spec.ts) + integration (*.int-spec.ts), see below
-pnpm --filter @shibutz/api start          # migrate + run on :3001
-pnpm --filter web dev                     # map UI on :5173, proxies API calls to :3001 (API_URL overrides)
-pnpm --filter @shibutz/api compare        # heuristic-vs-VROOM report, in memory (needs OSRM + VROOM, no DB)
-pnpm --filter @shibutz/api db:generate    # new migration after editing src/db/schema.ts
+pnpm --filter @shibutz/api db:seed         # migrate + 6 skills, 8 technicians, 60 jobs for 2026-11-02
+pnpm --filter @shibutz/api start           # API on :3001 (leave running)
+pnpm --filter web dev                      # map on :5173 (second terminal)
 ```
 
-## Demo data
-Both commands migrate, wipe skills/technicians/jobs (ids restart at 1) and insert fixed data from
-`apps/api/src/seed/datasets.ts`. They first snap every point to OSRM `/nearest` and abort if one is more than
-500 m from a road (outside the extract); if OSRM is down the check is skipped with a warning.
+Open http://localhost:5173, click **Run optimization** (plans 2026-11-02), then click a technician to see their
+route and ETAs. Pinned image versions and arm64 notes: `docs/infra.md`; sanity check: `./scripts/smoke.sh`.
 
+## How it works
+
+**Batch optimization** (`POST /optimization/day/:date`)
+1. Pre-checks drop jobs that can never be planned and report why: `NO_SKILLED_TECHNICIAN`,
+   `WINDOW_OUTSIDE_ALL_SHIFTS`.
+2. One OSRM `/table` call gives the duration matrix, rounded up to whole seconds. A job no skilled technician can
+   reach and return from (no road in the matrix) is `UNREACHABLE`.
+3. That matrix goes to VROOM as a custom matrix (VROOM never routes). Jobs carry skills, time windows, service
+   time and priority; each technician starts and ends at home within their shift.
+4. VROOM's routes and arrival times are persisted in one write-only transaction. Jobs VROOM drops are reported as
+   `NOT_FEASIBLE_IN_PLAN`. Re-running a day replaces its plan; a day with a started stop returns 409.
+
+**Dynamic insertion** (`POST /jobs/:id/insertion-suggestions`, then `POST /jobs/:id/insert`)
+- *Candidates:* technicians with all required skills whose stops or home are within `INSERTION_RADIUS_M`
+  (PostGIS `ST_DWithin`); if none, all skilled technicians. One OSRM `/table` call for the new job and candidates.
+- *Detour:* for each consecutive pair (a, b) after the technician's current position,
+  `detour = t(a,new) + t(new,b) - t(a,b)`; the last leg is (last stop, home).
+- *Feasibility, forward propagation with waiting:* `arrival = previous departure + travel`;
+  `service starts at max(arrival, window start)`; it must start by the window end; the return home must beat the
+  shift end. Waiting absorbs part of a detour, so a naive "shift every later stop" check would wrongly reject slots.
+- *Current position:* the in-progress stop, else the last done stop, else home, each no earlier than now.
+- *Result:* the best options by detour (ties: shorter total route, then technician id), plus a rejection reason
+  per technician (`MISSING_SKILL`, `ROUTE_ALREADY_LATE`, `NO_FEASIBLE_POSITION`).
+- *Versioned commit:* each option carries the route's `version`. `insert` recomputes feasibility on fresh data,
+  then in one transaction does `UPDATE routes SET version = version + 1 WHERE ... AND version = ?`; zero rows
+  means 409. A technician with no route yet is version 0, and two racing first inserts give one 200 and one 409.
+
+Other endpoints: CRUD for `/skills`, `/technicians`, `/jobs`; `PATCH /jobs/:id/status` (assigned, in_progress,
+done, unassigned, cancelled; each change bumps the route version); `GET /routes/:technicianId/:date` (stops, ETAs,
+GeoJSON line from OSRM). `pnpm --filter @shibutz/api compare` prints the heuristic vs VROOM report
+(`docs/comparison-report.md`: 124.3 vs 123.6 min fleet drive time on the scenario).
+
+## Key decisions
+The spec is [issue #1](https://github.com/raday146/shibutz/issues/1); it supersedes `docs/BRIEF.md`. Highlights:
+- A custom VROOM matrix built from one OSRM call, so batch, heuristic and scheduling use identical numbers.
+- No external calls inside a DB transaction: compute first, then write, guarded by the route version.
+- A time window bounds when service *starts* (VROOM's semantics), everywhere.
+- Shifts are daily local times of day (Asia/Jerusalem); overnight shifts are rejected. Times are UTC in the DB and
+  seconds since local midnight at the solver boundary.
+- Coordinates are `[lon, lat]` everywhere, owned by one helper. Single-day planning, drive-time objective.
+- Drizzle with visible spatial SQL; zod contracts shared with the web app; Leaflet on OSM tiles.
+
+## Testing
 ```sh
-pnpm --filter @shibutz/api db:seed       # 6 skills, 8 technicians, 60 jobs on 2026-11-02 around 10 central-Israel towns
-pnpm --filter @shibutz/api db:scenario   # heuristic-vs-VROOM comparison scenario (below)
+pnpm typecheck && pnpm lint
+pnpm test                                   # unit tests: planning core, mapping, prechecks, seed (Jest)
+pnpm test:e2e                               # e2e + integration, against compose PostGIS
+pnpm --filter web test                      # web unit tests (Vitest)
 ```
-- The seed uses a fixed PRNG seed and a fixed day, so every run produces identical rows and ids.
-- The comparison scenario (`comparisonScenario`) has 3 technicians, 8 jobs and one new job (id 9, Givatayim, plumbing).
-  Each technician's existing stop order is listed in `comparisonScenario.routes` as job ids. Those jobs are
-  loaded as `assigned` and the new job as `unassigned`, but no `routes` rows are written: `pnpm ... compare`
-  reads the stop orders from that same export, not from the database.
-
-## Tests
-- E2E boots the real `AppModule` against `shibutz_test` on the compose PostGIS. Jest global setup creates
-  the database if missing and migrates it once per run; `setupTestApp()` (`apps/api/test/app.ts`) truncates
-  all tables before each test. Runs `--runInBand`. Set `TEST_DB_NAME` (default `shibutz_test`) per worktree so
-  parallel runs do not truncate each other's data.
-- Integration tests against OSRM/VROOM use `describeIfUp('osrm' | 'vroom', ...)` from `apps/api/test/stack.ts`
-  and are skipped when the service does not answer.
-- Env overrides: `DATABASE_URL` (admin/dev DB; tests switch to `TEST_DB_NAME`), `INSERTION_RADIUS_M` (default 10000), `OSRM_URL`, `VROOM_URL`, `PORT`.
+- E2E boots the real app against `shibutz_test`, truncating between tests, `--runInBand`. Set `TEST_DB_NAME` per
+  worktree so parallel runs do not share a database. Batch e2e uses real VROOM with a fake routing gateway.
+- `*.int-spec.ts` tests hit real OSRM/VROOM (matrix shape, timeouts, `scheduleRoute` reproducing VROOM's arrival
+  times exactly) and are skipped when the service is down.
+- Env overrides: `DATABASE_URL`, `TEST_DB_NAME`, `INSERTION_RADIUS_M` (default 10000), `OSRM_URL`, `VROOM_URL`, `PORT`.
+- `db:seed` and `db:scenario` wipe skills, technicians and jobs; the seed is deterministic (fixed PRNG and day).
 
 ## Known limitations
 Accepted on purpose for this learning project (see the closed issues for the reasoning):
 - **Cancelling an `in_progress` job deletes its stop**, so its `actual_departure` is not stored; the cancel time is
   only used as the start of the ETA recompute (#13). Planned-vs-actual metrics can't see cancelled stops.
-- **Check-then-write guards**: `DELETE /technicians/:id` and edits to a routed job's location, window, service
-  duration or skills are refused by a pre-check, not a lock, so a batch or insert committing in the same
-  instant can slip past. Re-running the batch for the day repairs the result (#15).
+- **Check-then-write guards**: `DELETE /technicians/:id`, edits to a routed job's location, window, service
+  duration or skills, and edits to an active technician's home, shift or skills are refused by a pre-check, not a
+  lock, so a batch or insert committing in the same instant can slip past. Re-running the batch repairs the result (#15).
 - After a `done` stop the technician is assumed to still be at that stop (no GPS).
 - Planned `eta`/`etd` of later stops are not rewritten when a stop is marked `done` or `in_progress`; actual times
   live in `actual_arrival`/`actual_departure`.
+- Open follow-ups: web UX improvements (#22-#27) and a possible lock-order deadlock between batch and status changes (#20).
