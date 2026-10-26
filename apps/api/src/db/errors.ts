@@ -19,13 +19,19 @@ export function isForeignKeyViolation(err: unknown): boolean {
   return pgError(err).code === '23503';
 }
 
+const CHECK_MESSAGES: Record<string, string> = {
+  technicians_shift_order: 'Shift end must be after shift start; overnight shifts are not supported',
+};
+
 /** Maps rule violations enforced by the database (CHECK, unknown skill FK) to 400. */
 export async function rejectInvalid<T>(query: Promise<T>): Promise<T> {
   try {
     return await query;
   } catch (err) {
     const { code, constraint } = pgError(err);
-    if (code === '23514') throw new BadRequestException(`Violates ${constraint}`);
+    if (code === '23514') {
+      throw new BadRequestException((constraint && CHECK_MESSAGES[constraint]) ?? `Violates ${constraint}`);
+    }
     if (code === '23503') throw new BadRequestException('Unknown skill id');
     throw err;
   }

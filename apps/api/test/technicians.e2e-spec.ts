@@ -87,6 +87,15 @@ describe('technicians', () => {
     await http().patch(`/technicians/${body.id}`).send({ shiftEnd: '07:00:00' }).expect(400);
   });
 
+  it('explains that overnight shifts are not supported', async () => {
+    const res = await http()
+      .post('/technicians')
+      .send({ ...dana([]), shiftStart: '22:00:00', shiftEnd: '06:00:00' })
+      .expect(400);
+
+    expect(res.body.message).toMatch(/overnight shifts are not supported/);
+  });
+
   it('deletes a technician and returns 404 for missing ones', async () => {
     const elec = await skill('ELEC');
     const { body } = await http().post('/technicians').send(dana([elec])).expect(201);
