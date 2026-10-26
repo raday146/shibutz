@@ -11,10 +11,11 @@ import { setupTestApp } from './app';
 // Hand-built travel times: 100 s per 0.01 degree of longitude, every point on lat 32.
 const travel = (a: LonLat, b: LonLat): number => Math.round(Math.abs(a[0] - b[0]) * 10_000);
 let matrixCalls = 0;
+let noRoadLon: number | undefined; // a point with this longitude has no road to any other point
 const fakeRouting: RoutingGateway = {
   durationMatrix: async (points: LonLat[]): Promise<DurationMatrix> => {
     matrixCalls += 1;
-    return points.map((a) => points.map((b) => travel(a, b)));
+    return points.map((a) => points.map((b) => (a !== b && (a[0] === noRoadLon || b[0] === noRoadLon) ? null : travel(a, b))));
   },
   routeGeometry: async (points: LonLat[]): Promise<LineString> => ({ type: 'LineString', coordinates: points }),
 };
@@ -45,6 +46,7 @@ describe('PATCH /jobs/:id/status (fake routing, fake clock)', () => {
   beforeEach(() => {
     now = new Date(local('07:00:00'));
     matrixCalls = 0;
+    noRoadLon = undefined;
   });
 
   async function technician(): Promise<number> {
@@ -170,6 +172,26 @@ describe('PATCH /jobs/:id/status (fake routing, fake clock)', () => {
       ]);
       expect(await version(routeId)).toBe(2);
       expect(matrixCalls).toBe(1);
+    });
+
+    it('a merely assigned previous stop departs no earlier than now', async () => {
+      const { jobs } = await day();
+      now = new Date(local('08:20:00'));
+
+      await patch(jobs[1]?.id, 'unassigned').expect(200);
+
+      // A is still only planned (etd 08:11:40) but now is 08:20: C = 08:20:00 + 200 s.
+      expect((await stopRows()).map((r) => [r.sequence, r.eta, r.etd])[1]).toEqual([2, local('08:23:20'), local('08:33:20')]);
+    });
+
+    it('removing a stop succeeds when a leg has no road (it costs NO_ROAD_S instead of failing)', async () => {
+      const { jobs } = await day();
+      noRoadLon = 34.03;
+
+      await patch(jobs[1]?.id, 'unassigned').expect(200);
+
+      expect(await statusOf(jobs[1]?.id)).toBe('unassigned');
+      expect((await stopRows()).map((r) => r.jobId)).toEqual([jobs[0]?.id, jobs[2]?.id]);
     });
 
     it('removing the first stop restarts from home at shift start', async () => {
@@ -310,5 +332,25 @@ describe('PATCH /jobs/:id/status (fake routing, fake clock)', () => {
     const res = await http().delete(`/jobs/${jobs[0]?.id}`).expect(409);
 
     expect(res.body.message).toMatch(/on a route/);
+  });
+
+  it('refuses to change location, window, service or skills of a job on a route, but allows priority', async () => {
+    const { jobs } = await day();
+    const url = `/jobs/${jobs[0]?.id}`;
+
+    for (const body of [{ location: [34.5, 32] }, { windowEnd: local('16:00:00') }, { serviceDurationS: 60 }, { skillIds: [] }]) {
+      const res = await http().patch(url).send(body).expect(409);
+      expect(res.body.message).toMatch(/unassign or cancel/);
+    }
+    await http().patch(url).send({ priority: 10 }).expect(200);
+  });
+
+  it('refuses to delete a technician who has route stops', async () => {
+    const { techId } = await day();
+
+    const res = await http().delete(`/technicians/${techId}`).expect(409);
+
+    expect(res.body.message).toMatch(/route/);
+    expect(await stopRows()).toHaveLength(3);
   });
 });

@@ -3,7 +3,7 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { CreateJob, Job, UpdateJob } from '@shibutz/contracts';
 import { DB, type Db } from '../db/db.module';
 import { isForeignKeyViolation, rejectInvalid } from '../db/errors';
-import { jobSkills, jobs } from '../db/schema';
+import { jobSkills, jobs, routeStops } from '../db/schema';
 
 const columns = {
   id: jobs.id,
@@ -84,6 +84,10 @@ export class JobsService {
   async update(id: number, { skillIds, ...fields }: UpdateJob): Promise<Job> {
     await rejectInvalid(
       this.db.transaction(async (tx) => {
+        if (skillIds || Object.keys(fields).some((k) => k !== 'priority')) {
+          const [stop] = await tx.select({ id: routeStops.id }).from(routeStops).where(eq(routeStops.jobId, id)).limit(1);
+          if (stop) throw new ConflictException('Job is on a route; unassign or cancel it first');
+        }
         const [row] = Object.keys(fields).length
           ? await tx.update(jobs).set(toRow(fields)).where(eq(jobs.id, id)).returning({ id: jobs.id })
           : await tx.select({ id: jobs.id }).from(jobs).where(eq(jobs.id, id)).for('update');

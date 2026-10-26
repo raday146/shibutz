@@ -1,9 +1,9 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { asc, eq, sql } from 'drizzle-orm';
 import type { CreateTechnician, Technician, UpdateTechnician } from '@shibutz/contracts';
 import { DB, type Db } from '../db/db.module';
 import { rejectInvalid } from '../db/errors';
-import { technicianSkills, technicians } from '../db/schema';
+import { routeStops, routes, technicianSkills, technicians } from '../db/schema';
 
 const columns = {
   id: technicians.id,
@@ -58,6 +58,13 @@ export class TechniciansService {
   }
 
   async remove(id: number): Promise<void> {
+    const [stop] = await this.db
+      .select({ id: routeStops.id })
+      .from(routeStops)
+      .innerJoin(routes, eq(routes.id, routeStops.routeId))
+      .where(eq(routes.technicianId, id))
+      .limit(1);
+    if (stop) throw new ConflictException('Technician has stops on a route; unassign or cancel those jobs first');
     const [row] = await this.db.delete(technicians).where(eq(technicians.id, id)).returning({ id: technicians.id });
     if (!row) throw new NotFoundException('Technician not found');
   }

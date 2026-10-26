@@ -4,7 +4,7 @@ import type { Job, JobStatus, LonLat } from '@shibutz/contracts';
 import { CLOCK, type Clock } from '../clock/clock';
 import { DB, type Db } from '../db/db.module';
 import { jobs, routeStops, routes, technicians } from '../db/schema';
-import { requireReachable, ROUTING_GATEWAY } from '../gateways/ports';
+import { NO_ROAD_S, ROUTING_GATEWAY } from '../gateways/ports';
 import type { RoutingGateway } from '../gateways/ports';
 import { JobsService } from '../jobs/jobs.service';
 import { loadStops, type StopRow } from '../routes/stops';
@@ -143,14 +143,15 @@ export class JobStatusService {
     if (removed.status === 'in_progress') {
       origin = { location: removed.location, departureS: nowS };
     } else if (prior?.status === 'assigned') {
-      origin = { location: prior.location, departureS: at(prior.etd) };
+      origin = { location: prior.location, departureS: Math.max(at(prior.etd), nowS) };
     } else {
       const shiftStartS = wallClockDaySeconds(route.shiftStart, route.date);
       const position = currentPosition(stops.slice(0, index).map((s) => toPositionStop(s, route.date)), shiftStartS, nowS);
       origin = { location: stops[position.stop ?? -1]?.location ?? route.home, departureS: position.departureS };
     }
 
-    const matrix = requireReachable(await this.routing.durationMatrix([origin.location, ...after.map((s) => s.location), route.home]));
+    const raw = await this.routing.durationMatrix([origin.location, ...after.map((s) => s.location), route.home]);
+    const matrix = raw.map((row) => row.map((cell) => cell ?? NO_ROAD_S));
     const schedule = scheduleRoute(
       {
         start: { index: 0, departureS: origin.departureS },
