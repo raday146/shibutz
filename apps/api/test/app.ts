@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import { sql } from 'drizzle-orm';
 import { AppModule } from '../src/app.module';
 import { DB, type Db } from '../src/db/db.module';
@@ -20,12 +20,17 @@ async function truncateAll(db: Db): Promise<void> {
   `);
 }
 
-/** Boots the real AppModule against shibutz_test (set by global-setup) and truncates before each test. */
-export function setupTestApp(): () => INestApplication {
+/**
+ * Boots the real AppModule against shibutz_test (set by global-setup) and truncates before each test.
+ * `override` swaps providers, e.g. a fake routing gateway.
+ */
+export function setupTestApp(
+  override: (builder: TestingModuleBuilder) => TestingModuleBuilder = (b) => b,
+): () => INestApplication {
   let app: INestApplication | undefined;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const moduleRef = await override(Test.createTestingModule({ imports: [AppModule] })).compile();
     app = moduleRef.createNestApplication();
     await app.init();
   });

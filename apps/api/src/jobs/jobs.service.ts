@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { CreateJob, Job, UpdateJob } from '@shibutz/contracts';
 import { DB, type Db } from '../db/db.module';
 import { rejectInvalid } from '../db/errors';
@@ -40,6 +40,15 @@ export class JobsService {
 
   async list(): Promise<Job[]> {
     const rows = await this.db.select(columns).from(jobs).orderBy(asc(jobs.id));
+    return rows.map(toJob);
+  }
+
+  async unassignedOn(day: string): Promise<Job[]> {
+    const rows = await this.db
+      .select(columns)
+      .from(jobs)
+      .where(and(eq(jobs.day, day), eq(jobs.status, 'unassigned')))
+      .orderBy(asc(jobs.id));
     return rows.map(toJob);
   }
 
