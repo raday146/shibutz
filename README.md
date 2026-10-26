@@ -18,6 +18,7 @@ pnpm test          # unit tests: apps/api/src/**/*.spec.ts
 pnpm test:e2e      # e2e (*.e2e-spec.ts) + integration (*.int-spec.ts), see below
 pnpm --filter @shibutz/api start          # migrate + run on :3001
 pnpm --filter web dev                     # map UI on :5173, proxies API calls to :3001 (API_URL overrides)
+pnpm --filter @shibutz/api compare        # heuristic-vs-VROOM report, in memory (needs OSRM + VROOM, no DB)
 pnpm --filter @shibutz/api db:generate    # new migration after editing src/db/schema.ts
 ```
 
@@ -33,13 +34,14 @@ pnpm --filter @shibutz/api db:scenario   # heuristic-vs-VROOM comparison scenari
 - The seed uses a fixed PRNG seed and a fixed day, so every run produces identical rows and ids.
 - The comparison scenario (`comparisonScenario`) has 3 technicians, 8 jobs and one new job (id 9, Givatayim, plumbing).
   Each technician's existing stop order is listed in `comparisonScenario.routes` as job ids. Those jobs are
-  loaded as `assigned` and the new job as `unassigned`. The routes are not in the database yet: the
-  `routes` tables arrive with #6, and the comparison (#12) should read them from that same export.
+  loaded as `assigned` and the new job as `unassigned`, but no `routes` rows are written: `pnpm ... compare`
+  reads the stop orders from that same export, not from the database.
 
 ## Tests
 - E2E boots the real `AppModule` against `shibutz_test` on the compose PostGIS. Jest global setup creates
   the database if missing and migrates it once per run; `setupTestApp()` (`apps/api/test/app.ts`) truncates
-  all tables before each test. Runs `--runInBand`.
+  all tables before each test. Runs `--runInBand`. Set `TEST_DB_NAME` (default `shibutz_test`) per worktree so
+  parallel runs do not truncate each other's data.
 - Integration tests against OSRM/VROOM use `describeIfUp('osrm' | 'vroom', ...)` from `apps/api/test/stack.ts`
   and are skipped when the service does not answer.
-- Env overrides: `DATABASE_URL` (admin/dev DB; tests switch to `shibutz_test`), `OSRM_URL`, `VROOM_URL`, `PORT`.
+- Env overrides: `DATABASE_URL` (admin/dev DB; tests switch to `TEST_DB_NAME`), `INSERTION_RADIUS_M` (default 10000), `OSRM_URL`, `VROOM_URL`, `PORT`.
