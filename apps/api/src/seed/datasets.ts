@@ -99,6 +99,9 @@ export function buildSeed(seed = 20261102): Dataset {
 export interface Scenario extends Dataset {
   routes: { technicianId: number; jobIds: number[] }[];
   newJob: CreateJob;
+  /** Jobs already finished at `now`; the comparison starts each technician from their last done stop. */
+  doneJobIds: number[];
+  now: string;
 }
 
 const job = (location: LonLat, skillIds: number[], from: string, to: string): CreateJob => ({
@@ -133,4 +136,6 @@ export const comparisonScenario: Scenario = {
     { technicianId: 3, jobIds: [7, 8] },
   ],
   newJob: job([34.8114, 32.0707], [2], '09:00', '14:00'), // Givatayim
+  doneJobIds: [1],
+  now: at('09:15'),
 };
