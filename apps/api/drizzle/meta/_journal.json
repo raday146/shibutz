@@ -15,6 +15,13 @@
       "when": 1793030465016,
       "tag": "0001_skills",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793030924736,
+      "tag": "0002_technicians_jobs",
+      "breakpoints": true
     }
   ]
 }

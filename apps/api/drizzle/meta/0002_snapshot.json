@@ -1,0 +1,355 @@
+{
+  "id": "efd99460-4b7d-4655-94bb-32a1fba3a56d",
+  "prevId": "b6a33050-36aa-4740-bd85-e0e0d9b40868",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.job_skills": {
+      "name": "job_skills",
+      "schema": "",
+      "columns": {
+        "job_id": {
+          "name": "job_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "skill_id": {
+          "name": "skill_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "job_skills_job_id_jobs_id_fk": {
+          "name": "job_skills_job_id_jobs_id_fk",
+          "tableFrom": "job_skills",
+          "tableTo": "jobs",
+          "columnsFrom": [
+            "job_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "job_skills_skill_id_skills_id_fk": {
+          "name": "job_skills_skill_id_skills_id_fk",
+          "tableFrom": "job_skills",
+          "tableTo": "skills",
+          "columnsFrom": [
+            "skill_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "job_skills_job_id_skill_id_pk": {
+          "name": "job_skills_job_id_skill_id_pk",
+          "columns": [
+            "job_id",
+            "skill_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.jobs": {
+      "name": "jobs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "jobs_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "location": {
+          "name": "location",
+          "type": "geography(Point,4326)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "service_duration_s": {
+          "name": "service_duration_s",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "window_start": {
+          "name": "window_start",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "window_end": {
+          "name": "window_end",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "day": {
+          "name": "day",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true,
+          "generated": {
+            "as": "(window_start AT TIME ZONE 'Asia/Jerusalem')::date",
+            "type": "stored"
+          }
+        },
+        "priority": {
+          "name": "priority",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "job_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'unassigned'"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "jobs_window_order": {
+          "name": "jobs_window_order",
+          "value": "\"jobs\".\"window_end\" > \"jobs\".\"window_start\""
+        },
+        "jobs_window_same_local_day": {
+          "name": "jobs_window_same_local_day",
+          "value": "(window_start AT TIME ZONE 'Asia/Jerusalem')::date = (window_end AT TIME ZONE 'Asia/Jerusalem')::date"
+        },
+        "jobs_service_positive": {
+          "name": "jobs_service_positive",
+          "value": "\"jobs\".\"service_duration_s\" > 0"
+        },
+        "jobs_priority_range": {
+          "name": "jobs_priority_range",
+          "value": "\"jobs\".\"priority\" BETWEEN 0 AND 100"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.skills": {
+      "name": "skills",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "skills_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "skills_code_unique": {
+          "name": "skills_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "code"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.technician_skills": {
+      "name": "technician_skills",
+      "schema": "",
+      "columns": {
+        "technician_id": {
+          "name": "technician_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "skill_id": {
+          "name": "skill_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "technician_skills_technician_id_technicians_id_fk": {
+          "name": "technician_skills_technician_id_technicians_id_fk",
+          "tableFrom": "technician_skills",
+          "tableTo": "technicians",
+          "columnsFrom": [
+            "technician_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "technician_skills_skill_id_skills_id_fk": {
+          "name": "technician_skills_skill_id_skills_id_fk",
+          "tableFrom": "technician_skills",
+          "tableTo": "skills",
+          "columnsFrom": [
+            "skill_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "technician_skills_technician_id_skill_id_pk": {
+          "name": "technician_skills_technician_id_skill_id_pk",
+          "columns": [
+            "technician_id",
+            "skill_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.technicians": {
+      "name": "technicians",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "technicians_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "home": {
+          "name": "home",
+          "type": "geography(Point,4326)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "shift_start": {
+          "name": "shift_start",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "shift_end": {
+          "name": "shift_end",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "technicians_shift_order": {
+          "name": "technicians_shift_order",
+          "value": "\"technicians\".\"shift_end\" > \"technicians\".\"shift_start\""
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.job_status": {
+      "name": "job_status",
+      "schema": "public",
+      "values": [
+        "unassigned",
+        "assigned",
+        "in_progress",
+        "done",
+        "cancelled"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
