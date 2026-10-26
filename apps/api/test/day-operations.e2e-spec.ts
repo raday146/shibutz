@@ -157,6 +157,23 @@ describe('PATCH /jobs/:id/status (fake routing, fake clock)', () => {
     await patch(nextDay.id, 'in_progress').expect(409);
   });
 
+  it('lets only one of two simultaneous starts on different days go through', async () => {
+    // Repeated with fresh technicians because the race window is narrow.
+    for (let round = 0; round < 6; round++) {
+      const techId = await technician();
+      const starts: Job[] = [];
+      for (const d of ['2026-07-01', '2026-07-02']) {
+        const j = await job(34.01, 'assigned', d);
+        await route(techId, [{ job: j, eta: local('08:01:40', d), etd: local('08:11:40', d) }], d);
+        starts.push(j);
+      }
+
+      const results = await Promise.all(starts.map((j) => patch(j.id, 'in_progress')));
+
+      expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
+    }
+  });
+
   describe('removing a stop', () => {
     it('assigned -> unassigned in the middle renumbers and recomputes later ETAs from the previous stop', async () => {
       const { jobs, routeId } = await day();
