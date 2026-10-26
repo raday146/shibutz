@@ -25,6 +25,13 @@ describe('suggestInsertions', () => {
     expect(first?.schedule.stops.map((s) => s.startS)).toEqual([71, 500]);
   });
 
+  it('places a job whose service is longer than its window when it can start inside it', () => {
+    const long: NewJob = { index: 0, window: [71, 100], serviceS: 1000 };
+    const { options } = suggestInsertions([tech([0, 100_000])], long, euclid(points));
+
+    expect(options.find((o) => o.slot === 0)?.schedule.stops[0]?.startS).toBe(71);
+  });
+
   it('rejects a slot whose detour pushes a later stop past its window', () => {
     const { options } = suggestInsertions([tech([100, 150])], NEW, euclid(points));
     expect(options.map((o) => o.slot)).toEqual([1]); // after the stop: arrival at 100 stays on time

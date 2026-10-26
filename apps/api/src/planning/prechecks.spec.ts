@@ -19,7 +19,7 @@ describe('precheckJobs', () => {
       job(10, [9], [30000, 40000]), // nobody has skill 9
       job(11, [1], [70000, 80000]), // after every shift
       job(12, [2], [30000, 40000]), // only tech 2 has skill 2, and its shift starts later
-      job(13, [1], [30000, 30100], 600), // service longer than the window
+      job(13, [1], [30000, 30100], 600), // service longer than the window: the window only bounds the start
       job(14, [1], [30000, 40000]),
     ];
 
@@ -29,9 +29,8 @@ describe('precheckJobs', () => {
       { jobId: 10, reason: 'NO_SKILLED_TECHNICIAN' },
       { jobId: 11, reason: 'WINDOW_OUTSIDE_ALL_SHIFTS' },
       { jobId: 12, reason: 'WINDOW_OUTSIDE_ALL_SHIFTS' },
-      { jobId: 13, reason: 'SERVICE_EXCEEDS_WINDOW' },
     ]);
-    expect(passing.map((j) => j.id)).toEqual([14]);
+    expect(passing.map((j) => j.id)).toEqual([13, 14]);
   });
 
   it('treats a day without technicians as no skilled technician', () => {
