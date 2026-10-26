@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { CreateJob, Job, UpdateJob } from '@shibutz/contracts';
 import { DB, type Db } from '../db/db.module';
 import { rejectInvalid } from '../db/errors';
@@ -43,13 +43,23 @@ export class JobsService {
     return rows.map(toJob);
   }
 
-  async unassignedOn(day: string): Promise<Job[]> {
+  /** The day's jobs a batch may (re)plan: unassigned, or assigned to a route that has not started. */
+  async plannableOn(day: string): Promise<Job[]> {
     const rows = await this.db
       .select(columns)
       .from(jobs)
-      .where(and(eq(jobs.day, day), eq(jobs.status, 'unassigned')))
+      .where(and(eq(jobs.day, day), inArray(jobs.status, ['unassigned', 'assigned'])))
       .orderBy(asc(jobs.id));
     return rows.map(toJob);
+  }
+
+  async hasStartedOn(day: string): Promise<boolean> {
+    const [row] = await this.db
+      .select({ id: jobs.id })
+      .from(jobs)
+      .where(and(eq(jobs.day, day), inArray(jobs.status, ['in_progress', 'done'])))
+      .limit(1);
+    return row !== undefined;
   }
 
   async get(id: number): Promise<Job> {
