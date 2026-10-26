@@ -7,6 +7,7 @@ import { jobs, routeStops, routes, technicians } from '../db/schema';
 import { requireReachable, ROUTING_GATEWAY } from '../gateways/ports';
 import type { RoutingGateway } from '../gateways/ports';
 import { JobsService } from '../jobs/jobs.service';
+import { currentPosition, toPositionStop } from '../planning/position';
 import { scheduleRoute } from '../planning/schedule';
 import { fromDaySeconds, toDaySeconds, wallClockDaySeconds } from '../planning/time';
 
@@ -177,14 +178,12 @@ export class JobStatusService {
     let origin: { location: LonLat; departureS: number };
     if (removed.status === 'in_progress') {
       origin = { location: removed.location, departureS: nowS };
-    } else if (!prior) {
-      origin = { location: route.home, departureS: Math.max(wallClockDaySeconds(route.shiftStart, route.date), nowS) };
-    } else if (prior.status === 'done') {
-      origin = { location: prior.location, departureS: Math.max(at(prior.actualDeparture ?? prior.etd), nowS) };
-    } else if (prior.status === 'in_progress') {
-      origin = { location: prior.location, departureS: Math.max(at(prior.actualArrival ?? prior.eta) + prior.serviceS, nowS) };
-    } else {
+    } else if (prior?.status === 'assigned') {
       origin = { location: prior.location, departureS: at(prior.etd) };
+    } else {
+      const shiftStartS = wallClockDaySeconds(route.shiftStart, route.date);
+      const position = currentPosition(stops.slice(0, index).map((s) => toPositionStop(s, route.date)), shiftStartS, nowS);
+      origin = { location: stops[position.stop ?? -1]?.location ?? route.home, departureS: position.departureS };
     }
 
     const matrix = requireReachable(await this.routing.durationMatrix([origin.location, ...after.map((s) => s.location), route.home]));
