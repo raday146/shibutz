@@ -1,5 +1,5 @@
 import { type SQL, sql } from 'drizzle-orm';
-import { check, date, integer, pgEnum, pgTable, primaryKey, text, time, timestamp } from 'drizzle-orm/pg-core';
+import { check, date, integer, pgEnum, pgTable, primaryKey, text, time, timestamp, unique } from 'drizzle-orm/pg-core';
 import { geographyPoint } from './geography';
 
 // Integer ids: VROOM requires integer skill ids.
@@ -77,3 +77,34 @@ export const jobSkills = pgTable(
   },
   (t) => [primaryKey({ columns: [t.jobId, t.skillId] })],
 );
+
+// One route per technician and day. A missing row means version 0; every write bumps the version.
+export const routes = pgTable(
+  'routes',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    technicianId: integer('technician_id')
+      .notNull()
+      .references(() => technicians.id, { onDelete: 'cascade' }),
+    date: date('date', { mode: 'string' }).notNull(),
+    version: integer('version').notNull().default(0),
+  },
+  (t) => [unique('routes_technician_date').on(t.technicianId, t.date)],
+);
+
+// Stops in gapless 1-based sequence; planned eta/etd from the plan, actual times from day operations.
+export const routeStops = pgTable('route_stops', {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  routeId: integer('route_id')
+    .notNull()
+    .references(() => routes.id, { onDelete: 'cascade' }),
+  jobId: integer('job_id')
+    .notNull()
+    .unique()
+    .references(() => jobs.id),
+  sequence: integer('sequence').notNull(),
+  eta: timestamp('eta', { withTimezone: true }).notNull(),
+  etd: timestamp('etd', { withTimezone: true }).notNull(),
+  actualArrival: timestamp('actual_arrival', { withTimezone: true }),
+  actualDeparture: timestamp('actual_departure', { withTimezone: true }),
+});
