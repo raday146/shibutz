@@ -1,0 +1,58 @@
+# Local stack. Start: `docker compose up -d` (first run downloads + preprocesses OSRM data).
+# See docs/infra.md for versions, arm64 notes and VROOM API behavior.
+x-osrm-image: &osrm-image ghcr.io/project-osrm/osrm-backend:v26.10.0-debian
+
+services:
+  postgis:
+    # Official postgis/postgis is amd64-only; imresamu/postgis is the multi-arch build of the same Dockerfiles.
+    image: imresamu/postgis:17-3.5
+    environment:
+      POSTGRES_USER: shibutz
+      POSTGRES_PASSWORD: shibutz
+      POSTGRES_DB: shibutz
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+
+  # One-off: fetch the Geofabrik extract (OSRM image has no curl/wget). Skips if present.
+  osrm-download:
+    image: curlimages/curl:8.16.0
+    volumes: [./data/osrm:/data]
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -e
+        [ -f /data/israel.osm.pbf ] && { echo "pbf exists, skipping download"; exit 0; }
+        curl -fL -o /data/israel.osm.pbf.tmp https://download.geofabrik.de/asia/israel-and-palestine-latest.osm.pbf
+        mv /data/israel.osm.pbf.tmp /data/israel.osm.pbf
+
+  # One-off: car profile, MLD pipeline. Skips if customize output exists.
+  osrm-prep:
+    image: *osrm-image
+    volumes: [./data/osrm:/data]
+    depends_on:
+      osrm-download: { condition: service_completed_successfully }
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -e
+        [ -f /data/israel.osrm.cell_metrics ] && { echo "OSRM data exists, skipping preprocessing"; exit 0; }
+        osrm-extract -p /opt/car.lua /data/israel.osm.pbf
+        osrm-partition /data/israel.osrm
+        osrm-customize /data/israel.osrm
+
+  osrm:
+    image: *osrm-image
+    volumes: [./data/osrm:/data]
+    depends_on:
+      osrm-prep: { condition: service_completed_successfully }
+    command: osrm-routed --algorithm mld --max-table-size 500 /data/israel.osrm
+    # Host 5001: macOS AirPlay Receiver holds 5000.
+    ports: ["5001:5000"]
+
+  # No router wiring: the app always sends custom `matrices`, so VROOM never calls a router.
+  vroom:
+    image: ghcr.io/vroom-project/vroom-docker:v1.15.0
+    ports: ["3000:3000"]
+
+volumes:
+  pgdata:

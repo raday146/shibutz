@@ -1,0 +1,9 @@
+html, body, #root { height: 100%; margin: 0; font: 14px system-ui, sans-serif; }
+.app { display: flex; height: 100%; }
+.side { width: 300px; padding: 12px; overflow-y: auto; box-sizing: border-box; }
+.side h2 { font-size: 14px; margin: 16px 0 6px; }
+.side ul { list-style: none; padding: 0; margin: 0; }
+.side li button { width: 100%; text-align: left; padding: 4px 6px; border: 0; background: none; cursor: pointer; }
+.side li button.on { background: #dbeafe; }
+.error { color: #b91c1c; }
+.map { flex: 1; }
