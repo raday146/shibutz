@@ -370,4 +370,29 @@ describe('PATCH /jobs/:id/status (fake routing, fake clock)', () => {
     expect(res.body.message).toMatch(/route/);
     expect(await stopRows()).toHaveLength(3);
   });
+
+  it('refuses to change home, shift or skills of a technician with route stops, but allows renaming', async () => {
+    const { techId } = await day();
+    const before = (await http().get(`/technicians/${techId}`).expect(200)).body;
+
+    for (const change of [{ home: [34.1, 32] }, { shiftStart: '07:00:00' }, { shiftEnd: '18:00:00' }, { skillIds: [] }]) {
+      const res = await http().patch(`/technicians/${techId}`).send(change).expect(409);
+      expect(res.body.message).toMatch(/route|stops/);
+    }
+    await http().get(`/technicians/${techId}`).expect(200, before);
+
+    await http().patch(`/technicians/${techId}`).send({ name: 'Avi B.' }).expect(200);
+  });
+
+  it('lets a technician whose stops are all done change home, shift and skills', async () => {
+    const { techId } = await day(['done', 'done', 'done']);
+
+    await http().patch(`/technicians/${techId}`).send({ home: [34.1, 32], shiftEnd: '18:00:00', skillIds: [] }).expect(200);
+  });
+
+  it('still lets a technician without route stops change home, shift and skills', async () => {
+    const techId = await technician();
+
+    await http().patch(`/technicians/${techId}`).send({ home: [34.1, 32], shiftEnd: '18:00:00', skillIds: [] }).expect(200);
+  });
 });
