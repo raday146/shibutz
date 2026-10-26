@@ -33,3 +33,7 @@ export const jobSchema = createJobSchema.extend({
   day: z.iso.date(),
 });
 export type Job = z.infer<typeof jobSchema>;
+
+/** `PATCH /jobs/:id/status`; the API allows only the day-operation transitions. */
+export const updateJobStatusSchema = z.object({ status: jobStatusSchema }).strict();
+export type UpdateJobStatus = z.infer<typeof updateJobStatusSchema>;
