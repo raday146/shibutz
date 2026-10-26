@@ -3,7 +3,7 @@ import { eq, inArray, sql } from 'drizzle-orm';
 import type { DayPlan } from '@shibutz/contracts';
 import { DB, type Db } from '../db/db.module';
 import { jobs as jobsTable, routeStops, routes as routesTable } from '../db/schema';
-import { ROUTING_GATEWAY, SOLVER_GATEWAY } from '../gateways/ports';
+import { NO_ROAD_S, ROUTING_GATEWAY, SOLVER_GATEWAY } from '../gateways/ports';
 import type { RoutingGateway, SolverGateway } from '../gateways/ports';
 import { JobsService } from '../jobs/jobs.service';
 import { precheckJobs, unreachableJobIds } from '../planning/prechecks';
@@ -14,9 +14,6 @@ import type { PlanJob, PlanTechnician } from '../planning/vroom-mapping';
 import { TechniciansService } from '../technicians/technicians.service';
 
 type PlannedRoutes = DayPlan['routes'];
-
-/** Cost for an unreachable pair that no shift can absorb, so VROOM never uses it. */
-const NO_ROAD_S = 1_000_000;
 
 @Injectable()
 export class OptimizationService {

@@ -6,6 +6,8 @@ import { ROUTING_GATEWAY, SOLVER_GATEWAY } from './gateways/ports';
 import { VroomSolverGateway } from './gateways/vroom.gateway';
 import { JobsController } from './jobs/jobs.controller';
 import { JobsService } from './jobs/jobs.service';
+import { InsertionController } from './insertion/insertion.controller';
+import { InsertionService } from './insertion/insertion.service';
 import { JobStatusController } from './operations/job-status.controller';
 import { JobStatusService } from './operations/job-status.service';
 import { OptimizationController } from './optimization/optimization.controller';
@@ -19,7 +21,7 @@ import { TechniciansService } from './technicians/technicians.service';
 
 @Module({
   imports: [DbModule],
-  controllers: [SkillsController, TechniciansController, JobsController, JobStatusController, OptimizationController, RoutesController],
+  controllers: [SkillsController, TechniciansController, JobsController, JobStatusController, InsertionController, OptimizationController, RoutesController],
   providers: [
     SkillsService,
     TechniciansService,
@@ -27,6 +29,7 @@ import { TechniciansService } from './technicians/technicians.service';
     OptimizationService,
     RoutesService,
     JobStatusService,
+    InsertionService,
     { provide: CLOCK, useValue: systemClock },
     { provide: ROUTING_GATEWAY, useFactory: () => new OsrmRoutingGateway(process.env.OSRM_URL ?? 'http://localhost:5001') },
     { provide: SOLVER_GATEWAY, useFactory: () => new VroomSolverGateway(process.env.VROOM_URL ?? 'http://localhost:3000') },
