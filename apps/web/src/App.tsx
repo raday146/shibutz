@@ -31,6 +31,7 @@ export function App(): React.JSX.Element {
       setRoute(r);
       setError('');
     } catch (e) {
+      setRoute(null); // never leave another technician's route on screen next to this error
       setError(errorText(e));
     }
   }, [selected, date]);
