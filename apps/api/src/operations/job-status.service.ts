@@ -68,11 +68,12 @@ export class JobStatusService {
     const stop = stops[index];
     if (!stop) throw new ConflictException('Job has no stop on a route');
 
-    if (to === 'in_progress') await this.assertCanStart(route.technicianId, stops, index);
+    if (to === 'in_progress') this.assertCanStart(stops, index);
     // Computed before the transaction: no external call may happen inside it.
     const later = to === 'in_progress' || to === 'done' ? [] : await this.recompute(route, stops, index, now);
 
     await this.db.transaction(async (tx) => {
+      if (to === 'in_progress') await this.assertNoStopInProgress(tx, route.technicianId);
       const [bumped] = await tx
         .update(routes)
         .set({ version: sql`${routes.version} + 1` })
@@ -116,11 +117,16 @@ export class JobStatusService {
     return row;
   }
 
-  private async assertCanStart(technicianId: number, stops: StopRow[], index: number): Promise<void> {
+  private assertCanStart(stops: StopRow[], index: number): void {
     if (stops.slice(0, index).some((s) => s.status !== 'done')) {
       throw new ConflictException('Only the first not-done stop of a route can be started');
     }
-    const [busy] = await this.db
+  }
+
+  /** Locks the technician row so starts on different days serialize, then checks under the lock. */
+  private async assertNoStopInProgress(tx: Pick<Db, 'select'>, technicianId: number): Promise<void> {
+    await tx.select({ id: technicians.id }).from(technicians).where(eq(technicians.id, technicianId)).for('update');
+    const [busy] = await tx
       .select({ id: jobs.id })
       .from(jobs)
       .innerJoin(routeStops, eq(routeStops.jobId, jobs.id))
