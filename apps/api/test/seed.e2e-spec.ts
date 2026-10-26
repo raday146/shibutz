@@ -1,0 +1,46 @@
+import request from 'supertest';
+import { DB, type Db } from '../src/db/db.module';
+import { buildSeed, comparisonScenario } from '../src/seed/datasets';
+import { loadDataset, snapCheck } from '../src/seed/load';
+import { setupTestApp } from './app';
+import { describeIfUp, OSRM_URL } from './stack';
+
+describe('seed', () => {
+  const app = setupTestApp();
+  const snapshot = async (): Promise<unknown[]> => {
+    const http = request(app().getHttpServer());
+    return Promise.all(['/skills', '/technicians', '/jobs'].map(async (p) => (await http.get(p).expect(200)).body as unknown));
+  };
+
+  it('loads the seed with identical data on every run', async () => {
+    const db = app().get<Db>(DB);
+    await loadDataset(db, buildSeed());
+    const first = await snapshot();
+    await loadDataset(db, buildSeed());
+
+    expect(await snapshot()).toEqual(first);
+    const [skills, technicians, jobs] = first as unknown[][];
+    expect([skills?.length, technicians?.length, jobs?.length]).toEqual([6, 8, 60]);
+  });
+
+  it('loads the comparison scenario with routed jobs assigned and the new job unassigned', async () => {
+    await loadDataset(app().get<Db>(DB), comparisonScenario);
+
+    const { body } = await request(app().getHttpServer()).get('/jobs').expect(200);
+    const statuses = (body as { status: string }[]).map((j) => j.status);
+    expect(statuses).toEqual([...comparisonScenario.jobs.map(() => 'assigned'), 'unassigned']);
+  });
+});
+
+describeIfUp('osrm')('seed snap check against OSRM', () => {
+  it('finds every seed and scenario point within the extract', async () => {
+    await expect(snapCheck(buildSeed(), OSRM_URL)).resolves.toEqual([]);
+    await expect(snapCheck(comparisonScenario, OSRM_URL)).resolves.toEqual([]);
+  });
+
+  it('reports a point in the sea', async () => {
+    const offshore = { ...comparisonScenario, jobs: [{ ...comparisonScenario.newJob, location: [34.5, 32.0853] as [number, number] }] };
+    const far = await snapCheck(offshore, OSRM_URL);
+    expect(far.map((f) => f.label)).toEqual(['job 1']);
+  });
+});
