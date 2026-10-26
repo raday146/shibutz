@@ -19,6 +19,21 @@ pnpm --filter @shibutz/api start          # migrate + run on :3001
 pnpm --filter @shibutz/api db:generate    # new migration after editing src/db/schema.ts
 ```
 
+## Demo data
+Both commands migrate, wipe skills/technicians/jobs (ids restart at 1) and insert fixed data from
+`apps/api/src/seed/datasets.ts`. They first snap every point to OSRM `/nearest` and abort if one is more than
+500 m from a road (outside the extract); if OSRM is down the check is skipped with a warning.
+
+```sh
+pnpm --filter @shibutz/api db:seed       # 6 skills, 8 technicians, 60 jobs on 2026-11-02 around 10 central-Israel towns
+pnpm --filter @shibutz/api db:scenario   # heuristic-vs-VROOM comparison scenario (below)
+```
+- The seed uses a fixed PRNG seed and a fixed day, so every run produces identical rows and ids.
+- The comparison scenario (`comparisonScenario`) has 3 technicians, 8 jobs and one new job (id 9, Givatayim, plumbing).
+  Each technician's existing stop order is listed in `comparisonScenario.routes` as job ids. Those jobs are
+  loaded as `assigned` and the new job as `unassigned`. The routes are not in the database yet: the
+  `routes` tables arrive with #6, and the comparison (#12) should read them from that same export.
+
 ## Tests
 - E2E boots the real `AppModule` against `shibutz_test` on the compose PostGIS. Jest global setup creates
   the database if missing and migrates it once per run; `setupTestApp()` (`apps/api/test/app.ts`) truncates
