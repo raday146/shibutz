@@ -1,0 +1,38 @@
+{
+  "name": "@shibutz/api",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "start": "pnpm db:migrate && node dist/main.js",
+    "typecheck": "tsc -b",
+    "test": "jest --passWithNoTests",
+    "test:e2e": "jest -c jest.e2e.config.js --runInBand",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "pnpm build && node dist/db/migrate.js",
+    "db:seed": "pnpm build && node dist/seed/load.js seed",
+    "db:scenario": "pnpm build && node dist/seed/load.js scenario",
+    "compare": "pnpm build && node dist/seed/compare.js"
+  },
+  "dependencies": {
+    "@nestjs/common": "11.2.7",
+    "@nestjs/core": "11.2.7",
+    "@nestjs/platform-express": "11.2.7",
+    "@shibutz/contracts": "workspace:*",
+    "drizzle-orm": "0.45.4",
+    "pg": "8.23.1",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "zod": "4.6.6"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "11.2.7",
+    "@types/jest": "30.0.0",
+    "@types/pg": "8.23.1",
+    "@types/supertest": "7.2.1",
+    "drizzle-kit": "0.31.11",
+    "jest": "30.5.2",
+    "supertest": "7.3.1",
+    "ts-jest": "29.4.14"
+  }
+}

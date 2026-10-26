@@ -1,7 +1,7 @@
 # Field Technician Routing — Project Brief
 
 > Input for a spec-driven session with Claude Code.
-> Status: **pre-spec**. No code yet. Decisions below are agreed; open questions are listed at the end.
+> Status: **superseded by the spec** (GitHub issue #1), which resolved the open questions in section 9 and changed some decisions (for example a `routes` table with versions, a custom VROOM matrix with no VROOM→OSRM wiring, forward propagation with waiting). Kept as planning background.
 
 ---
 
@@ -115,11 +115,13 @@ Authentication / multi-tenancy, mobile app, real-time GPS tracking, live traffic
 6. Map scope: all of Israel, or a smaller region for faster preprocessing?
 7. Planning horizon: single day only, or multi-day?
 
-## 10. How to run the spec session
+## 10. How the spec session was run
 
-- Do **not** write implementation code yet.
-- Read this brief, ask the open questions (one batch), then produce:
-  - `specs/requirements.md` — user stories + acceptance criteria
-  - `specs/design.md` — architecture, data model, API contracts, VROOM/OSRM integration, key algorithms
-  - `specs/tasks.md` — small ordered tasks, each with acceptance criteria and the tests that prove it
-- Wait for approval before implementing. Implement phase by phase, one task at a time.
+This section originally asked for `specs/requirements.md`, `specs/design.md` and `specs/tasks.md`. The project followed the mattpocock-skills flow instead:
+
+1. Grilling session over this brief and section 9 (37 questions).
+2. `to-spec`: the spec is GitHub issue #1.
+3. `to-tickets`: tickets #2-#12 as sub-issues of #1, with native blocking edges.
+4. `implement-spec`: implemented on the integration branch `feat/field-routing`, then reviewed and fixed.
+
+Current status and pointers are in the root `CLAUDE.md`.
