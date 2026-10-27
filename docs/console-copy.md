@@ -102,6 +102,8 @@ Every string in the dispatch console, in Hebrew and English. The keys here becom
 | `drawer.finish` | סיום צפוי {time} | Expected finish {time} |
 | `drawer.late` | צפוי איחור של {n} דק׳ | Running {n} min late |
 | `drawer.empty` | אין עצירות ביום הזה. אפשר לתכנן את היום או לשבץ עבודה מהרשימה. | No stops this day. Plan the day or assign a job from the list. |
+| `drawer.stops` | עצירות | Stops |
+| `note.has` | יש הערה | Has a note |
 | `stop.drive` | {n} דק׳ נסיעה | {n} min drive |
 | `stop.duration` | {n} דק׳ | {n} min |
 | `stop.details` | פרטים | Details |
@@ -214,4 +216,4 @@ The API's own messages are English only. Known ones map to keys: "Only the first
 
 ## Keys added by the foundation ticket
 
-Strings of the existing screen that the deck above did not cover: `date.label`, `lang.toggle.label` (accessible name of the toggle, written in the language it switches to), `tech.noSkills`, `job.ref` (a job shown as "Job {id}" until jobs have titles), `slot.close`, `map.legend.home`, `map.needs`, `duration.min`, `route.title`, `stops.one`/`stops.two`/`stops.other`, `stop.line`. Source of truth is `apps/web/src/i18n.ts`.
+Strings of the existing screen that the deck above did not cover: `date.label`, `lang.toggle.label` (accessible name of the toggle, written in the language it switches to), `tech.noSkills`, `job.ref` (a job shown as "Job {id}" until jobs have titles), `slot.close`, `map.legend.home`, `map.needs`, `duration.min`, `stops.one`/`stops.two`/`stops.other`. Source of truth is `apps/web/src/i18n.ts`.
