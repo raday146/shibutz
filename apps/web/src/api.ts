@@ -1,13 +1,22 @@
 import { z } from 'zod';
-import { dayPlanSchema, jobSchema, routeViewSchema, technicianSchema } from '@shibutz/contracts';
-import type { DayPlan, Job, RouteView, Technician } from '@shibutz/contracts';
+import { dayPlanSchema, insertionSuggestionsSchema, jobSchema, routeViewSchema, skillSchema, technicianSchema } from '@shibutz/contracts';
+import type { CreateJob, DayPlan, InsertCommit, InsertionSuggestions, Job, RouteView, Skill, Technician } from '@shibutz/contracts';
+
+/** Carries the HTTP status so callers can tell a stale 409 from other failures. */
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
+const post = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 
 async function request<T>(schema: z.ZodType<T>, path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, init);
   const body: unknown = await res.json();
   if (!res.ok) {
     const message = z.object({ message: z.string() }).safeParse(body);
-    throw new Error(message.success ? message.data.message : `HTTP ${res.status}`);
+    throw new ApiError(message.success ? message.data.message : `HTTP ${res.status}`, res.status);
   }
   return schema.parse(body);
 }
@@ -18,3 +27,8 @@ export const fetchRoute = (technicianId: number, date: string): Promise<RouteVie
   request(routeViewSchema, `/routes/${technicianId}/${date}`);
 export const runOptimization = (date: string): Promise<DayPlan> =>
   request(dayPlanSchema, `/optimization/day/${date}`, { method: 'POST' });
+export const fetchSkills = (): Promise<Skill[]> => request(z.array(skillSchema), '/skills');
+export const createJob = (job: CreateJob): Promise<Job> => request(jobSchema, '/jobs', post(job));
+export const fetchSuggestions = (jobId: number): Promise<InsertionSuggestions> =>
+  request(insertionSuggestionsSchema, `/jobs/${jobId}/insertion-suggestions?limit=3`, { method: 'POST' });
+export const insertJob = (jobId: number, commit: InsertCommit): Promise<Job> => request(jobSchema, `/jobs/${jobId}/insert`, post(commit));

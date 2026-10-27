@@ -9,7 +9,7 @@ export default defineConfig({
   // The API has no CORS; the dev server proxies these paths to it.
   server: {
     proxy: Object.fromEntries(
-      ['/technicians', '/jobs', '/routes', '/optimization'].map((p) => [p, process.env.API_URL ?? 'http://localhost:3001']),
+      ['/technicians', '/jobs', '/routes', '/optimization', '/skills'].map((p) => [p, process.env.API_URL ?? 'http://localhost:3001']),
     ),
   },
 });
