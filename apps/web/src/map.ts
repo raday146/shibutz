@@ -1,4 +1,5 @@
 import type { Job, JobStatus, LonLat, Skill } from '@shibutz/contracts';
+import type { Lang } from './i18n';
 
 /** Contracts are `[lon, lat]` (GeoJSON); Leaflet wants `[lat, lng]`. The only place that flips. */
 export const toLatLng = ([lon, lat]: LonLat): [number, number] => [lat, lon];
@@ -52,8 +53,14 @@ export function jerusalemToIso(date: string, hhmm: string): string {
   return new Date(guess - zoneOffsetMs(first)).toISOString();
 }
 
-export const skillLabel = (ids: number[], skills: Skill[]): string =>
-  ids.map((id) => skills.find((s) => s.id === id)?.name ?? `#${id}`).join(', ');
+/** The skill's name in `lang`, or the other language's when that one is empty. */
+export const skillName = (s: Skill, lang: Lang): string => (lang === 'he' ? s.nameHe || s.nameEn : s.nameEn || s.nameHe);
+
+export const skillLabel = (ids: number[], skills: Skill[], lang: Lang): string =>
+  ids.map((id) => skills.find((s) => s.id === id)).map((s, i) => (s ? skillName(s, lang) : `#${ids[i]}`)).join(', ');
+
+/** Technician color slot (1 to 8) as the DESIGN.md token. */
+export const routeVar = (slot: number): string => `var(--route-${slot})`;
 
 export const shiftLabel = (start: string, end: string): string => `${start.slice(0, 5)}-${end.slice(0, 5)}`;
 
