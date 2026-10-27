@@ -92,9 +92,9 @@ input { min-height: 28px; border: 1px solid var(--control-border); border-radius
 .side li button { width: 100%; text-align: start; padding: var(--space-1) var(--space-2); border: 0; }
 .side li button.on { background: var(--surface-2); }
 .error { color: var(--danger-ink); flex-basis: 100%; margin: 0; }
-.main { flex: 1; min-width: 0; z-index: var(--z-map); }
+.main { position: relative; flex: 1; min-width: 0; z-index: var(--z-map); }
 /* The map never mirrors under right-to-left. */
-.map { height: 100%; direction: ltr; }
+.map { height: 100%; direction: ltr; isolation: isolate; }
 /* Mute the basemap on the tile pane only, so route and marker colors stay true. */
 .leaflet-tile-pane { filter: grayscale(1) contrast(0.8) brightness(1.12); }
 .muted { color: var(--ink-3); font-size: var(--text-sm); line-height: var(--lh-sm); }
@@ -102,9 +102,20 @@ input { min-height: 28px; border: 1px solid var(--control-border); border-radius
 /* Leaflet sets stroke as an attribute, which cannot hold var(); a class can. */
 .route-1 { stroke: var(--route-1); } .route-2 { stroke: var(--route-2); } .route-3 { stroke: var(--route-3); } .route-4 { stroke: var(--route-4); }
 .route-5 { stroke: var(--route-5); } .route-6 { stroke: var(--route-6); } .route-7 { stroke: var(--route-7); } .route-8 { stroke: var(--route-8); }
-.legend { list-style: none; padding: 0; margin: var(--space-3) 0 0; font-size: var(--text-xs); line-height: var(--lh-xs); }
-.legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-inline-end: var(--space-1); }
-.legend .dot.home { background: var(--surface); border: 2px solid var(--ink); box-sizing: border-box; }
+/* Map markers: a 24px transparent hit area (.hit) around a small visible pin. Status is a ring or glyph, never color alone. */
+.leaflet-marker-icon.hit { display: grid; place-items: center; background: none; border: 0; transition: opacity 150ms; }
+.leaflet-overlay-pane path { transition: opacity 150ms; }
+.pin { display: inline-grid; place-items: center; box-sizing: border-box; width: 12px; height: 12px; border-radius: 50%; background: var(--c, var(--ink)); border: 2px solid #fff; color: #fff; font: 600 10px/1 var(--font); }
+.pin.num { width: 20px; height: 20px; font-size: var(--text-xs); }
+.pin.assigned { background: #fff; border: 3px solid var(--c, var(--ink)); color: var(--ink); }
+.pin.done:not(.num) { width: 16px; height: 16px; font-size: 11px; }
+.pin.in_progress { box-shadow: 0 0 0 2px var(--c, var(--ink)); }
+.pin.unassigned { background: #fff; border: 2px dashed var(--attention); width: 14px; height: 14px; }
+.pin.home { width: 20px; height: 20px; font-size: var(--text-xs); }
+.mapkey { position: absolute; inset-block-end: var(--space-4); inset-inline-start: var(--space-3); z-index: var(--z-map-controls); padding: var(--space-2) var(--space-3); background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--radius-surface); font-size: var(--text-xs); line-height: var(--lh-xs); }
+.mapkey summary { cursor: pointer; font-weight: 600; }
+.mapkey p, .mapkey ul { margin: var(--space-1) 0 0; padding: 0; list-style: none; }
+.mapkey .pin { vertical-align: middle; margin-inline-end: var(--space-1); }
 .form { display: flex; flex-direction: column; gap: var(--space-1); }
 .form input[type=number] { width: 4em; }
 .options li button { border: 1px solid var(--control-border); margin-bottom: var(--space-1); }
