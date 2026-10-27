@@ -10,12 +10,16 @@ existing routes with minimum detour (hand-written heuristic, compared against VR
 ## Source of truth
 Spec issue #1 (`gh issue view 1`) is the source of truth for scope, decisions and acceptance criteria.
 `docs/BRIEF.md` is the original planning brief and background; where the two disagree, the spec wins.
+The web console redesign is specified in issue #35 (part of #1); its design inputs are `DESIGN.md`, `GLOSSARY.md` and `docs/console-copy.md`.
 
 ## Current status
 Implemented on `feat/field-routing` (draft PR against `main`). The spec is GitHub issue #1 and supersedes
 `docs/BRIEF.md` wherever they differ; tickets #2-#12 (closed) are the build history. Open follow-ups are the
 `needs-triage` issues. How to run the stack, tests and demo commands: `README.md`; infra pins: `docs/infra.md`;
 heuristic vs VROOM numbers: `docs/comparison-report.md`.
+
+## UI
+All UI work must follow `DESIGN.md`.
 
 ## Rules that bite
 - Coordinates are always `[lon, lat]` (OSRM, VROOM, `ST_MakePoint(lon, lat)`); use one helper.
