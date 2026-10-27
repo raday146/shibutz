@@ -129,7 +129,10 @@ button.plain { min-height: 0; padding: 0; border: 0; font: inherit; font-weight:
 .mapkey .pin { vertical-align: middle; margin-inline-end: var(--space-1); }
 .form { display: flex; flex-direction: column; gap: var(--space-1); }
 .form input[type=number] { width: 4em; }
-.options li button { border: 1px solid var(--control-border); margin-bottom: var(--space-1); }
+.options { margin: 0; padding: 0; list-style: none; }
+.option { padding: var(--space-2); margin-block-end: var(--space-1); border: 1px solid var(--hairline); border-radius: var(--radius-surface); }
+.option.on { background: var(--surface-2); border-color: var(--control-border); }
+.option button { margin-block-start: var(--space-1); }
 .form label.field { display: flex; flex-direction: column; gap: 2px; }
 .form input:not([type]), .form input[type=text] { border: 1px solid var(--control-border); padding: var(--space-1) 6px; }
 .form input[aria-invalid=true] { border-color: var(--danger); }
