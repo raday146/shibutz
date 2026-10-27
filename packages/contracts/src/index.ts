@@ -5,3 +5,4 @@ export * from './jobs';
 export * from './optimization';
 export * from './routes';
 export * from './insertion';
+export * from './day';
