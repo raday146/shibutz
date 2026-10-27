@@ -1,27 +1,49 @@
-import { useLang } from '../lang';
-import { toLatLng } from '../map';
-import type { UnassignedRow } from '../map';
+import { useEffect, useState } from 'react';
+import type { Job, Skill } from '@shibutz/contracts';
+import { useLang, withLtrTimes } from '../lang';
+import { skillLabel, time, toLatLng } from '../map';
 import type { Point } from './MapView';
 
-export function UnassignedList({ rows, onFocus }: { rows: UnassignedRow[]; onFocus: (at: Point) => void }): React.JSX.Element | null {
-  const { t } = useLang();
-  if (rows.length === 0) return null;
+interface Props {
+  jobs: Job[];
+  skills: Skill[];
+  highlighted: number | null;
+  busy: boolean;
+  onFocus: (at: Point) => void;
+  onFind: (jobId: number) => void;
+}
+
+export function UnassignedList({ jobs, skills, highlighted, busy, onFocus, onFind }: Props): React.JSX.Element {
+  const { lang, t } = useLang();
+  const [open, setOpen] = useState<number | null>(null);
+  useEffect(() => {
+    document.getElementById(`job-${highlighted}`)?.scrollIntoView?.({ block: 'nearest' });
+  }, [highlighted]);
+  if (jobs.length === 0) return <p className="muted">{t('unassigned.empty')}</p>;
   return (
-    <>
-      <h2>{t('unassigned.title')} ({rows.length})</h2>
-      <ul>
-        {rows.map((u) => {
-          return (
-            <li key={u.jobId}>
-              <button onClick={() => onFocus(toLatLng(u.location))}>
-                <b dir="auto">{u.title}</b>
-                <div className="muted" dir="auto">{u.address || t('job.noAddress')}</div>
-                <div className="muted">{t(u.reason ? `reason.${u.reason}` : 'reason.none')}</div>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </>
+    <ul aria-label={t('unassigned.title')}>
+      {jobs.map((j) => (
+        <li key={j.id} id={`job-${j.id}`} className={j.id === highlighted ? 'row on' : 'row'} aria-current={j.id === highlighted ? 'true' : undefined}>
+          <button
+            aria-expanded={open === j.id}
+            onClick={() => {
+              setOpen(open === j.id ? null : j.id);
+              onFocus(toLatLng(j.location));
+            }}
+          >
+            <b dir="auto">{j.title}</b>
+          </button>
+          <p className="muted">{t(j.unassignedReason ? `reason.${j.unassignedReason}` : 'reason.none')}</p>
+          {open === j.id && (
+            <div className="muted">
+              <p dir="auto">{j.address || t('job.noAddress')}</p>
+              <p>{withLtrTimes(t('job.window', { start: time(j.windowStart), end: time(j.windowEnd) }))}</p>
+              <p>{skillLabel(j.skillIds, skills, lang)}</p>
+            </div>
+          )}
+          <button disabled={busy} onClick={() => onFind(j.id)}>{t('slot.action')}</button>
+        </li>
+      ))}
+    </ul>
   );
 }

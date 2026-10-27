@@ -11,7 +11,7 @@ describe('language toggle', () => {
     renderConsole();
     expect(document.documentElement.lang).toBe('he');
     expect(document.documentElement.dir).toBe('rtl');
-    expect(await screen.findByRole('heading', { name: 'טכנאים' })).toBeTruthy();
+    expect(await screen.findByRole('tab', { name: 'טכנאים' })).toBeTruthy();
   });
 
   it('flips direction, language and strings, and remembers the choice', async () => {
@@ -21,7 +21,7 @@ describe('language toggle', () => {
 
     expect(document.documentElement.lang).toBe('en');
     expect(document.documentElement.dir).toBe('ltr');
-    expect(screen.getByRole('heading', { name: 'Technicians' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Technicians' })).toBeTruthy();
 
     unmount();
     renderConsole();
@@ -41,7 +41,7 @@ describe('language toggle', () => {
   it('sorts technicians by name for the active language', async () => {
     fakeApi({ ...emptyDay, '/technicians': [tech(1, 'Zed'), tech(2, 'Avi')] });
     renderConsole();
-    await waitFor(() => expect(screen.getAllByRole('button', { name: /Zed|Avi/ }).map((b) => b.textContent)).toEqual(['Avi', 'Zed']));
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /Zed|Avi/ }).map((b) => b.querySelector('b')?.textContent)).toEqual(['Avi', 'Zed']));
   });
 });
 
