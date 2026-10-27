@@ -11,7 +11,7 @@ const day = (over: Parameters<typeof daySummary>[1], stops: ReturnType<typeof st
   ...emptyDay,
   [`/days/${DAY}/summary`]: daySummary(DAY, over, [tech(stops)]),
   [`/optimization/day/${DAY}`]: plan,
-  [`/routes/1/${DAY}`]: { technicianId: 1, date: DAY, stops: [], geometry: null },
+  [`/routes/1/${DAY}`]: { technicianId: 1, date: DAY, stops: [], summary: { doneCount: 0, driveS: 0, expectedFinish: null }, geometry: null },
 });
 const posted = (fetch: ReturnType<typeof fakeApi>): boolean => fetch.mock.calls.some(([p, init]) => p === `/optimization/day/${DAY}` && init?.method === 'POST');
 
