@@ -57,7 +57,7 @@ The hues deliberately skip roughly 0 to 100 degrees (red, orange, amber, yellow)
 
 ### Basemap
 
-OpenStreetMap tiles stay, muted with a CSS filter on the tile pane: `grayscale(1) contrast(0.8) brightness(1.12)`. No new tile provider. Median basemap luminance after the filter is about 0.72, so land reads as light grey. Route lines are 3.5px, drawn over a 7px white casing. Thin default routes are 2px over a 5px casing. Home markers and stop numbers get a 2px white ring.
+OpenStreetMap tiles stay, muted with a CSS filter on `.leaflet-tile-pane` only: `grayscale(1) contrast(0.8) brightness(1.12)`. Never on the overlay, marker or any other pane, or the validated route and status colors would turn grey. No new tile provider. Median basemap luminance after the filter is about 0.72, so land reads as light grey. Route lines are 3.5px, drawn over a 7px white casing. Thin default routes are 2px over a 5px casing. Home markers and stop numbers get a 2px white ring.
 
 ## Typography
 
@@ -105,6 +105,19 @@ OpenStreetMap tiles stay, muted with a CSS filter on the tile pane: `grayscale(1
 ## Motion
 
 Short, answering a user action only: 120ms background and color transitions, panel open and close. No entrance animations. Respect `prefers-reduced-motion`.
+
+## Copy
+
+All strings and their keys are in `docs/console-copy.md`.
+
+- Voice: plain, neutral and short, from the dispatcher's side of the screen. No exclamation marks, no apologies, no "oops". Errors say what happened and what to do next.
+- One term per thing, taken from `GLOSSARY.md`. The Hebrew vocabulary table in `docs/console-copy.md` is the reference.
+- Buttons name the outcome. English buttons start with a verb ("Plan day", "Find a slot"). The same word runs through the whole flow ("Assign here", then "Job assigned").
+- Hebrew grammar: never use gendered imperatives ("תכנן", "מצא", "התחל"). Buttons and labels are action nouns or infinitives ("תכנון יום", "חיפוש חלון", "התחלה", "סיום", "הסרת שיבוץ"). Instructions use the impersonal "יש ל…" ("יש ללחוץ על המפה"). Questions use the infinitive ("לבטל את העבודה?"). No slash forms such as טכנאי/ת, and groups use the generic plural (טכנאים).
+- "ביטול" is reserved for cancelling a job. A dialog is dismissed with "סגירה" or with a phrase naming what stays ("השארת העבודה").
+- Confirmations name the object and the consequence, and their buttons repeat the action ("ביטול עבודה" / "השארת העבודה").
+- Counts: prefer "label: number". Where a count sits inside a sentence, use `Intl.PluralRules` with one, two and other forms.
+- Dates use `Intl.DateTimeFormat` for the active language. Times and ranges sit in an LTR isolate.
 
 ## Language and accessibility
 
