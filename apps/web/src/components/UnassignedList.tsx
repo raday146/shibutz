@@ -16,8 +16,9 @@ export function UnassignedList({ rows, onFocus }: { rows: UnassignedRow[]; onFoc
           return (
             <li key={u.jobId}>
               <button onClick={() => onFocus(toLatLng(u.location))}>
-                {t('job.ref', { id: u.jobId })}
-                {u.reason ? `: ${isKey(reasonKey) ? t(reasonKey) : u.reason}` : ''}
+                <b dir="auto">{u.title}</b>
+                <div className="muted" dir="auto">{u.address || t('job.noAddress')}</div>
+                {u.reason && <div className="muted">{isKey(reasonKey) ? t(reasonKey) : u.reason}</div>}
               </button>
             </li>
           );

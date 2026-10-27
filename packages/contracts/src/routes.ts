@@ -8,6 +8,8 @@ export const routeViewSchema = z.object({
   stops: z.array(
     z.object({
       jobId: z.number().int().positive(),
+      title: z.string(),
+      address: z.string(),
       sequence: z.number().int().positive(),
       location: lonLatSchema,
       eta: z.iso.datetime(),

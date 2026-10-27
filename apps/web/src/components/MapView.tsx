@@ -63,7 +63,9 @@ export function MapView({ technicians, dayJobs, skills, route, focus, picking, a
       {route?.geometry && <Polyline positions={toLatLngs(route.geometry.coordinates)} color="#111827" weight={4} />}
       {dayJobs.map((j) => (
         <CircleMarker key={`j${j.id}`} center={toLatLng(j.location)} radius={6} pathOptions={{ color: statusColor(j.status), fillOpacity: 0.8 }}>
-          <Tooltip>{`${t('job.ref', { id: j.id })}: ${t(`status.${j.status}`)}, ${t('map.needs', { skills: skillLabel(j.skillIds, skills) })}`}</Tooltip>
+          <Tooltip><b dir="auto">{j.title}</b>
+          <div dir="auto">{j.address || t('job.noAddress')}</div>
+          <div>{`${t(`status.${j.status}`)}, ${t('map.needs', { skills: skillLabel(j.skillIds, skills) })}`}</div></Tooltip>
         </CircleMarker>
       ))}
       {technicians.map((tech) => (

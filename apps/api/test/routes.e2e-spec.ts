@@ -25,7 +25,7 @@ describe('GET /routes/:technicianId/:date', () => {
     return (await http().post('/technicians').send(body).expect(201)).body.id;
   }
   async function job(lon: number): Promise<number> {
-    const body = { location: [lon, 32], skillIds: [], serviceDurationS: 1800, windowStart: `${DATE}T08:00:00+03:00`, windowEnd: `${DATE}T16:00:00+03:00`, priority: 50 };
+    const body = { title: `Job at ${lon}`, address: `${lon} Main St`, location: [lon, 32], skillIds: [], serviceDurationS: 1800, windowStart: `${DATE}T08:00:00+03:00`, windowEnd: `${DATE}T16:00:00+03:00`, priority: 50 };
     return (await http().post('/jobs').send(body).expect(201)).body.id;
   }
 
@@ -47,7 +47,7 @@ describe('GET /routes/:technicianId/:date', () => {
       [1, b, [34.02, 32]],
       [2, a, [34.01, 32]],
     ]);
-    expect(view.stops[0]).toMatchObject({ eta: '2026-07-01T07:00:00.000Z', etd: '2026-07-01T07:30:00.000Z', actualArrival: null, actualDeparture: null });
+    expect(view.stops[0]).toMatchObject({ title: 'Job at 34.02', address: '34.02 Main St', eta: '2026-07-01T07:00:00.000Z', etd: '2026-07-01T07:30:00.000Z', actualArrival: null, actualDeparture: null });
     expect(view.geometry?.coordinates).toEqual([[34.0, 32.0], [34.02, 32], [34.01, 32], [34.0, 32.0]]);
   });
 

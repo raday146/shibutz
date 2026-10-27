@@ -37,7 +37,7 @@ export function App(): React.JSX.Element {
   // New-job form: `picking` waits for a map click; `suggestions` is the panel shown after the job was created.
   const [picking, setPicking] = useState(false);
   const [at, setAt] = useState<LonLat | null>(null);
-  const [draft, setDraft] = useState<JobDraft>({ skillIds: [], minutes: 30, from: '09:00', to: '14:00' });
+  const [draft, setDraft] = useState<JobDraft>({ title: '', address: '', skillIds: [], minutes: 30, from: '09:00', to: '14:00' });
   const [suggestions, setSuggestions] = useState<InsertionSuggestions | null>(null);
   const [stale, setStale] = useState(false);
 
@@ -83,7 +83,7 @@ export function App(): React.JSX.Element {
   }
 
   async function submitJob(): Promise<void> {
-    const { skillIds, minutes, from, to } = draft;
+    const { title, address, skillIds, minutes, from, to } = draft;
     if (!at) return setError({ key: 'validation.location' });
     if (skillIds.length === 0) return setError({ key: 'validation.skills' });
     if (!(minutes > 0)) return setError({ key: 'validation.duration' });
@@ -91,6 +91,8 @@ export function App(): React.JSX.Element {
     setBusy(true);
     try {
       const job = await createJob({
+        title,
+        address,
         location: at,
         skillIds,
         serviceDurationS: Math.round(minutes * 60),
@@ -100,6 +102,7 @@ export function App(): React.JSX.Element {
       });
       setPicking(false);
       setAt(null);
+      setDraft((d) => ({ ...d, title: '', address: '' }));
       setStale(false);
       setSuggestions(await fetchSuggestions(job.id));
       await reload(); // the new job is on the map, unassigned, whatever the user picks next
