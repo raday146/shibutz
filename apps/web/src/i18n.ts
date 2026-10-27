@@ -85,11 +85,18 @@ export const he = {
   'map.stop': 'עצירה {n}: {title}',
   'map.home': 'הבית של {name}',
   'map.needs': 'דורשת: {skills}',
-  'route.title': 'מסלול {date}',
   'stops.one': 'עצירה אחת',
   'stops.two': 'שתי עצירות',
   'stops.other': '{n} עצירות',
-  'stop.line': 'הגעה {eta}, יציאה {etd}',
+  'drawer.close': 'סגירה',
+  'drawer.shift': 'משמרת {start}–{end}',
+  'drawer.finish': 'סיום צפוי {time}',
+  'drawer.late': 'צפוי איחור של {n} דק׳',
+  'drawer.empty': 'אין עצירות ביום הזה. אפשר לתכנן את היום או לשבץ עבודה מהרשימה.',
+  'drawer.stops': 'עצירות',
+  'stop.drive': '{n} דק׳ נסיעה',
+  'stop.duration': '{n} דק׳',
+  'note.has': 'יש הערה',
 } as const;
 
 export type Key = keyof typeof he;
@@ -178,11 +185,18 @@ export const en: Record<Key, string> = {
   'map.stop': 'Stop {n}: {title}',
   'map.home': "{name}'s home",
   'map.needs': 'Needs {skills}',
-  'route.title': 'Route {date}',
   'stops.one': '1 stop',
   'stops.two': '2 stops',
   'stops.other': '{n} stops',
-  'stop.line': 'Arrives {eta}, leaves {etd}',
+  'drawer.close': 'Close',
+  'drawer.shift': 'Shift {start}–{end}',
+  'drawer.finish': 'Expected finish {time}',
+  'drawer.late': 'Running {n} min late',
+  'drawer.empty': 'No stops this day. Plan the day or assign a job from the list.',
+  'drawer.stops': 'Stops',
+  'stop.drive': '{n} min drive',
+  'stop.duration': '{n} min',
+  'note.has': 'Has a note',
 };
 
 export const dictionaries: Record<Lang, Record<Key, string>> = { he, en };
