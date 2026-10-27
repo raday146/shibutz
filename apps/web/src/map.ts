@@ -18,15 +18,20 @@ export const JOB_STATUSES: JobStatus[] = ['unassigned', 'assigned', 'in_progress
 
 export interface UnassignedRow {
   jobId: number;
+  title: string;
+  address: string;
   location: LonLat;
   reason: string | undefined;
 }
 
+/** Backfilled jobs have an empty address. */
+export const addressLabel = (address: string): string => address || 'No address';
+
 /** The day's unassigned jobs by id; `reasons` comes from the last batch run in this session, if any. */
-export function unassignedRows(jobs: Pick<Job, 'id' | 'status' | 'day' | 'location'>[], date: string, reasons: Map<number, string>): UnassignedRow[] {
+export function unassignedRows(jobs: Pick<Job, 'id' | 'title' | 'address' | 'status' | 'day' | 'location'>[], date: string, reasons: Map<number, string>): UnassignedRow[] {
   return jobs
     .filter((j) => j.day === date && j.status === 'unassigned')
-    .map((j) => ({ jobId: j.id, location: j.location, reason: reasons.get(j.id) }))
+    .map((j) => ({ jobId: j.id, title: j.title, address: j.address, location: j.location, reason: reasons.get(j.id) }))
     .sort((a, b) => a.jobId - b.jobId);
 }
 

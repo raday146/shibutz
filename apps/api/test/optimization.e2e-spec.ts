@@ -39,6 +39,8 @@ async function seedDay(http: Http): Promise<{ technicians: Technician[]; jobs: J
   }
 
   const job = (lon: number, skillIds: number[], from: string, to: string, serviceDurationS = 1800, date = DATE): object => ({
+    title: 'Test job',
+    address: '1 Test St',
     location: at(lon),
     skillIds,
     serviceDurationS,
@@ -153,7 +155,7 @@ describeIfUp('vroom')('POST /optimization/day/:date unassigned reasons and repla
     return (await http().post('/technicians').send(body).expect(201)).body.id;
   }
   async function job(skillIds: number[], lon: number, from: string, to: string, priority = 50, serviceDurationS = 1800): Promise<number> {
-    const body = { location: at(lon), skillIds, serviceDurationS, windowStart: local(from), windowEnd: local(to), priority };
+    const body = { title: 'Test job', address: '1 Test St', location: at(lon), skillIds, serviceDurationS, windowStart: local(from), windowEnd: local(to), priority };
     return (await http().post('/jobs').send(body).expect(201)).body.id;
   }
   async function snapshot(): Promise<unknown[]> {
@@ -244,7 +246,7 @@ describe('POST /optimization/day/:date racing a status change', () => {
   it('returns 409 when a job of the day starts after the first check, and writes nothing', async () => {
     const { id: elec } = (await http().post('/skills').send({ code: 'ELEC', name: 'ELEC' }).expect(201)).body;
     await http().post('/technicians').send({ name: 'Avi', home: at(34.0), shiftStart: '08:00:00', shiftEnd: '12:00:00', skillIds: [elec] }).expect(201);
-    const body = { location: at(34.01), skillIds: [elec], serviceDurationS: 600, windowStart: local('08:00'), windowEnd: local('11:00'), priority: 50 };
+    const body = { title: 'Test job', address: '1 Test St', location: at(34.01), skillIds: [elec], serviceDurationS: 600, windowStart: local('08:00'), windowEnd: local('11:00'), priority: 50 };
     const { id } = (await http().post('/jobs').send(body).expect(201)).body;
     startJob = async () => void (await app().get<Db>(DB).execute(sql`update jobs set status = 'done'::job_status where id = ${id}`));
 

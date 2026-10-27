@@ -24,6 +24,8 @@ export class RoutesService {
       .select({
         jobId: routeStops.jobId,
         sequence: routeStops.sequence,
+        title: jobs.title,
+        address: jobs.address,
         location: jobs.location,
         eta: routeStops.eta,
         etd: routeStops.etd,

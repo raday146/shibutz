@@ -1,5 +1,5 @@
 import type { Job, RouteView } from '@shibutz/contracts';
-import { time } from '../map';
+import { addressLabel, time } from '../map';
 
 export function RouteStops({ route, jobById }: { route: RouteView; jobById: Map<number, Job> }): React.JSX.Element {
   return (
@@ -9,7 +9,7 @@ export function RouteStops({ route, jobById }: { route: RouteView; jobById: Map<
       <ol>
         {route.stops.map((s) => (
           <li key={s.jobId}>
-            Job {s.jobId} ({jobById.get(s.jobId)?.status ?? '?'}): ETA {time(s.eta)}, leave {time(s.etd)}
+            <span dir="auto">{s.title}</span> ({jobById.get(s.jobId)?.status ?? '?'}), <span dir="auto">{addressLabel(s.address)}</span>: ETA {time(s.eta)}, leave {time(s.etd)}
           </li>
         ))}
       </ol>
