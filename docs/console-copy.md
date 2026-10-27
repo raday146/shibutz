@@ -207,3 +207,7 @@ Every string in the dispatch console, in Hebrew and English. The keys here becom
 ## Server messages
 
 The API's own messages are English only. Known ones map to keys: "Only the first not-done stop of a route can be started" is `blocked.order`, "Technician already has a stop in progress" is `blocked.busy`, "Route changed concurrently; retry" and "Route changed since the suggestion" are `error.stale`, and "A stop that day has already started" is `plan.disabled`. Any other message is shown as received, after the localized lead sentence.
+
+## Keys added by the foundation ticket
+
+Strings of the existing screen that the deck above did not cover: `date.label`, `lang.toggle.label` (accessible name of the toggle, written in the language it switches to), `tech.noSkills`, `job.ref` (a job shown as "Job {id}" until jobs have titles), `slot.close`, `map.legend.home`, `map.needs`, `route.title`, `stops.one`/`stops.two`/`stops.other`, `stop.line`. Source of truth is `apps/web/src/i18n.ts`.
