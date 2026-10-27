@@ -68,13 +68,16 @@ body { background: var(--bg); color: var(--ink); font: 400 var(--text-md)/var(--
 
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
-button, input { font: inherit; color: inherit; }
+button, input, textarea { font: inherit; color: inherit; }
 button { min-height: 28px; padding-inline: var(--space-2); background: transparent; border: 1px solid var(--control-border); border-radius: var(--radius-control); cursor: pointer; }
 button:disabled { color: var(--ink-3); cursor: not-allowed; }
 button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
 button.primary:disabled { background: var(--ink-3); border-color: var(--ink-3); }
-input { min-height: 28px; border: 1px solid var(--control-border); border-radius: var(--radius-control); background: var(--surface); }
+input, textarea { min-height: 28px; border: 1px solid var(--control-border); border-radius: var(--radius-control); background: var(--surface); }
 @media (pointer: coarse) { button, input { min-height: 44px; } }
+.note { margin-block: var(--space-2) 0; }
+.note label { display: block; font-size: var(--text-sm); color: var(--ink-2); }
+.note textarea { box-sizing: border-box; inline-size: 100%; padding: var(--space-1) 6px; resize: vertical; }
 
 .app { display: flex; flex-direction: column; height: 100%; }
 .body { position: relative; display: flex; flex: 1; min-height: 0; }
