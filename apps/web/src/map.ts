@@ -1,4 +1,4 @@
-import type { Job, JobStatus, LonLat, Skill, UnassignedReason } from '@shibutz/contracts';
+import type { Job, JobStatus, LonLat, Skill } from '@shibutz/contracts';
 import type { Lang } from './i18n';
 
 /** Contracts are `[lon, lat]` (GeoJSON); Leaflet wants `[lat, lng]`. The only place that flips. */
@@ -17,21 +17,9 @@ export const statusColor = (status: JobStatus): string => COLORS[status];
 /** Order of the legend. */
 export const JOB_STATUSES: JobStatus[] = ['unassigned', 'assigned', 'in_progress', 'done', 'cancelled'];
 
-export interface UnassignedRow {
-  jobId: number;
-  title: string;
-  address: string;
-  location: LonLat;
-  reason: UnassignedReason | null;
-}
-
-/** The day's unassigned jobs by id, each with the reason stored by the last Plan day run, if any. */
-export function unassignedRows(jobs: Pick<Job, 'id' | 'title' | 'address' | 'status' | 'day' | 'location' | 'unassignedReason'>[], date: string): UnassignedRow[] {
-  return jobs
-    .filter((j) => j.day === date && j.status === 'unassigned')
-    .map((j) => ({ jobId: j.id, title: j.title, address: j.address, location: j.location, reason: j.unassignedReason }))
-    .sort((a, b) => a.jobId - b.jobId);
-}
+/** The day's unassigned jobs by id. */
+export const unassignedJobs = (jobs: Job[], date: string): Job[] =>
+  jobs.filter((j) => j.day === date && j.status === 'unassigned').sort((a, b) => a.id - b.id);
 
 const ZONE = 'Asia/Jerusalem';
 
