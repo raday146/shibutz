@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DaySummary, InsertionOption, InsertionSuggestions, Job, LonLat, RouteView, Skill, Technician } from '@shibutz/contracts';
 import { ApiError, createJob, fetchDaySummary, fetchJobs, fetchRoute, fetchSkills, fetchSuggestions, fetchTechnicians, insertJob, runOptimization } from './api';
 import { jerusalemToIso, today, unassignedJobs } from './map';
 import type { Key, Vars } from './i18n';
 import { useLang } from './lang';
+import { Drawer } from './components/Drawer';
 import { Legend } from './components/Legend';
 import { MapView } from './components/MapView';
 import type { Point } from './components/MapView';
@@ -11,7 +12,6 @@ import { PanelTabs } from './components/PanelTabs';
 import type { Tab } from './components/PanelTabs';
 import { NewJobForm } from './components/NewJobForm';
 import type { JobDraft } from './components/NewJobForm';
-import { RouteStops } from './components/RouteStops';
 import { TechnicianList } from './components/TechnicianList';
 import { TopBar } from './components/TopBar';
 import { UnassignedList } from './components/UnassignedList';
@@ -52,6 +52,12 @@ export function App(): React.JSX.Element {
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
+  // Drawer: the row that opened it (focus returns there), whether the keyboard did, and the stop linked with the map.
+  const opener = useRef<HTMLElement | null>(null);
+  const selectedNow = useRef<number | null>(null); // the selection as of now, since map handlers may hold older closures
+  const [instant, setInstant] = useState(false);
+  const [link, setLink] = useState<{ jobId: number } | null>(null);
+  const [highlighted, setHighlighted] = useState<number | null>(null);
   const [routes, setRoutes] = useState<RouteView[]>([]);
   const [error, setError] = useState<Problem | null>(null);
   const [busy, setBusy] = useState(false);
@@ -178,8 +184,9 @@ export function App(): React.JSX.Element {
   }
 
   const dayJobs = jobs.filter((j) => j.day === date);
-  const route = routes.find((r) => r.technicianId === selected) ?? null;
   const jobById = new Map(jobs.map((j) => [j.id, j]));
+  const route = routes.find((r) => r.technicianId === selected);
+  const selectedTech = technicians.find((x) => x.id === selected);
   const unassigned = unassignedJobs(dayJobs, date);
   // Unassigned first when there is work to place and nothing is planned yet.
   const planned = !!summary?.technicians.some((x) => x.stopCount > 0);
@@ -193,10 +200,23 @@ export function App(): React.JSX.Element {
     const at = (id: number | null): LonLat => stops.find((s) => s.jobId === id)?.location ?? owner.home;
     return { points: [at(previewed.position.afterJobId), job.location, at(previewed.position.beforeJobId)], color: owner.color };
   })();
-  const selectTech = (id: number | null): void => {
+  selectedNow.current = selected;
+  const selectTech = (id: number | null, from?: HTMLElement, keyboard = false): void => {
     setSelected(id);
     setTab('technicians');
+    setLink(null);
+    setHighlighted(null);
+    if (id !== null) {
+      if (from || id !== selectedNow.current) opener.current = from ?? null;
+      setInstant(keyboard);
+    }
   };
+  const closeDrawer = useCallback(() => selectTech(null), []);
+  // Closing returns focus to the row that opened the drawer, if it is still on screen.
+  useEffect(() => {
+    if (selected === null && opener.current?.isConnected) opener.current.focus();
+    if (selected === null) opener.current = null;
+  }, [selected]);
 
   return (
     <div className="app">
@@ -251,7 +271,6 @@ export function App(): React.JSX.Element {
           onCancel={() => { setPicking(false); setAt(null); }}
           onSubmit={() => void submitJob()}
         />
-        {route && <RouteStops route={route} jobById={jobById} />}
       </aside>
       <main className="main">
         <MapView
@@ -260,16 +279,31 @@ export function App(): React.JSX.Element {
           skills={skills}
           routes={routes}
           selected={selected}
+          highlighted={highlighted}
           focus={focus}
           picking={picking}
           at={at}
           preview={previewPath}
           onPick={setAt}
           onSelect={selectTech}
+          onSelectStop={(id, jobId) => { selectTech(id); setHighlighted(jobId); setLink({ jobId }); }}
           onSelectJob={(id) => { setTab('unassigned'); setPinned(id); }}
         />
         <Legend />
       </main>
+      {selectedTech && (
+        <Drawer
+          key={selectedTech.id}
+          technician={selectedTech}
+          route={route}
+          date={date}
+          skills={skills}
+          link={link}
+          instant={instant}
+          onLink={setHighlighted}
+          onClose={closeDrawer}
+        />
+      )}
       </div>
     </div>
   );

@@ -41,6 +41,8 @@ export interface Props {
   skills: Skill[];
   routes: RouteView[];
   selected: number | null;
+  /** The stop whose marker pulses, linked to its drawer row. */
+  highlighted: number | null;
   focus: Point | null;
   picking: boolean;
   at: LonLat | null;
@@ -48,6 +50,7 @@ export interface Props {
   preview: { points: LonLat[]; color: number } | null;
   onPick: (at: LonLat) => void;
   onSelect: (technicianId: number) => void;
+  onSelectStop: (technicianId: number, jobId: number) => void;
   onSelectJob: (jobId: number) => void;
 }
 
@@ -90,7 +93,7 @@ function Pin({ at, cls, color = 1, text = '', label, faded, onClick, children }:
   );
 }
 
-export function MapView({ technicians, dayJobs, skills, routes, selected, focus, picking, at, preview, onPick, onSelect, onSelectJob }: Props): React.JSX.Element {
+export function MapView({ technicians, dayJobs, skills, routes, selected, highlighted, focus, picking, at, preview, onPick, onSelect, onSelectStop, onSelectJob }: Props): React.JSX.Element {
   const { lang, t } = useLang();
   const jobById = new Map(dayJobs.map((j) => [j.id, j]));
   const colorOf = (id: number): number => technicians.find((tech) => tech.id === id)?.color ?? 1;
@@ -142,12 +145,12 @@ export function MapView({ technicians, dayJobs, skills, routes, selected, focus,
             <Pin
               key={`s${s.jobId}`}
               at={s.location}
-              cls={status}
+              cls={s.jobId === highlighted ? `${status} hl` : status}
               color={colorOf(r.technicianId)}
               text={numbered ? String(i + 1) : status === 'done' ? '✓' : ''}
               label={`${t('map.stop', { n: i + 1, title: s.title })}, ${t(`status.${status}`)}`}
               faded={fades(r.technicianId)}
-              onClick={() => onSelect(r.technicianId)}
+              onClick={() => onSelectStop(r.technicianId, s.jobId)}
             />
           );
         }),

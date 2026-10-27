@@ -14,7 +14,7 @@ const job = (id: number, status: string, x: number) => ({
   id, title: `Job ${id}`, address: `Addr ${id}`, location: [x, 32.1], skillIds: [1], serviceDurationS: 1800, windowStart: T0, windowEnd: '2026-11-02T10:00:00.000Z',
   priority: 50, status, day: DAY, unassignedReason: null, unassignedAt: null,
 });
-const stop = (jobId: number, x: number) => ({ jobId, title: `Job ${jobId}`, address: 'A', sequence: 1, location: [x, 32.1], eta: T0, etd: T0, actualArrival: null, actualDeparture: null });
+const stop = (jobId: number, x: number) => ({ jobId, title: `Job ${jobId}`, address: 'A', sequence: 1, location: [x, 32.1], eta: T0, etd: T0, actualArrival: null, actualDeparture: null, status: 'assigned', skillIds: [], serviceDurationS: 1800, driveS: 0, hasNote: false });
 const sumTech = (technicianId: number, stopCount: number) => ({ technicianId, stopCount, doneCount: 0, driveS: 0, expectedFinish: null, openIncidents: 0, stops: [] });
 const option = (technicianId: number, afterJobId: number | null, beforeJobId: number | null, detourS: number) => ({
   technicianId, position: { afterJobId, beforeJobId }, detourS, routeVersion: 4,
@@ -31,8 +31,8 @@ function api(over: Routes = {}): Routes {
     '/jobs': [job(1, 'unassigned', 34.8), job(5, 'assigned', 34.71), job(6, 'assigned', 34.72), job(7, 'assigned', 34.73)],
     '/skills': [{ id: 1, code: 'hvac', nameEn: 'HVAC', nameHe: 'מיזוג' }],
     [`/days/${DAY}/summary`]: daySummary(DAY, { total: 4, unassigned: 1 }, [sumTech(1, 2), sumTech(2, 0), sumTech(3, 1)]),
-    [`/routes/1/${DAY}`]: { technicianId: 1, date: DAY, stops: [stop(5, 34.71), stop(6, 34.72)], geometry: null },
-    [`/routes/3/${DAY}`]: { technicianId: 3, date: DAY, stops: [stop(7, 34.73)], geometry: null },
+    [`/routes/1/${DAY}`]: { technicianId: 1, date: DAY, stops: [stop(5, 34.71), stop(6, 34.72)], summary: { doneCount: 0, driveS: 0, expectedFinish: null }, geometry: null },
+    [`/routes/3/${DAY}`]: { technicianId: 3, date: DAY, stops: [stop(7, 34.73)], summary: { doneCount: 0, driveS: 0, expectedFinish: null }, geometry: null },
     [SUGGEST]: suggestions(OPTIONS),
     ...over,
   };

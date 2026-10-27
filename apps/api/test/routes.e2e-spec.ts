@@ -48,13 +48,16 @@ describe('GET /routes/:technicianId/:date', () => {
       [2, a, [34.01, 32]],
     ]);
     expect(view.stops[0]).toMatchObject({ title: 'Job at 34.02', address: '34.02 Main St', eta: '2026-07-01T07:00:00.000Z', etd: '2026-07-01T07:30:00.000Z', actualArrival: null, actualDeparture: null });
+    // Fake routing: every leg is 60 s. Stop 1 is `b` (no skills, 30 min), so its drive is home to b.
+    expect(view.stops[0]).toMatchObject({ status: 'unassigned', skillIds: [], serviceDurationS: 1800, driveS: 60, hasNote: false });
+    expect(view.summary).toEqual({ doneCount: 0, driveS: 180, expectedFinish: '2026-07-01T08:30:00.000Z' });
     expect(view.geometry?.coordinates).toEqual([[34.0, 32.0], [34.02, 32], [34.01, 32], [34.0, 32.0]]);
   });
 
   it('returns empty stops and null geometry when nothing is planned', async () => {
     const tech = await technician();
     calls.length = 0;
-    await http().get(`/routes/${tech}/${DATE}`).expect(200, { technicianId: tech, date: DATE, stops: [], geometry: null });
+    await http().get(`/routes/${tech}/${DATE}`).expect(200, { technicianId: tech, date: DATE, stops: [], summary: { doneCount: 0, driveS: 0, expectedFinish: null }, geometry: null });
     expect(calls).toEqual([]);
   });
 

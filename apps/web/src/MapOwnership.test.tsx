@@ -5,8 +5,8 @@ import { daySummary, emptyDay, fakeApi, renderConsole } from './test/render';
 import { today } from './map';
 
 const tech = (id: number, color: number) => ({ id, name: `T${id}`, home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', skillIds: [], color });
-const stop = { jobId: 1, title: 'J', address: 'A', sequence: 1, location: [34.8, 32.1], eta: '2026-11-02T07:00:00.000Z', etd: '2026-11-02T07:30:00.000Z', actualArrival: null, actualDeparture: null };
-const route = (technicianId: number, stops: unknown[]) => ({ technicianId, date: today(), stops, geometry: null });
+const stop = { jobId: 1, title: 'J', address: 'A', sequence: 1, location: [34.8, 32.1], eta: '2026-11-02T07:00:00.000Z', etd: '2026-11-02T07:30:00.000Z', actualArrival: null, actualDeparture: null, status: 'assigned', skillIds: [], serviceDurationS: 1800, driveS: 0, hasNote: false };
+const route = (technicianId: number, stops: unknown[]) => ({ technicianId, date: today(), stops, summary: { doneCount: 0, driveS: 0, expectedFinish: null }, geometry: null });
 const summaryTech = (technicianId: number, stopCount: number) => ({ technicianId, stopCount, doneCount: 0, driveS: 0, expectedFinish: null, openIncidents: 0, stops: [] });
 
 const day = {
