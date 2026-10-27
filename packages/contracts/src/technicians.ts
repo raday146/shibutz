@@ -15,10 +15,14 @@ export const createTechnicianSchema = z
   .strict();
 export type CreateTechnician = z.infer<typeof createTechnicianSchema>;
 
+// Route color slot, 1 to 8 (DESIGN.md palette). Assigned on create, editable afterwards.
+const colorSlot = z.number().int().min(1).max(8);
+
 export const updateTechnicianSchema = createTechnicianSchema
+  .extend({ color: colorSlot })
   .partial()
   .refine(nonEmpty, { message: 'At least one field is required' });
 export type UpdateTechnician = z.infer<typeof updateTechnicianSchema>;
 
-export const technicianSchema = createTechnicianSchema.extend({ id: z.number().int().positive() });
+export const technicianSchema = createTechnicianSchema.extend({ id: z.number().int().positive(), color: colorSlot });
 export type Technician = z.infer<typeof technicianSchema>;

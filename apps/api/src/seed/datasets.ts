@@ -15,12 +15,12 @@ export const SEED_DAY = '2026-11-02';
 const at = (hhmm: string): string => `${SEED_DAY}T${hhmm}:00+02:00`;
 
 const SKILLS: CreateSkill[] = [
-  { code: 'electric', name: 'Electrical' },
-  { code: 'plumbing', name: 'Plumbing' },
-  { code: 'hvac', name: 'Air conditioning' },
-  { code: 'network', name: 'Networking' },
-  { code: 'appliance', name: 'Appliances' },
-  { code: 'locks', name: 'Locks and doors' },
+  { code: 'electric', nameEn: 'Electrical', nameHe: 'חשמל' },
+  { code: 'plumbing', nameEn: 'Plumbing', nameHe: 'אינסטלציה' },
+  { code: 'hvac', nameEn: 'Air conditioning', nameHe: 'מיזוג אוויר' },
+  { code: 'network', nameEn: 'Networking', nameHe: 'תקשורת ורשתות' },
+  { code: 'appliance', nameEn: 'Appliances', nameHe: 'מוצרי חשמל' },
+  { code: 'locks', nameEn: 'Locks and doors', nameHe: 'מנעולים ודלתות' },
 ];
 
 // Town centers, [lon, lat].
