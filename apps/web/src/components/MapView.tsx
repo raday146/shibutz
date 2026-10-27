@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { latLngBounds } from 'leaflet';
 import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet';
 import type { Job, LonLat, RouteView, Skill, Technician } from '@shibutz/contracts';
-import { skillLabel, statusColor, toLatLng, toLatLngs } from '../map';
+import { addressLabel, skillLabel, statusColor, toLatLng, toLatLngs } from '../map';
 
 export type Point = [number, number];
 const CENTER: Point = [32.05, 34.85];
@@ -61,7 +61,9 @@ export function MapView({ technicians, dayJobs, skills, route, focus, picking, a
       {route?.geometry && <Polyline positions={toLatLngs(route.geometry.coordinates)} color="#111827" weight={4} />}
       {dayJobs.map((j) => (
         <CircleMarker key={`j${j.id}`} center={toLatLng(j.location)} radius={6} pathOptions={{ color: statusColor(j.status), fillOpacity: 0.8 }}>
-          <Tooltip>{`Job ${j.id}: ${j.status}, needs ${skillLabel(j.skillIds, skills)}`}</Tooltip>
+          <Tooltip><b dir="auto">{j.title}</b>
+          <div dir="auto">{addressLabel(j.address)}</div>
+          <div>{`${j.status}, needs ${skillLabel(j.skillIds, skills)}`}</div></Tooltip>
         </CircleMarker>
       ))}
       {technicians.map((t) => (

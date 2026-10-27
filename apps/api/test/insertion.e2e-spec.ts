@@ -55,6 +55,8 @@ describe('POST /jobs/:id/insertion-suggestions (fake routing, fake clock)', () =
   async function job(lon: number, o: { status?: JobStatus; skillIds?: number[]; window?: [string, string] } = {}): Promise<Job> {
     const [from, to] = o.window ?? ['08:00:00', '17:00:00'];
     const body = {
+      title: 'Test job',
+      address: '1 Test St',
       location: [lon, 32],
       skillIds: o.skillIds ?? [],
       serviceDurationS: 600,
