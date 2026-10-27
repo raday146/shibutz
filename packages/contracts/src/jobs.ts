@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { lonLatSchema, nonEmpty, skillIdsSchema } from './common';
+import { unassignedReasonSchema } from './optimization';
 
 export const jobStatusSchema = z.enum(['unassigned', 'assigned', 'in_progress', 'done', 'cancelled']);
 export type JobStatus = z.infer<typeof jobStatusSchema>;
@@ -35,6 +36,9 @@ export const jobSchema = createJobSchema.extend({
   status: jobStatusSchema,
   /** Local date (YYYY-MM-DD) of the window start; derived, read-only. */
   day: z.iso.date(),
+  /** Last Plan day reason this job was left unplaced, and when that run happened; both null otherwise. */
+  unassignedReason: unassignedReasonSchema.nullable(),
+  unassignedAt: instant.nullable(),
 });
 export type Job = z.infer<typeof jobSchema>;
 

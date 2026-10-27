@@ -19,14 +19,20 @@ const columns = {
   priority: jobs.priority,
   status: jobs.status,
   day: jobs.day,
+  unassignedReason: jobs.unassignedReason,
+  unassignedAt: jobs.unassignedAt,
 };
-type Row = Omit<Job, 'windowStart' | 'windowEnd'> & { windowStart: Date; windowEnd: Date };
+type Row = Omit<Job, 'windowStart' | 'windowEnd' | 'unassignedAt'> & { windowStart: Date; windowEnd: Date; unassignedAt: Date | null };
 
 const toJob = (row: Row): Job => ({
   ...row,
   windowStart: row.windowStart.toISOString(),
   windowEnd: row.windowEnd.toISOString(),
+  unassignedAt: row.unassignedAt?.toISOString() ?? null,
 });
+
+// A stored unassigned reason describes these fields; title, address and priority do not affect it.
+const REASON_FIELDS = ['location', 'serviceDurationS', 'windowStart', 'windowEnd'];
 
 function toRow({ windowStart, windowEnd, ...rest }: UpdateJob): Partial<typeof jobs.$inferInsert> {
   return {
@@ -90,8 +96,10 @@ export class JobsService {
           const [stop] = await tx.select({ id: routeStops.id }).from(routeStops).where(eq(routeStops.jobId, id)).limit(1);
           if (stop) throw new ConflictException('Job is on a route; unassign or cancel it first');
         }
-        const [row] = Object.keys(fields).length
-          ? await tx.update(jobs).set(toRow(fields)).where(eq(jobs.id, id)).returning({ id: jobs.id })
+        const clear = skillIds !== undefined || REASON_FIELDS.some((k) => k in fields);
+        const set = { ...toRow(fields), ...(clear && { unassignedReason: null, unassignedAt: null }) };
+        const [row] = Object.keys(set).length
+          ? await tx.update(jobs).set(set).where(eq(jobs.id, id)).returning({ id: jobs.id })
           : await tx.select({ id: jobs.id }).from(jobs).where(eq(jobs.id, id)).for('update');
         if (!row) throw new NotFoundException('Job not found');
         if (!skillIds) return;
