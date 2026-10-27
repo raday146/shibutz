@@ -1,5 +1,7 @@
 # Console redesign: inputs for the spec
 
+> Superseded by issue #35. These notes were the input to that spec; the data-model decisions, ticket order and scope there are authoritative, and this file is no longer kept in step with them.
+
 Working notes from the design and grilling session. The spec issue is written from these, from `DESIGN.md`, `GLOSSARY.md`, `docs/console-copy.md` and `docs/adr/0001-cancelled-stop-history-in-its-own-table.md`. A throwaway interactive prototype and eight screenshots are on the branch `prototype/console-redesign` in `docs/prototype/`.
 
 ## Goal
