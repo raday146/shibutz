@@ -6,7 +6,8 @@ import { geographyPoint } from './geography';
 export const skills = pgTable('skills', {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   code: text().notNull().unique(),
-  name: text().notNull(),
+  nameEn: text('name_en').notNull(),
+  nameHe: text('name_he').notNull(),
 });
 
 // Shift: daily local (Asia/Jerusalem) wall-clock times, never crossing midnight.
@@ -18,8 +19,13 @@ export const technicians = pgTable(
     home: geographyPoint('home').notNull(),
     shiftStart: time('shift_start').notNull(),
     shiftEnd: time('shift_end').notNull(),
+    // Route color slot (DESIGN.md palette), stable for the technician's life.
+    color: integer('color').notNull(),
   },
-  (t) => [check('technicians_shift_order', sql`${t.shiftEnd} > ${t.shiftStart}`)],
+  (t) => [
+    check('technicians_shift_order', sql`${t.shiftEnd} > ${t.shiftStart}`),
+    check('technicians_color_range', sql`${t.color} BETWEEN 1 AND 8`),
+  ],
 );
 
 const skillFk = (name: string) =>

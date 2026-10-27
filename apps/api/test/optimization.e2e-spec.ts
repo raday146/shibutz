@@ -25,7 +25,7 @@ const ms = (iso: string): number => new Date(iso).getTime();
 type Http = () => ReturnType<typeof request>;
 
 async function seedDay(http: Http): Promise<{ technicians: Technician[]; jobs: Job[] }> {
-  const skill = async (code: string): Promise<number> => (await http().post('/skills').send({ code, name: code }).expect(201)).body.id;
+  const skill = async (code: string): Promise<number> => (await http().post('/skills').send({ code, nameEn: code, nameHe: code }).expect(201)).body.id;
   const elec = await skill('ELEC');
   const plmb = await skill('PLMB');
   const carp = await skill('CARP');
@@ -148,7 +148,7 @@ describeIfUp('vroom')('POST /optimization/day/:date unassigned reasons and repla
   const db = (): Db => app().get<Db>(DB);
 
   async function skill(code: string): Promise<number> {
-    return (await http().post('/skills').send({ code, name: code }).expect(201)).body.id;
+    return (await http().post('/skills').send({ code, nameEn: code, nameHe: code }).expect(201)).body.id;
   }
   async function tech(skillIds: number[]): Promise<number> {
     const body = { name: 'Avi', home: at(34.0), shiftStart: '08:00:00', shiftEnd: '12:00:00', skillIds };
@@ -306,7 +306,7 @@ describe('POST /optimization/day/:date racing a status change', () => {
   const http: Http = () => request(app().getHttpServer());
 
   it('returns 409 when a job of the day starts after the first check, and writes nothing', async () => {
-    const { id: elec } = (await http().post('/skills').send({ code: 'ELEC', name: 'ELEC' }).expect(201)).body;
+    const { id: elec } = (await http().post('/skills').send({ code: 'ELEC', nameEn: 'ELEC', nameHe: 'ELEC' }).expect(201)).body;
     await http().post('/technicians').send({ name: 'Avi', home: at(34.0), shiftStart: '08:00:00', shiftEnd: '12:00:00', skillIds: [elec] }).expect(201);
     const body = { title: 'Test job', address: '1 Test St', location: at(34.01), skillIds: [elec], serviceDurationS: 600, windowStart: local('08:00'), windowEnd: local('11:00'), priority: 50 };
     const { id } = (await http().post('/jobs').send(body).expect(201)).body;

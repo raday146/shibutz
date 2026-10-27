@@ -9,7 +9,7 @@ describe('jobs', () => {
   const http = (): ReturnType<typeof request> => request(app().getHttpServer());
 
   async function skill(code: string): Promise<number> {
-    const res = await http().post('/skills').send({ code, name: code }).expect(201);
+    const res = await http().post('/skills').send({ code, nameEn: code, nameHe: code }).expect(201);
     return res.body.id;
   }
 

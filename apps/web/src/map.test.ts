@@ -33,8 +33,9 @@ describe('map helpers', () => {
   });
 
   it('labels skills and shifts', () => {
-    const skills = [{ id: 2, code: 'plumbing', name: 'Plumbing' }];
-    expect(skillLabel([2, 9], skills)).toBe('Plumbing, #9');
+    const skills = [{ id: 2, code: 'plumbing', nameEn: 'Plumbing', nameHe: 'אינסטלציה' }];
+    expect(skillLabel([2, 9], skills, 'en')).toBe('Plumbing, #9');
+    expect(skillLabel([2], skills, 'he')).toBe('אינסטלציה');
     expect(shiftLabel('08:00:00', '16:00:00')).toBe('08:00-16:00');
   });
 });
