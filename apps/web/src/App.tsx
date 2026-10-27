@@ -12,7 +12,6 @@ import { PanelTabs } from './components/PanelTabs';
 import type { Tab } from './components/PanelTabs';
 import { NewJobForm } from './components/NewJobForm';
 import type { JobDraft } from './components/NewJobForm';
-import { Suggestions } from './components/Suggestions';
 import { TechnicianList } from './components/TechnicianList';
 import { TopBar } from './components/TopBar';
 import { UnassignedList } from './components/UnassignedList';
@@ -71,6 +70,7 @@ export function App(): React.JSX.Element {
   const [draft, setDraft] = useState<JobDraft>({ title: '', address: '', skillIds: [], minutes: 30, from: '09:00', to: '14:00' });
   const [suggestions, setSuggestions] = useState<InsertionSuggestions | null>(null);
   const [stale, setStale] = useState(false);
+  const [previewed, setPreviewed] = useState<InsertionOption | null>(null);
 
   // One reload for everything the map shows; also called after a batch run.
   const reload = useCallback(async (): Promise<void> => {
@@ -146,6 +146,7 @@ export function App(): React.JSX.Element {
   async function find(jobId: number): Promise<void> {
     setBusy(true);
     try {
+      setPreviewed(null);
       setSuggestions(await fetchSuggestions(jobId));
       setStale(false);
     } catch (e) {
@@ -161,12 +162,14 @@ export function App(): React.JSX.Element {
     try {
       await insertJob(suggestions.jobId, { technicianId: option.technicianId, position: option.position, routeVersion: option.routeVersion });
       setSuggestions(null);
+      setPreviewed(null);
       setStale(false);
       await reload();
-      setSelected(option.technicianId);
+      selectTech(option.technicianId);
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
         setStale(true);
+        setPreviewed(null);
         try {
           setSuggestions(await fetchSuggestions(suggestions.jobId));
         } catch (again) {
@@ -180,14 +183,23 @@ export function App(): React.JSX.Element {
     }
   }
 
-  const techName = (id: number): string => technicians.find((t) => t.id === id)?.name ?? `#${id}`;
   const dayJobs = jobs.filter((j) => j.day === date);
+  const jobById = new Map(jobs.map((j) => [j.id, j]));
   const route = routes.find((r) => r.technicianId === selected);
   const selectedTech = technicians.find((x) => x.id === selected);
   const unassigned = unassignedJobs(dayJobs, date);
   // Unassigned first when there is work to place and nothing is planned yet.
   const planned = !!summary?.technicians.some((x) => x.stopCount > 0);
   const current: Tab = tab ?? (unassigned.length > 0 && summary && !planned ? 'unassigned' : 'technicians');
+  // Slot preview: previous stop (or home), the job, next stop (or home), in the option's technician color.
+  const previewPath = ((): { points: LonLat[]; color: number } | null => {
+    const job = suggestions && jobById.get(suggestions.jobId);
+    const owner = previewed && technicians.find((x) => x.id === previewed.technicianId);
+    if (!previewed || !job || !owner) return null;
+    const stops = routes.find((r) => r.technicianId === owner.id)?.stops ?? [];
+    const at = (id: number | null): LonLat => stops.find((s) => s.jobId === id)?.location ?? owner.home;
+    return { points: [at(previewed.position.afterJobId), job.location, at(previewed.position.beforeJobId)], color: owner.color };
+  })();
   selectedNow.current = selected;
   const selectTech = (id: number | null, from?: HTMLElement, keyboard = false): void => {
     setSelected(id);
@@ -226,17 +238,24 @@ export function App(): React.JSX.Element {
             <TechnicianList technicians={technicians} days={summary?.technicians ?? []} skills={skills} selected={selected} onSelect={selectTech} />
           ) : (
             <>
-              {suggestions && (
-                <Suggestions
-                  suggestions={suggestions}
-                  notice={stale ? t('slot.stale') : ''}
-                  busy={busy}
-                  techName={techName}
-                  onChoose={(o) => void choose(o)}
-                  onClose={() => { setSuggestions(null); setStale(false); }}
-                />
-              )}
-              <UnassignedList jobs={unassigned} skills={skills} highlighted={pinned} busy={busy} onFocus={setFocus} onFind={(id) => void find(id)} />
+              <UnassignedList
+                jobs={unassigned}
+                skills={skills}
+                highlighted={pinned}
+                busy={busy}
+                onFocus={setFocus}
+                onFind={(id) => void find(id)}
+                slot={suggestions && {
+                  suggestions,
+                  notice: stale ? t('slot.stale') : '',
+                  technicians,
+                  titleOf: (id) => jobById.get(id)?.title ?? t('job.ref', { id }),
+                  previewed,
+                  onPreview: setPreviewed,
+                  onChoose: (o) => void choose(o),
+                  onClose: () => { setSuggestions(null); setStale(false); setPreviewed(null); },
+                }}
+              />
             </>
           )}
         </div>
@@ -264,6 +283,7 @@ export function App(): React.JSX.Element {
           focus={focus}
           picking={picking}
           at={at}
+          preview={previewPath}
           onPick={setAt}
           onSelect={selectTech}
           onSelectStop={(id, jobId) => { selectTech(id); setHighlighted(jobId); setLink({ jobId }); }}

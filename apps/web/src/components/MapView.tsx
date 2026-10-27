@@ -46,6 +46,8 @@ export interface Props {
   focus: Point | null;
   picking: boolean;
   at: LonLat | null;
+  /** Dashed preview of a slot option: previous stop, the job, next stop, in the technician's color. */
+  preview: { points: LonLat[]; color: number } | null;
   onPick: (at: LonLat) => void;
   onSelect: (technicianId: number) => void;
   onSelectStop: (technicianId: number, jobId: number) => void;
@@ -91,7 +93,7 @@ function Pin({ at, cls, color = 1, text = '', label, faded, onClick, children }:
   );
 }
 
-export function MapView({ technicians, dayJobs, skills, routes, selected, highlighted, focus, picking, at, onPick, onSelect, onSelectStop, onSelectJob }: Props): React.JSX.Element {
+export function MapView({ technicians, dayJobs, skills, routes, selected, highlighted, focus, picking, at, preview, onPick, onSelect, onSelectStop, onSelectJob }: Props): React.JSX.Element {
   const { lang, t } = useLang();
   const jobById = new Map(dayJobs.map((j) => [j.id, j]));
   const colorOf = (id: number): number => technicians.find((tech) => tech.id === id)?.color ?? 1;
@@ -125,6 +127,7 @@ export function MapView({ technicians, dayJobs, skills, routes, selected, highli
           </Fragment>
         );
       })}
+      {preview && <Polyline positions={toLatLngs(preview.points)} pathOptions={{ weight: 3, dashArray: '6 6', className: `route-${preview.color}` }} interactive={false} />}
       {dayJobs
         .filter((j) => j.status === 'unassigned')
         .map((j) => (

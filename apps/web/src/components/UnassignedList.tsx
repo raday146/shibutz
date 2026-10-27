@@ -3,6 +3,8 @@ import type { Job, Skill } from '@shibutz/contracts';
 import { useLang, withLtrTimes } from '../lang';
 import { skillLabel, time, toLatLng } from '../map';
 import type { Point } from './MapView';
+import { SlotOptions } from './SlotOptions';
+import type { Props as SlotProps } from './SlotOptions';
 
 interface Props {
   jobs: Job[];
@@ -11,9 +13,11 @@ interface Props {
   busy: boolean;
   onFocus: (at: Point) => void;
   onFind: (jobId: number) => void;
+  /** The open options (for one job) with their handlers. */
+  slot: Omit<SlotProps, 'busy'> | null;
 }
 
-export function UnassignedList({ jobs, skills, highlighted, busy, onFocus, onFind }: Props): React.JSX.Element {
+export function UnassignedList({ jobs, skills, highlighted, busy, onFocus, onFind, slot }: Props): React.JSX.Element {
   const { lang, t } = useLang();
   const [open, setOpen] = useState<number | null>(null);
   useEffect(() => {
@@ -41,7 +45,11 @@ export function UnassignedList({ jobs, skills, highlighted, busy, onFocus, onFin
               <p>{skillLabel(j.skillIds, skills, lang)}</p>
             </div>
           )}
-          <button disabled={busy} onClick={() => onFind(j.id)}>{t('slot.action')}</button>
+          {slot?.suggestions.jobId === j.id ? (
+            <SlotOptions {...slot} busy={busy} />
+          ) : (
+            <button disabled={busy} onClick={() => onFind(j.id)}>{t('slot.action')}</button>
+          )}
         </li>
       ))}
     </ul>
