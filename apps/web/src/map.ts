@@ -1,4 +1,4 @@
-import type { InsertionOption, Job, JobStatus, LonLat, Skill } from '@shibutz/contracts';
+import type { Job, JobStatus, LonLat, Skill } from '@shibutz/contracts';
 
 /** Contracts are `[lon, lat]` (GeoJSON); Leaflet wants `[lat, lng]`. The only place that flips. */
 export const toLatLng = ([lon, lat]: LonLat): [number, number] => [lat, lon];
@@ -23,9 +23,6 @@ export interface UnassignedRow {
   location: LonLat;
   reason: string | undefined;
 }
-
-/** Backfilled jobs have an empty address. */
-export const addressLabel = (address: string): string => address || 'No address';
 
 /** The day's unassigned jobs by id; `reasons` comes from the last batch run in this session, if any. */
 export function unassignedRows(jobs: Pick<Job, 'id' | 'title' | 'address' | 'status' | 'day' | 'location'>[], date: string, reasons: Map<number, string>): UnassignedRow[] {
@@ -59,12 +56,6 @@ export const skillLabel = (ids: number[], skills: Skill[]): string =>
   ids.map((id) => skills.find((s) => s.id === id)?.name ?? `#${id}`).join(', ');
 
 export const shiftLabel = (start: string, end: string): string => `${start.slice(0, 5)}-${end.slice(0, 5)}`;
-
-/** "after Job 3, before home": null neighbours are the technician's home. */
-export function positionLabel({ afterJobId, beforeJobId }: InsertionOption['position']): string {
-  const side = (id: number | null): string => (id === null ? 'home' : `Job ${id}`);
-  return `after ${side(afterJobId)}, before ${side(beforeJobId)}`;
-}
 
 /** Israel wall-clock HH:MM of an ISO instant. */
 export const time = (iso: string): string => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: ZONE });

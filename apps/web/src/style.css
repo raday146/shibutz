@@ -1,19 +1,97 @@
-html, body, #root { height: 100%; margin: 0; font: 14px system-ui, sans-serif; }
+/* Design tokens (DESIGN.md). Light theme only; components read the semantic names so a dark set can be added later. */
+:root {
+  --bg: #fafaf9;
+  --surface: #fff;
+  --surface-2: #f5f5f4;
+  --hairline: #e7e5e4;
+  --ink: #1c1917;
+  --ink-2: #57534e;
+  --ink-3: #6f6963;
+  --control-border: #8a837d;
+  --focus: #1c1917;
+  --attention: #b45309;
+  --attention-ink: #92400e;
+  --attention-bg: #fffbeb;
+  --danger: #b91c1c;
+  --danger-ink: #991b1b;
+  --danger-bg: #fef2f2;
+
+  --route-1: #ac47c2;
+  --route-2: #416407;
+  --route-3: #6c2cb4;
+  --route-4: #1479b0;
+  --route-5: #99007a;
+  --route-6: #5d67ee;
+  --route-7: #06825d;
+  --route-8: #0256a9;
+
+  --font: 'Geist Variable', 'Heebo Variable', system-ui, sans-serif;
+  --text-xs: 12px;
+  --lh-xs: 16px;
+  --text-sm: 13px;
+  --lh-sm: 18px;
+  --text-md: 14px;
+  --lh-md: 20px;
+  --text-lg: 16px;
+  --lh-lg: 24px;
+  --text-xl: 20px;
+  --lh-xl: 28px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 40px;
+  --space-8: 48px;
+
+  --radius-control: 6px;
+  --radius-surface: 8px;
+  --shadow-overlay: 0 0 0 1px var(--hairline), 0 12px 32px rgb(28 25 23 / 0.1);
+
+  --z-map: 0;
+  --z-map-controls: 5;
+  --z-panel: 10;
+  --z-drawer: 20;
+  --z-modal: 30;
+  --z-toast: 40;
+}
+
+html, body, #root { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 400 var(--text-md)/var(--lh-md) var(--font); letter-spacing: -0.006em; font-variant-numeric: tabular-nums; }
+:lang(he) { letter-spacing: 0; line-height: 1.5; }
+
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+button, input { font: inherit; color: inherit; }
+button { min-height: 28px; padding-inline: var(--space-2); background: transparent; border: 1px solid var(--control-border); border-radius: var(--radius-control); cursor: pointer; }
+button:disabled { color: var(--ink-3); cursor: not-allowed; }
+button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+button.primary:disabled { background: var(--ink-3); border-color: var(--ink-3); }
+input { min-height: 28px; border: 1px solid var(--control-border); border-radius: var(--radius-control); background: var(--surface); }
+@media (pointer: coarse) { button, input { min-height: 44px; } }
+
 .app { display: flex; height: 100%; }
-.side { width: 300px; padding: 12px; overflow-y: auto; box-sizing: border-box; }
-.side h2 { font-size: 14px; margin: 16px 0 6px; }
+.side { width: 320px; flex: none; padding: var(--space-3); overflow-y: auto; box-sizing: border-box; background: var(--surface); border-inline-end: 1px solid var(--hairline); z-index: var(--z-panel); }
+.side h2 { font-size: var(--text-lg); line-height: var(--lh-lg); font-weight: 600; margin: var(--space-4) 0 var(--space-2); }
 .side ul { list-style: none; padding: 0; margin: 0; }
-.side li button { width: 100%; text-align: left; padding: 4px 6px; border: 0; background: none; cursor: pointer; }
-.side li button.on { background: #dbeafe; }
-.error { color: #b91c1c; }
-.map { flex: 1; }
-.muted { color: #6b7280; }
-.legend { list-style: none; padding: 0; margin: 12px 0 0; font-size: 12px; }
-.legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
-.legend .dot.home { background: #fff; border: 2px solid #111827; box-sizing: border-box; }
-.form { display: flex; flex-direction: column; gap: 4px; }
+.topbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.side li button { width: 100%; text-align: start; padding: var(--space-1) var(--space-2); border: 0; }
+.side li button.on { background: var(--surface-2); }
+.error { color: var(--danger-ink); flex-basis: 100%; margin: 0; }
+.main { flex: 1; min-width: 0; z-index: var(--z-map); }
+/* The map never mirrors under right-to-left. */
+.map { height: 100%; direction: ltr; }
+/* Mute the basemap on the tile pane only, so route and marker colors stay true. */
+.leaflet-tile-pane { filter: grayscale(1) contrast(0.8) brightness(1.12); }
+.muted { color: var(--ink-3); font-size: var(--text-sm); line-height: var(--lh-sm); }
+.legend { list-style: none; padding: 0; margin: var(--space-3) 0 0; font-size: var(--text-xs); line-height: var(--lh-xs); }
+.legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-inline-end: var(--space-1); }
+.legend .dot.home { background: var(--surface); border: 2px solid var(--ink); box-sizing: border-box; }
+.form { display: flex; flex-direction: column; gap: var(--space-1); }
 .form input[type=number] { width: 4em; }
-.options li button { border: 1px solid #d1d5db; margin-bottom: 4px; }
+.options li button { border: 1px solid var(--control-border); margin-bottom: var(--space-1); }
 .form label.field { display: flex; flex-direction: column; gap: 2px; }
-.form input:not([type]), .form input[type=text] { border: 1px solid #8a837d; padding: 4px 6px; }
-.form input[aria-invalid=true] { border-color: #b91c1c; }
+.form input:not([type]), .form input[type=text] { border: 1px solid var(--control-border); padding: var(--space-1) 6px; }
+.form input[aria-invalid=true] { border-color: var(--danger); }

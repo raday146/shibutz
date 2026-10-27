@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { LonLat, Skill } from '@shibutz/contracts';
+import { useLang } from '../lang';
 
 export interface JobDraft {
   title: string;
@@ -24,10 +25,11 @@ interface Props {
 }
 
 export function NewJobForm({ date, skills, picking, at, draft, busy, onDraft, onStart, onCancel, onSubmit }: Props): React.JSX.Element {
+  const { t } = useLang();
   const { title, address, skillIds, minutes, from, to } = draft;
   // Errors show once the user has tried to submit, then follow the fields as they are fixed.
   const [tried, setTried] = useState(false);
-  const errors = { title: title.trim() ? '' : 'Enter a title.', address: address.trim() ? '' : 'Enter an address.' };
+  const errors = { title: title.trim() ? '' : t('validation.title'), address: address.trim() ? '' : t('validation.address') };
   const submit = (): void => {
     setTried(true);
     if (!errors.title && !errors.address) onSubmit();
@@ -47,14 +49,14 @@ export function NewJobForm({ date, skills, picking, at, draft, busy, onDraft, on
   );
   return (
     <>
-      <h2>New job ({date})</h2>
+      <h2>{t('job.new')} (<bdi dir="ltr">{date}</bdi>)</h2>
       {!picking && !at ? (
-        <button onClick={onStart}>Add job: click the map</button>
+        <button onClick={onStart}>{t('job.add')}: {t('location.pick')}</button>
       ) : (
         <div className="form">
-          <p className="muted">{at ? `Location ${at[1].toFixed(4)}, ${at[0].toFixed(4)} (click the map to move it)` : 'Click the map to set the location'}</p>
-          {text('title', 'Title')}
-          {text('address', 'Address')}
+          <p className="muted">{at ? <>{t('location.set')}: <bdi dir="ltr">{at[1].toFixed(4)}, {at[0].toFixed(4)}</bdi></> : t('location.picking')}</p>
+          {text('title', t('field.title'))}
+          {text('address', t('field.address'))}
           {skills.map((s) => (
             <label key={s.id}>
               <input
@@ -65,11 +67,16 @@ export function NewJobForm({ date, skills, picking, at, draft, busy, onDraft, on
               {s.name}
             </label>
           ))}
-          <label>Duration (min) <input type="number" min={1} value={minutes} onChange={(e) => onDraft({ ...draft, minutes: Number(e.target.value) })} /></label>
-          <label>Window <input type="time" value={from} onChange={(e) => onDraft({ ...draft, from: e.target.value })} /> - <input type="time" value={to} onChange={(e) => onDraft({ ...draft, to: e.target.value })} /> (Israel time)</label>
+          <label>{t('field.duration')} <input type="number" min={1} value={minutes} onChange={(e) => onDraft({ ...draft, minutes: Number(e.target.value) })} /></label>
+          <label>
+            {t('field.window')}{' '}
+            <bdi dir="ltr">
+              <input type="time" value={from} onChange={(e) => onDraft({ ...draft, from: e.target.value })} /> – <input type="time" value={to} onChange={(e) => onDraft({ ...draft, to: e.target.value })} />
+            </bdi>
+          </label>
           <div>
-            <button onClick={submit} disabled={busy || !at}>Create and suggest</button>{' '}
-            <button onClick={onCancel}>Cancel</button>
+            <button onClick={submit} disabled={busy || !at}>{t('modal.create')}</button>{' '}
+            <button onClick={onCancel}>{t('modal.close')}</button>
           </div>
         </div>
       )}

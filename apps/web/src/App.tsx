@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import type { InsertionOption, InsertionSuggestions, Job, LonLat, RouteView, Skill, Technician } from '@shibutz/contracts';
 import { ApiError, createJob, fetchJobs, fetchRoute, fetchSkills, fetchSuggestions, fetchTechnicians, insertJob, runOptimization } from './api';
 import { jerusalemToIso, unassignedRows } from './map';
+import type { Key, Vars } from './i18n';
+import { useLang } from './lang';
 import { Legend } from './components/Legend';
 import { MapView } from './components/MapView';
 import type { Point } from './components/MapView';
@@ -14,15 +16,19 @@ import { TopBar } from './components/TopBar';
 import { UnassignedList } from './components/UnassignedList';
 
 const SEED_DAY = '2026-11-02';
-const errorText = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+/** A message to show, kept untranslated until render so a language change does not reload data. */
+interface Problem { key: Key; vars?: Vars }
+const problem = (e: unknown): Problem =>
+  e instanceof TypeError ? { key: 'error.network' } : { key: 'error.action', vars: { message: e instanceof Error ? e.message : String(e) } };
 
 export function App(): React.JSX.Element {
+  const { t } = useLang();
   const [date, setDate] = useState(SEED_DAY);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [route, setRoute] = useState<RouteView | null>(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<Problem | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [reasons, setReasons] = useState<Map<number, string>>(new Map());
@@ -33,7 +39,7 @@ export function App(): React.JSX.Element {
   const [at, setAt] = useState<LonLat | null>(null);
   const [draft, setDraft] = useState<JobDraft>({ title: '', address: '', skillIds: [], minutes: 30, from: '09:00', to: '14:00' });
   const [suggestions, setSuggestions] = useState<InsertionSuggestions | null>(null);
-  const [notice, setNotice] = useState('');
+  const [stale, setStale] = useState(false);
 
   // One reload for everything the map shows; also called after a batch run.
   const reload = useCallback(async (): Promise<void> => {
@@ -50,10 +56,10 @@ export function App(): React.JSX.Element {
       setTechnicians(t);
       setJobs(j);
       setRoute(r);
-      setError('');
+      setError(null);
     } catch (e) {
       setRoute(null); // never leave another technician's route on screen next to this error
-      setError(errorText(e));
+      setError(problem(e));
     } finally {
       setLoading(false);
     }
@@ -70,7 +76,7 @@ export function App(): React.JSX.Element {
       setReasons(new Map(plan.unassigned.map((u) => [u.jobId, u.reason])));
       await reload();
     } catch (e) {
-      setError(errorText(e));
+      setError(problem(e));
     } finally {
       setBusy(false);
     }
@@ -78,9 +84,10 @@ export function App(): React.JSX.Element {
 
   async function submitJob(): Promise<void> {
     const { title, address, skillIds, minutes, from, to } = draft;
-    if (!at) return setError('Click the map to set the job location');
-    if (skillIds.length === 0) return setError('Pick at least one skill');
-    if (!(minutes > 0) || from >= to) return setError('Duration must be positive and the window must end after it starts');
+    if (!at) return setError({ key: 'validation.location' });
+    if (skillIds.length === 0) return setError({ key: 'validation.skills' });
+    if (!(minutes > 0)) return setError({ key: 'validation.duration' });
+    if (from >= to) return setError({ key: 'validation.window' });
     setBusy(true);
     try {
       const job = await createJob({
@@ -96,11 +103,11 @@ export function App(): React.JSX.Element {
       setPicking(false);
       setAt(null);
       setDraft((d) => ({ ...d, title: '', address: '' }));
-      setNotice('');
+      setStale(false);
       setSuggestions(await fetchSuggestions(job.id));
       await reload(); // the new job is on the map, unassigned, whatever the user picks next
     } catch (e) {
-      setError(errorText(e));
+      setError(problem(e));
     } finally {
       setBusy(false);
     }
@@ -112,20 +119,20 @@ export function App(): React.JSX.Element {
     try {
       await insertJob(suggestions.jobId, { technicianId: option.technicianId, position: option.position, routeVersion: option.routeVersion });
       setSuggestions(null);
-      setNotice('');
+      setStale(false);
       if (option.technicianId === selected) await reload();
       else setSelected(option.technicianId); // the selection change reloads route, jobs (colours) and the unassigned list
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
-        setNotice(`The route changed since these options were computed (${e.message}). Refreshed, please choose again.`);
+        setStale(true);
         try {
           setSuggestions(await fetchSuggestions(suggestions.jobId));
         } catch (again) {
           setSuggestions(null); // e.g. the job is no longer unassigned
-          setError(errorText(again));
+          setError(problem(again));
         }
         await reload();
-      } else setError(errorText(e));
+      } else setError(problem(e));
     } finally {
       setBusy(false);
     }
@@ -139,7 +146,7 @@ export function App(): React.JSX.Element {
   return (
     <div className="app">
       <aside className="side">
-        <TopBar date={date} busy={busy} loading={loading} error={error} onDate={setDate} onOptimize={() => void optimize()} />
+        <TopBar date={date} busy={busy} loading={loading} error={error ? t(error.key, error.vars) : ''} onDate={setDate} onOptimize={() => void optimize()} />
         <Legend />
         <TechnicianList technicians={technicians} skills={skills} selected={selected} onSelect={setSelected} />
         <NewJobForm
@@ -150,34 +157,36 @@ export function App(): React.JSX.Element {
           draft={draft}
           busy={busy}
           onDraft={setDraft}
-          onStart={() => { setPicking(true); setError(''); }}
+          onStart={() => { setPicking(true); setError(null); }}
           onCancel={() => { setPicking(false); setAt(null); }}
           onSubmit={() => void submitJob()}
         />
         {suggestions && (
           <Suggestions
             suggestions={suggestions}
-            notice={notice}
+            notice={stale ? t('slot.stale') : ''}
             busy={busy}
             techName={techName}
             onChoose={(o) => void choose(o)}
-            onClose={() => { setSuggestions(null); setNotice(''); }}
+            onClose={() => { setSuggestions(null); setStale(false); }}
           />
         )}
         <UnassignedList rows={unassigned} onFocus={setFocus} />
         {route && <RouteStops route={route} jobById={jobById} />}
       </aside>
-      <MapView
-        technicians={technicians}
-        dayJobs={dayJobs}
-        skills={skills}
-        route={route}
-        focus={focus}
-        picking={picking}
-        at={at}
-        onPick={setAt}
-        onSelect={setSelected}
-      />
+      <main className="main">
+        <MapView
+          technicians={technicians}
+          dayJobs={dayJobs}
+          skills={skills}
+          route={route}
+          focus={focus}
+          picking={picking}
+          at={at}
+          onPick={setAt}
+          onSelect={setSelected}
+        />
+      </main>
     </div>
   );
 }
