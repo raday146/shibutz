@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { InsertionOption, InsertionSuggestions, Job, LonLat, RouteView, Skill, Technician } from '@shibutz/contracts';
-import { ApiError, createJob, fetchJobs, fetchRoute, fetchSkills, fetchSuggestions, fetchTechnicians, insertJob, runOptimization } from './api';
-import { jerusalemToIso, unassignedRows } from './map';
+import type { DaySummary, InsertionOption, InsertionSuggestions, Job, LonLat, RouteView, Skill, Technician } from '@shibutz/contracts';
+import { ApiError, createJob, fetchDaySummary, fetchJobs, fetchRoute, fetchSkills, fetchSuggestions, fetchTechnicians, insertJob, runOptimization } from './api';
+import { jerusalemToIso, today, unassignedRows } from './map';
 import type { Key, Vars } from './i18n';
 import { useLang } from './lang';
 import { Legend } from './components/Legend';
@@ -15,7 +15,18 @@ import { TechnicianList } from './components/TechnicianList';
 import { TopBar } from './components/TopBar';
 import { UnassignedList } from './components/UnassignedList';
 
-const SEED_DAY = '2026-11-02';
+const DATE_KEY = 'shibutz.date';
+/** The last viewed date, else today; browser storage can be blocked. */
+function openingDate(): string {
+  try {
+    const saved = localStorage.getItem(DATE_KEY);
+    if (saved && /^\d{4}-\d\d-\d\d$/.test(saved)) return saved;
+  } catch {
+    // storage unavailable: start on today
+  }
+  return today();
+}
+
 /** A message to show, kept untranslated until render so a language change does not reload data. */
 interface Problem { key: Key; vars?: Vars }
 const problem = (e: unknown): Problem =>
@@ -23,7 +34,16 @@ const problem = (e: unknown): Problem =>
 
 export function App(): React.JSX.Element {
   const { t } = useLang();
-  const [date, setDate] = useState(SEED_DAY);
+  const [date, setDateState] = useState(openingDate);
+  const setDate = (d: string): void => {
+    setDateState(d);
+    try {
+      localStorage.setItem(DATE_KEY, d);
+    } catch {
+      // storage unavailable: the date is not remembered
+    }
+  };
+  const [summary, setSummary] = useState<DaySummary | null>(null);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
@@ -45,18 +65,21 @@ export function App(): React.JSX.Element {
     setLoading(true);
     setRoute((r) => (r && r.technicianId === selected ? r : null)); // do not show another technician's route while loading
     try {
-      const [t, j, r, sk] = await Promise.all([
+      const [t, j, r, sk, sum] = await Promise.all([
         fetchTechnicians(),
         fetchJobs(),
         selected === null ? Promise.resolve(null) : fetchRoute(selected, date),
         fetchSkills(),
+        fetchDaySummary(date),
       ]);
+      setSummary(sum);
       setSkills(sk);
       setTechnicians(t);
       setJobs(j);
       setRoute(r);
       setError(null);
     } catch (e) {
+      setSummary(null);
       setRoute(null); // never leave another technician's route on screen next to this error
       setError(problem(e));
     } finally {
@@ -143,8 +166,18 @@ export function App(): React.JSX.Element {
 
   return (
     <div className="app">
+      <TopBar date={date} summary={summary} busy={busy} loading={loading} onDate={setDate} onRefresh={() => void reload()} onOptimize={() => void optimize()} />
+      <div className="body">
       <aside className="side">
-        <TopBar date={date} busy={busy} loading={loading} error={error ? t(error.key, error.vars) : ''} onDate={setDate} onOptimize={() => void optimize()} />
+        {error && <p className="error" role="alert">{t(error.key, error.vars)}</p>}
+        {summary?.totals.total === 0 && (
+          <section className="empty">
+            <h2>{t('empty.day.title')}</h2>
+            <p className="muted">{t('empty.day.body')}</p>
+            <button onClick={() => { setPicking(true); setError(null); }}>{t('job.add')}</button>
+          </section>
+        )}
+
         <Legend />
         <TechnicianList technicians={technicians} skills={skills} selected={selected} onSelect={setSelected} />
         <NewJobForm
@@ -185,6 +218,7 @@ export function App(): React.JSX.Element {
           onSelect={setSelected}
         />
       </main>
+      </div>
     </div>
   );
 }
