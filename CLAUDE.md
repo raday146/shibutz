@@ -17,6 +17,9 @@ Implemented on `feat/field-routing` (draft PR against `main`). The spec is GitHu
 `needs-triage` issues. How to run the stack, tests and demo commands: `README.md`; infra pins: `docs/infra.md`;
 heuristic vs VROOM numbers: `docs/comparison-report.md`.
 
+## UI
+All UI work must follow `DESIGN.md`.
+
 ## Rules that bite
 - Coordinates are always `[lon, lat]` (OSRM, VROOM, `ST_MakePoint(lon, lat)`); use one helper.
 - VROOM uses integer ids and seconds; keep a mapping layer at that boundary. Store UTC.
