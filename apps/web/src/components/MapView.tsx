@@ -47,7 +47,8 @@ interface Props {
 }
 
 export function MapView({ technicians, dayJobs, skills, route, focus, picking, at, onPick, onSelect }: Props): React.JSX.Element {
-  const { t } = useLang();
+  const { lang, t } = useLang();
+  const owner = technicians.find((tech) => tech.id === route?.technicianId);
   const allPoints: Point[] = [...technicians.map((tech) => toLatLng(tech.home)), ...dayJobs.map((j) => toLatLng(j.location))];
   return (
     <MapContainer className="map" center={CENTER} zoom={10}>
@@ -60,12 +61,17 @@ export function MapView({ technicians, dayJobs, skills, route, focus, picking, a
       <FlyTo target={focus} />
       <PickLocation active={picking || at !== null} onPick={onPick} />
       {at && <CircleMarker center={toLatLng(at)} radius={8} pathOptions={{ color: '#dc2626', dashArray: '3' }} />}
-      {route?.geometry && <Polyline positions={toLatLngs(route.geometry.coordinates)} color="#111827" weight={4} />}
+      {route?.geometry && (
+        <>
+          <Polyline positions={toLatLngs(route.geometry.coordinates)} color="#fff" weight={7} interactive={false} />
+          <Polyline positions={toLatLngs(route.geometry.coordinates)} weight={3.5} className={`route-${owner?.color ?? 1}`} interactive={false} />
+        </>
+      )}
       {dayJobs.map((j) => (
         <CircleMarker key={`j${j.id}`} center={toLatLng(j.location)} radius={6} pathOptions={{ color: statusColor(j.status), fillOpacity: 0.8 }}>
           <Tooltip><b dir="auto">{j.title}</b>
           <div dir="auto">{j.address || t('job.noAddress')}</div>
-          <div>{`${t(`status.${j.status}`)}, ${t('map.needs', { skills: skillLabel(j.skillIds, skills) })}`}</div></Tooltip>
+          <div>{`${t(`status.${j.status}`)}, ${t('map.needs', { skills: skillLabel(j.skillIds, skills, lang) })}`}</div></Tooltip>
         </CircleMarker>
       ))}
       {technicians.map((tech) => (

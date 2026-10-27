@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { LonLat, Skill } from '@shibutz/contracts';
 import { useLang } from '../lang';
+import { skillName } from '../map';
 
 export interface JobDraft {
   title: string;
@@ -25,7 +26,7 @@ interface Props {
 }
 
 export function NewJobForm({ date, skills, picking, at, draft, busy, onDraft, onStart, onCancel, onSubmit }: Props): React.JSX.Element {
-  const { t } = useLang();
+  const { lang, t } = useLang();
   const { title, address, skillIds, minutes, from, to } = draft;
   // Errors show once the user has tried to submit, then follow the fields as they are fixed.
   const [tried, setTried] = useState(false);
@@ -64,7 +65,7 @@ export function NewJobForm({ date, skills, picking, at, draft, busy, onDraft, on
                 checked={skillIds.includes(s.id)}
                 onChange={(e) => onDraft({ ...draft, skillIds: e.target.checked ? [...skillIds, s.id] : skillIds.filter((x) => x !== s.id) })}
               />{' '}
-              {s.name}
+              {skillName(s, lang)}
             </label>
           ))}
           <label>{t('field.duration')} <input type="number" min={1} value={minutes} onChange={(e) => onDraft({ ...draft, minutes: Number(e.target.value) })} /></label>

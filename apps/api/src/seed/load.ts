@@ -16,8 +16,8 @@ export async function loadDataset(db: Db, data: Dataset | Scenario): Promise<voi
   await db.transaction(async (tx) => {
     await tx.execute(sql`TRUNCATE ${skills}, ${technicians}, ${jobs} RESTART IDENTITY CASCADE`);
     await tx.insert(skills).values(data.skills);
-    for (const { skillIds, ...t } of data.technicians) {
-      const [row] = await tx.insert(technicians).values(t).returning({ id: technicians.id });
+    for (const [i, { skillIds, ...t }] of data.technicians.entries()) {
+      const [row] = await tx.insert(technicians).values({ ...t, color: (i % 8) + 1 }).returning({ id: technicians.id });
       if (!row) throw new Error('Insert returned no row');
       await tx.insert(technicianSkills).values(skillIds.map((skillId) => ({ technicianId: row.id, skillId })));
     }

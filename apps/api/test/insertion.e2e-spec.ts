@@ -44,7 +44,7 @@ describe('POST /jobs/:id/insertion-suggestions (fake routing, fake clock)', () =
   });
 
   async function skill(code: string): Promise<number> {
-    return (await http().post('/skills').send({ code, name: code }).expect(201)).body.id;
+    return (await http().post('/skills').send({ code, nameEn: code, nameHe: code }).expect(201)).body.id;
   }
 
   async function technician(homeLon: number, skillIds: number[] = []): Promise<number> {

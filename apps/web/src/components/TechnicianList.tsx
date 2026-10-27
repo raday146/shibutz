@@ -1,7 +1,7 @@
 import type { Skill, Technician } from '@shibutz/contracts';
 import { sortByName } from '../i18n';
 import { Ltr, useLang } from '../lang';
-import { shiftLabel, skillLabel } from '../map';
+import { routeVar, shiftLabel, skillLabel } from '../map';
 
 interface Props {
   technicians: Technician[];
@@ -19,10 +19,11 @@ export function TechnicianList({ technicians, skills, selected, onSelect }: Prop
         {sortByName(lang, technicians).map((tech) => (
           <li key={tech.id}>
             <button className={tech.id === selected ? 'on' : ''} dir="auto" onClick={() => onSelect(tech.id === selected ? null : tech.id)}>
+              <span className="swatch" style={{ background: routeVar(tech.color) }} aria-hidden="true" />
               {tech.name}
             </button>
             <div className="muted">
-              <Ltr>{shiftLabel(tech.shiftStart, tech.shiftEnd)}</Ltr> · {skillLabel(tech.skillIds, skills) || t('tech.noSkills')}
+              <Ltr>{shiftLabel(tech.shiftStart, tech.shiftEnd)}</Ltr> · {skillLabel(tech.skillIds, skills, lang) || t('tech.noSkills')}
             </div>
           </li>
         ))}

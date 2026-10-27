@@ -384,6 +384,7 @@ describe('PATCH /jobs/:id/status (fake routing, fake clock)', () => {
     await http().get(`/technicians/${techId}`).expect(200, before);
 
     await http().patch(`/technicians/${techId}`).send({ name: 'Avi B.' }).expect(200);
+    await http().patch(`/technicians/${techId}`).send({ name: 'Avi C.', color: 7 }).expect(200).expect((r) => expect(r.body.color).toBe(7));
   });
 
   it('lets a technician whose stops are all done change home, shift and skills', async () => {

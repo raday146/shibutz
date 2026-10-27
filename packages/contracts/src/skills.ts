@@ -3,7 +3,9 @@ import { z } from 'zod';
 export const skillSchema = z.object({
   id: z.number().int().positive(),
   code: z.string().trim().min(1).max(50),
-  name: z.string().trim().min(1).max(200),
+  // Either name may be empty in Hebrew; the UI falls back to the other one.
+  nameEn: z.string().trim().min(1).max(200),
+  nameHe: z.string().trim().max(200),
 });
 export type Skill = z.infer<typeof skillSchema>;
 
