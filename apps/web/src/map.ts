@@ -60,3 +60,6 @@ export function positionLabel({ afterJobId, beforeJobId }: InsertionOption['posi
   const side = (id: number | null): string => (id === null ? 'home' : `Job ${id}`);
   return `after ${side(afterJobId)}, before ${side(beforeJobId)}`;
 }
+
+/** Israel wall-clock HH:MM of an ISO instant. */
+export const time = (iso: string): string => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: ZONE });
