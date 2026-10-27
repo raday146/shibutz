@@ -8,7 +8,8 @@ interface Props {
   days: DaySummary['technicians'];
   skills: Skill[];
   selected: number | null;
-  onSelect: (technicianId: number | null) => void;
+  /** `opener` is the clicked row and `keyboard` tells whether it was activated from the keyboard (no animation then). */
+  onSelect: (technicianId: number | null, opener?: HTMLElement, keyboard?: boolean) => void;
 }
 
 export function TechnicianList({ technicians, days, skills, selected, onSelect }: Props): React.JSX.Element {
@@ -23,7 +24,7 @@ export function TechnicianList({ technicians, days, skills, selected, onSelect }
         const progress = t('tech.progress', { done, total });
         return (
           <li key={tech.id} className={total === 0 ? 'row idle' : 'row'}>
-            <button className={tech.id === selected ? 'on' : ''} aria-pressed={tech.id === selected} dir="auto" onClick={() => onSelect(tech.id === selected ? null : tech.id)}>
+            <button className={tech.id === selected ? 'on' : ''} aria-pressed={tech.id === selected} dir="auto" onClick={(e) => onSelect(tech.id === selected ? null : tech.id, e.currentTarget, e.detail === 0)}>
               <span className="swatch" style={{ background: routeVar(tech.color) }} aria-hidden="true" />
               <b>{tech.name}</b>{' '}
               <span className="muted"><Ltr>{shiftLabel(tech.shiftStart, tech.shiftEnd)}</Ltr></span>
