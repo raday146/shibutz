@@ -40,8 +40,15 @@
     {
       "idx": 5,
       "version": "7",
-      "when": 1793125738237,
-      "tag": "0005_tough_proteus",
+      "when": 1793125710573,
+      "tag": "0005_warm_baron_strucker",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793125743191,
+      "tag": "0006_skills_names_technician_color",
       "breakpoints": true
     }
   ]

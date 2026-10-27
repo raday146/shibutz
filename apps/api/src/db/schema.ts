@@ -44,6 +44,13 @@ export const technicianSkills = pgTable(
   (t) => [primaryKey({ columns: [t.technicianId, t.skillId] })],
 );
 
+export const unassignedReason = pgEnum('unassigned_reason', [
+  'NO_SKILLED_TECHNICIAN',
+  'WINDOW_OUTSIDE_ALL_SHIFTS',
+  'UNREACHABLE',
+  'NOT_FEASIBLE_IN_PLAN',
+]);
+
 export const jobStatus = pgEnum('job_status', ['unassigned', 'assigned', 'in_progress', 'done', 'cancelled']);
 
 const localDate = (column: string): SQL =>
@@ -65,6 +72,8 @@ export const jobs = pgTable(
       .generatedAlwaysAs(localDate('window_start')),
     priority: integer('priority').notNull(),
     status: jobStatus('status').notNull().default('unassigned'),
+    unassignedReason: unassignedReason('unassigned_reason'),
+    unassignedAt: timestamp('unassigned_at', { withTimezone: true }),
   },
   (t) => [
     check('jobs_window_order', sql`${t.windowEnd} > ${t.windowStart}`),
