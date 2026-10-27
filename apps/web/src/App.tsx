@@ -47,7 +47,7 @@ export function App(): React.JSX.Element {
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
-  const [route, setRoute] = useState<RouteView | null>(null);
+  const [routes, setRoutes] = useState<RouteView[]>([]);
   const [error, setError] = useState<Problem | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -63,29 +63,24 @@ export function App(): React.JSX.Element {
   // One reload for everything the map shows; also called after a batch run.
   const reload = useCallback(async (): Promise<void> => {
     setLoading(true);
-    setRoute((r) => (r && r.technicianId === selected ? r : null)); // do not show another technician's route while loading
     try {
-      const [t, j, r, sk, sum] = await Promise.all([
-        fetchTechnicians(),
-        fetchJobs(),
-        selected === null ? Promise.resolve(null) : fetchRoute(selected, date),
-        fetchSkills(),
-        fetchDaySummary(date),
-      ]);
+      const [t, j, sk, sum] = await Promise.all([fetchTechnicians(), fetchJobs(), fetchSkills(), fetchDaySummary(date)]);
+      // Every route is drawn in its owner's color, so fetch one per technician that has stops.
+      const r = await Promise.all(sum.technicians.filter((x) => x.stopCount > 0).map((x) => fetchRoute(x.technicianId, date)));
       setSummary(sum);
       setSkills(sk);
       setTechnicians(t);
       setJobs(j);
-      setRoute(r);
+      setRoutes(r);
       setError(null);
     } catch (e) {
       setSummary(null);
-      setRoute(null); // never leave another technician's route on screen next to this error
+      setRoutes([]); // never leave routes on screen next to this error
       setError(problem(e));
     } finally {
       setLoading(false);
     }
-  }, [selected, date]);
+  }, [date]);
 
   useEffect(() => {
     void reload();
@@ -141,8 +136,8 @@ export function App(): React.JSX.Element {
       await insertJob(suggestions.jobId, { technicianId: option.technicianId, position: option.position, routeVersion: option.routeVersion });
       setSuggestions(null);
       setStale(false);
-      if (option.technicianId === selected) await reload();
-      else setSelected(option.technicianId); // the selection change reloads route, jobs (colours) and the unassigned list
+      await reload();
+      setSelected(option.technicianId);
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
         setStale(true);
@@ -161,6 +156,7 @@ export function App(): React.JSX.Element {
 
   const techName = (id: number): string => technicians.find((t) => t.id === id)?.name ?? `#${id}`;
   const dayJobs = jobs.filter((j) => j.day === date);
+  const route = routes.find((r) => r.technicianId === selected) ?? null;
   const jobById = new Map(jobs.map((j) => [j.id, j]));
   const unassigned = unassignedRows(dayJobs, date);
 
@@ -178,7 +174,6 @@ export function App(): React.JSX.Element {
           </section>
         )}
 
-        <Legend />
         <TechnicianList technicians={technicians} skills={skills} selected={selected} onSelect={setSelected} />
         <NewJobForm
           date={date}
@@ -210,13 +205,15 @@ export function App(): React.JSX.Element {
           technicians={technicians}
           dayJobs={dayJobs}
           skills={skills}
-          route={route}
+          routes={routes}
+          selected={selected}
           focus={focus}
           picking={picking}
           at={at}
           onPick={setAt}
           onSelect={setSelected}
         />
+        <Legend />
       </main>
       </div>
     </div>
