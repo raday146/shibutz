@@ -254,6 +254,19 @@ describe('POST /jobs/:id/insertion-suggestions (fake routing, fake clock)', () =
       expect(shown.stops.map((s: { jobId: number }) => s.jobId)).toEqual([target.id, stop.id]);
     });
 
+    it('clears the stored unassigned reason and its time when the job is placed', async () => {
+      const avi = await technician(34.0);
+      const stop = await job(34.02, { status: 'assigned' });
+      await route(avi, [{ job: stop }]);
+      const target = await job(34.01);
+      await db().execute(sql`update jobs set unassigned_reason = 'NOT_FEASIBLE_IN_PLAN', unassigned_at = now() where id = ${target.id}`);
+
+      await insert(target.id, avi, null, stop.id, 1).expect(200);
+
+      const placed: Job = (await http().get(`/jobs/${target.id}`).expect(200)).body;
+      expect([placed.unassignedReason, placed.unassignedAt]).toEqual([null, null]);
+    });
+
     it('409s on a stale route version and changes nothing', async () => {
       const avi = await technician(34.0);
       const stop = await job(34.02, { status: 'assigned' });

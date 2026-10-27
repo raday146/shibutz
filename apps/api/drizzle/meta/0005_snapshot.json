@@ -1,5 +1,5 @@
 {
-  "id": "870deaf0-3288-4413-98a3-e557e850f921",
+  "id": "13f4e6af-667c-4fee-9b19-aaafcea8a7ad",
   "prevId": "0df669e1-ab82-4837-ae31-9ec2c4c84a80",
   "version": "7",
   "dialect": "postgresql",
@@ -144,6 +144,19 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'unassigned'"
+        },
+        "unassigned_reason": {
+          "name": "unassigned_reason",
+          "type": "unassigned_reason",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "unassigned_at": {
+          "name": "unassigned_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -377,14 +390,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "name_en": {
-          "name": "name_en",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name_he": {
-          "name": "name_he",
+        "name": {
+          "name": "name",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -510,12 +517,6 @@
           "type": "time",
           "primaryKey": false,
           "notNull": true
-        },
-        "color": {
-          "name": "color",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
         }
       },
       "indexes": {},
@@ -527,10 +528,6 @@
         "technicians_shift_order": {
           "name": "technicians_shift_order",
           "value": "\"technicians\".\"shift_end\" > \"technicians\".\"shift_start\""
-        },
-        "technicians_color_range": {
-          "name": "technicians_color_range",
-          "value": "\"technicians\".\"color\" BETWEEN 1 AND 8"
         }
       },
       "isRLSEnabled": false
@@ -546,6 +543,16 @@
         "in_progress",
         "done",
         "cancelled"
+      ]
+    },
+    "public.unassigned_reason": {
+      "name": "unassigned_reason",
+      "schema": "public",
+      "values": [
+        "NO_SKILLED_TECHNICIAN",
+        "WINDOW_OUTSIDE_ALL_SHIFTS",
+        "UNREACHABLE",
+        "NOT_FEASIBLE_IN_PLAN"
       ]
     }
   },

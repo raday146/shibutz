@@ -46,6 +46,8 @@ describe('jobs', () => {
       priority: 50,
       status: 'unassigned',
       day: '2026-07-01',
+      unassignedReason: null,
+      unassignedAt: null,
     });
     await http().get(`/jobs/${created.body.id}`).expect(200, created.body);
     await http().get('/jobs').expect(200, [created.body]);

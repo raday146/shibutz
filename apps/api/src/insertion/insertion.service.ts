@@ -79,7 +79,7 @@ export class InsertionService {
 
       const [assigned] = await tx
         .update(jobs)
-        .set({ status: 'assigned' })
+        .set({ status: 'assigned', unassignedReason: null, unassignedAt: null })
         .where(and(eq(jobs.id, jobId), eq(jobs.status, 'unassigned')))
         .returning({ id: jobs.id });
       if (!assigned) throw new ConflictException('Job changed concurrently; retry');
