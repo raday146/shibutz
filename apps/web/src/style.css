@@ -72,11 +72,23 @@ button.primary:disabled { background: var(--ink-3); border-color: var(--ink-3); 
 input { min-height: 28px; border: 1px solid var(--control-border); border-radius: var(--radius-control); background: var(--surface); }
 @media (pointer: coarse) { button, input { min-height: 44px; } }
 
-.app { display: flex; height: 100%; }
+.app { display: flex; flex-direction: column; height: 100%; }
+.body { display: flex; flex: 1; min-height: 0; }
 .side { width: 320px; flex: none; padding: var(--space-3); overflow-y: auto; box-sizing: border-box; background: var(--surface); border-inline-end: 1px solid var(--hairline); z-index: var(--z-panel); }
 .side h2 { font-size: var(--text-lg); line-height: var(--lh-lg); font-weight: 600; margin: var(--space-4) 0 var(--space-2); }
 .side ul { list-style: none; padding: 0; margin: 0; }
-.topbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.topbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); min-height: 52px; padding: var(--space-2) var(--space-4); box-sizing: border-box; background: var(--surface); border-bottom: 1px solid var(--hairline); z-index: var(--z-panel); }
+.topbar .date, .topbar .actions { display: flex; align-items: center; gap: var(--space-2); }
+.topbar .actions { margin-inline-start: auto; }
+.kpis { display: flex; gap: var(--space-5); }
+.kpi { display: flex; flex-direction: column; }
+.kpi b { font-size: var(--text-lg); line-height: var(--lh-lg); font-weight: 600; }
+.kpi.attention b { color: var(--attention-ink); }
+[dir=rtl] .mirror { display: inline-block; transform: scaleX(-1); }
+.overlay { position: fixed; inset: 0; display: grid; place-items: center; background: rgb(28 25 23 / 0.3); z-index: var(--z-modal); }
+.dialog { width: 420px; max-width: calc(100vw - 32px); padding: var(--space-5); background: var(--surface); border-radius: var(--radius-surface); box-shadow: var(--shadow-overlay); }
+.dialog h2 { margin: 0 0 var(--space-2); font-size: var(--text-lg); line-height: var(--lh-lg); }
+.empty { padding: var(--space-4) 0; }
 .side li button { width: 100%; text-align: start; padding: var(--space-1) var(--space-2); border: 0; }
 .side li button.on { background: var(--surface-2); }
 .error { color: var(--danger-ink); flex-basis: 100%; margin: 0; }

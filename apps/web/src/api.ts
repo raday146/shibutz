@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { dayPlanSchema, insertionSuggestionsSchema, jobSchema, routeViewSchema, skillSchema, technicianSchema } from '@shibutz/contracts';
-import type { CreateJob, DayPlan, InsertCommit, InsertionSuggestions, Job, RouteView, Skill, Technician } from '@shibutz/contracts';
+import { dayPlanSchema, daySummarySchema, insertionSuggestionsSchema, jobSchema, routeViewSchema, skillSchema, technicianSchema } from '@shibutz/contracts';
+import type { CreateJob, DayPlan, DaySummary,InsertCommit, InsertionSuggestions, Job, RouteView, Skill, Technician } from '@shibutz/contracts';
 
 /** Carries the HTTP status so callers can tell a stale 409 from other failures. */
 export class ApiError extends Error {
@@ -32,3 +32,4 @@ export const createJob = (job: CreateJob): Promise<Job> => request(jobSchema, '/
 export const fetchSuggestions = (jobId: number): Promise<InsertionSuggestions> =>
   request(insertionSuggestionsSchema, `/jobs/${jobId}/insertion-suggestions?limit=3`, { method: 'POST' });
 export const insertJob = (jobId: number, commit: InsertCommit): Promise<Job> => request(jobSchema, `/jobs/${jobId}/insert`, post(commit));
+export const fetchDaySummary = (date: string): Promise<DaySummary> => request(daySummarySchema, `/days/${date}/summary`);

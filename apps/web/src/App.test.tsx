@@ -1,7 +1,7 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { emptyDay, fakeApi, renderConsole } from './test/render';
+import { daySummary, emptyDay, fakeApi, renderConsole } from './test/render';
 
 const tech = (id: number, name: string) => ({ id, name, home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', skillIds: [], color: 1 });
 
@@ -85,7 +85,8 @@ describe('unassigned reasons', () => {
   });
 
   it('shows the stored reason after a reload, localized, and "Not placed yet" when none is stored', async () => {
-    fakeApi({ ...emptyDay, '/jobs': [job(1, 'NO_SKILLED_TECHNICIAN'), job(2, null)] });
+    localStorage.setItem('shibutz.date', '2026-11-02');
+    fakeApi({ ...emptyDay, '/jobs': [job(1, 'NO_SKILLED_TECHNICIAN'), job(2, null)], '/days/2026-11-02/summary': daySummary('2026-11-02') });
     renderConsole();
     expect(await screen.findByText('אין טכנאי עם כל הכישורים הנדרשים.')).toBeTruthy();
     expect(screen.getByText('טרם שובצה.')).toBeTruthy();
