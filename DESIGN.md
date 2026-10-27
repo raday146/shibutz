@@ -22,7 +22,8 @@ Status: base decisions plus the type scale, route palette, status colors, spacin
 | `--hairline` | `#e7e5e4` | All 1px borders and dividers |
 | `--ink` | `#1c1917` | Headings, primary text, the one filled button |
 | `--ink-2` | `#57534e` | Secondary text |
-| `--ink-3` | `#78716c` | Quiet text. Passes 4.5:1 only on `--bg` and `--surface`; on `--surface-2` use `--ink-2` |
+| `--ink-3` | `#6f6963` | Quiet text. 5.2:1 on `--bg`, 5.4:1 on `--surface`, 5.0:1 on `--surface-2` |
+| `--control-border` | `#8a837d` | Borders of inputs, checkboxes and outlined buttons (3.4 to 3.7:1). `--hairline` is decoration only |
 | `--focus` | `#1c1917` | Focus ring: 2px ink with a 2px offset. Not blue, because blue is a route color |
 | `--attention` | `#b45309` | Amber: needs attention (unassigned, open incident, late) |
 | `--attention-ink` | `#92400e` | Text on `--attention-bg` (6.8:1) |
@@ -121,6 +122,30 @@ All strings and their keys are in `docs/console-copy.md`.
 
 ## Language and accessibility
 
-- Hebrew is the default, with an English toggle in the top bar. Strings live in two dictionaries, and the English one is typed as the Hebrew one so a missing key fails typecheck.
-- Text and control contrast meets WCAG AA. Keyboard reaches every control. Escape closes the topmost layer: map-pick, then modal, then drawer.
-- Western digits and 24-hour times in both languages.
+Standard: WCAG 2.1 AA, plus the 2.2 target-size rule.
+
+- Language: Hebrew is the default, with an English toggle in the top bar. Strings live in two dictionaries, and the English one is typed as the Hebrew one so a missing key fails typecheck. Western digits and 24-hour times in both languages.
+- Contrast: all text pairs in the token tables pass 4.5:1. Borders that identify a control use `--control-border` (3:1 or more). Hairlines separate only. White text on every route fill passes 4.5:1. Focus is a 2px ink ring with a 2px offset (16:1).
+- Target size: 28px minimum for dense controls. Under `@media (pointer: coarse)` buttons and rows grow to 44px. Map markers get a transparent hit area of at least 24px.
+- Status is never color alone: a ring or glyph plus a text label. Amber is only ever a dashed hollow ring, a badge with a number, or text with an icon, never a filled dot or a line. Under red-green color blindness amber sits close to the olive route (slot 2), and the dashed shape keeps them apart. Red always comes with an icon and a label.
+- Keyboard order follows the DOM and the visual order in both directions: top bar, left panel, map, drawer.
+- Focus management:
+  - Opening the drawer moves focus to its heading, and closing it returns focus to the technician row that opened it.
+  - The modal is `role="dialog"` with `aria-modal`, traps focus, starts on the Title field and returns focus to "Add job".
+  - Map-pick collapses the modal to a bar and moves focus to it. Escape returns to the modal with focus on "Set location on map".
+  - Escape closes only the topmost layer.
+- Map parity: everything on the map has a list equivalent (technician rows, drawer stops, the unassigned queue), so the map is never the only way in. The map container is labeled "Map", with keyboard panning and zoom on. Choosing a job location works by click, and also by a fixed center crosshair with a "Use this point" button, so keyboard-only and touch users can pan and confirm.
+- Screen readers:
+  - Landmarks: header, main, the left panel as complementary, the drawer as complementary and labeled with the technician's name.
+  - A polite live region announces selection ("Dana Levi, 6 stops") and plan results.
+  - Errors use `role="alert"` at the control that failed. Regions set `aria-busy` while loading.
+  - Progress bars are `role="progressbar"` with text such as "4 of 6 done".
+  - Stops are an ordered list. A status glyph has a text alternative, and the note indicator is labeled "Has a note".
+- Right-to-left:
+  - `<html lang dir>` flips with the language.
+  - Title, address, note, report and incident text use `dir="auto"`, since users type in either language.
+  - Direction-implying icons mirror (chevrons, back arrows, progress fill). Check, note and pin do not.
+  - The map never mirrors. Times and ranges sit in an LTR isolate.
+  - Hebrew body line height is at least 1.45.
+- Reflow: at 200% zoom the viewport is about 640 CSS px, below the 760px stack breakpoint, so the stacked layout must be fully usable. The drawer becomes a full-width bottom sheet and the modal becomes full-screen. Only the map may scroll in two dimensions.
+- Motion: respect `prefers-reduced-motion`. The pulsing in-progress ring becomes a static ring. Nothing flashes.
