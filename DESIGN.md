@@ -2,7 +2,7 @@
 
 Adapted from the Vercel DESIGN.md in VoltAgent/awesome-design-md. Kept: the near-white canvas, hairline borders, 4px spacing unit, tight 6-8px corners, weights 400/500/600 and the "one filled button" idea. Replaced: its proprietary fonts (Geist for Latin, Heebo for Hebrew), its cool greys (warm stone greys instead), and everything marketing (gradients, mono eyebrows, hero bands). No brand names, logos or slogans carried over.
 
-Status: base decisions from the console redesign spec. The type scale, route palette, status colors and basemap are settled in the design-system step and added here. Light theme only. All colors are semantic CSS variables so a dark set can be added later without touching components.
+Status: base decisions plus the type scale, route palette, status colors, spacing and basemap from the design-system step. Light theme only. All colors are semantic CSS variables so a dark set can be added later without touching components.
 
 ## Principles
 
@@ -23,11 +23,41 @@ Status: base decisions from the console redesign spec. The type scale, route pal
 | `--ink` | `#1c1917` | Headings, primary text, the one filled button |
 | `--ink-2` | `#57534e` | Secondary text |
 | `--ink-3` | `#78716c` | Quiet text. Passes 4.5:1 only on `--bg` and `--surface`; on `--surface-2` use `--ink-2` |
-| `--focus` | `#0070f3` | Focus ring only |
+| `--focus` | `#1c1917` | Focus ring: 2px ink with a 2px offset. Not blue, because blue is a route color |
 | `--attention` | `#b45309` | Amber: needs attention (unassigned, open incident, late) |
-| `--danger` | to be set | Red: destructive or failed |
+| `--attention-ink` | `#92400e` | Text on `--attention-bg` (6.8:1) |
+| `--attention-bg` | `#fffbeb` | Attention banners and badges |
+| `--danger` | `#b91c1c` | Red: destructive or failed (6.5:1 on white) |
+| `--danger-ink` | `#991b1b` | Text on `--danger-bg` (7.6:1) |
+| `--danger-bg` | `#fef2f2` | Error and destructive-confirm backgrounds |
 
-Amber and red are reserved for attention and status. The technician route palette stays clear of that hue range (about 0 to 50 degrees) and of the focus blue. The palette itself, its size and its validation against the map tiles are decided in the design-system step.
+Amber and red are reserved for attention and status. Both pair with an icon and a label, never color alone. Their nearest route color is 19.8 (amber) and 16.4 (red) apart in OKLab, so neither reads as a technician.
+
+### Route palette (technician colors)
+
+Eight fixed slots, stored as `technicians.color` (1 to 8). The order never changes and is never cycled. Tokens `--route-1` to `--route-8`:
+
+| Slot | Hex | Hue |
+|---|---|---|
+| 1 | `#ac47c2` | orchid |
+| 2 | `#416407` | olive green |
+| 3 | `#6c2cb4` | violet |
+| 4 | `#1479b0` | cyan blue |
+| 5 | `#99007a` | magenta |
+| 6 | `#5d67ee` | indigo |
+| 7 | `#06825d` | teal green |
+| 8 | `#0256a9` | blue |
+
+The hues deliberately skip roughly 0 to 100 degrees (red, orange, amber, yellow), which belong to status. Validated with the dataviz palette validator on the light surface:
+- Adjacent pairs: worst color-blind separation 9.5 (target 8), worst normal-vision separation 19.5 (floor 15).
+- Contrast: at least 3.5:1 against the muted basemap land and at least 4.5:1 for white text on a route fill (stop numbers). Against the darkest 5% of basemap pixels some slots drop to about 2.1 to 2.4, which is why every route line has a white casing (below).
+- All pairs: eight colors cannot all be pairwise distinct (worst pair about 10 against the 15 floor). So color is never the only carrier of identity. Each home marker shows the technician's initial, the selected route shows numbered stops, tooltips carry the name, and selecting one fades the rest.
+- A ninth technician reuses the least-used slot, lowest slot first on a tie. Colors only ever mark a technician: no status, no chart series.
+- Route color is never used for text. Text stays in ink tokens beside a colored mark.
+
+### Basemap
+
+OpenStreetMap tiles stay, muted with a CSS filter on the tile pane: `grayscale(1) contrast(0.8) brightness(1.12)`. No new tile provider. Median basemap luminance after the filter is about 0.72, so land reads as light grey. Route lines are 3.5px, drawn over a 7px white casing. Thin default routes are 2px over a 5px casing. Home markers and stop numbers get a 2px white ring.
 
 ## Typography
 
@@ -37,19 +67,31 @@ Amber and red are reserved for attention and status. The technician route palett
 - Numbers: `font-variant-numeric: tabular-nums` on every time, count and duration.
 - Times, ranges and ids sit in an LTR isolate (`<bdi dir="ltr">` or `unicode-bidi: isolate; direction: ltr`) so "08:00–16:00" reads left to right inside Hebrew text. Without it, a range reverses and a trailing comma moves to the line start.
 - No all-caps labels. Sentence case everywhere.
-- The scale is set in the design-system step.
+- Scale (size / line height, weight, tracking). Body is 14px because the console is dense. Hebrew keeps zero tracking (`:lang(he)`).
+
+| Token | Size / line | Weight | Tracking | Use |
+|---|---|---|---|---|
+| `--text-xs` | 12 / 16 | 400 | 0 | Meta, chips, "Updated 08:55" |
+| `--text-sm` | 13 / 18 | 400, 500 | 0 | Secondary row text, skills line, address |
+| `--text-md` | 14 / 20 | 400, 500, 600 | -0.006em | Body, row titles, controls |
+| `--text-lg` | 16 / 24 | 600 | -0.011em | Drawer title, KPI value, section heading |
+| `--text-xl` | 20 / 28 | 600 | -0.017em | Modal title, empty-state title |
+
+- Line length stays under 70 characters in notes and reports.
 
 ## Layout and spacing
 
 - Base unit 4px. Spacing steps: 4, 8, 12, 16, 24, 32, 40, 48.
 - Top bar across the full width. Left panel about 320px: Unassigned (when not empty) above Technicians. Map fills the rest. Work-day drawer overlays the end side. New job is a modal.
+- Sizes: top bar 52px, left panel 320px, drawer 400px, modal 480px, controls 28px (dense) or 32px (forms), icon button 28px, stop number 26px.
 - Minimum supported width 1024px. Below about 760px the panels stack.
 - Use logical properties (`inline-start`, `inline-end`, `padding-inline`, `margin-inline`), never left and right. Panels and the drawer mirror under RTL. The map itself never mirrors and its controls sit at the inline-end corner.
 
 ## Shape and depth
 
 - Radius 6px for buttons, chips and inputs. 8px for rows, the drawer and the modal. A full circle for swatches and stop numbers.
-- Depth comes from hairlines and the surface step, not shadows. The modal and the drawer may use one soft, low-opacity shadow.
+- Depth comes from hairlines and the surface step, not shadows. The drawer and the modal use one soft shadow: `0 0 0 1px var(--hairline), 0 12px 32px rgb(28 25 23 / 0.10)`.
+- Layers (z-index): map 0, map controls 5, panels and top bar 10, drawer 20, modal 30, toast 40. No other values.
 
 ## Components
 
