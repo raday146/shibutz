@@ -83,10 +83,16 @@ OpenStreetMap tiles stay, muted with a CSS filter on `.leaflet-tile-pane` only: 
 ## Layout and spacing
 
 - Base unit 4px. Spacing steps: 4, 8, 12, 16, 24, 32, 40, 48.
-- Top bar across the full width. Left panel about 320px: Unassigned (when not empty) above Technicians. Map fills the rest. Work-day drawer overlays the end side. New job is a modal.
+- Top bar across the full width. Left panel about 320px with a segmented switch at its top: "Technicians | Unassigned (n)". One list shows at a time and gets the full panel height, with no nested scrolling. Map fills the rest. The work-day drawer overlays the end side. New job is a modal.
+- Switching rules for the left panel:
+  - The default tab is Unassigned when n is above 0 and nothing is planned yet for the date (no route has a stop), otherwise Technicians.
+  - Clicking the Unassigned KPI, an unassigned pin on the map, or "Create and find a slot" switches to Unassigned. The new job's row opens at the top of the list.
+  - Clicking a technician on the map switches to Technicians.
+  - Switching is instant: no animation on the list content.
+- Rows in the Unassigned list are collapsed by default: title, reason and "Find a slot" on two lines. Expanding shows address, window and skills. Opening options scrolls the row to the top of the list.
 - Sizes: top bar 52px, left panel 320px, drawer 400px, modal 480px, controls 28px (dense) or 32px (forms), icon button 28px, stop number 26px.
 - Minimum supported width 1024px. Below about 760px the panels stack.
-- Use logical properties (`inline-start`, `inline-end`, `padding-inline`, `margin-inline`), never left and right. Panels and the drawer mirror under RTL. The map itself never mirrors and its controls sit at the inline-end corner.
+- Use logical properties (`inline-start`, `inline-end`, `padding-inline`, `margin-inline`), never left and right. Panels and the drawer mirror under RTL. The map itself never mirrors. Its zoom control and the Map key sit on the inline-start side, because the drawer owns the inline-end side. Selecting a technician fits the map to their route, never closer than zoom 13, with the home marker in view.
 
 ## Shape and depth
 
@@ -96,7 +102,8 @@ OpenStreetMap tiles stay, muted with a CSS filter on `.leaflet-tile-pane` only: 
 
 ## Components
 
-- Buttons: filled (`--ink` on white text), outlined (hairline border, transparent), icon button (28px, no border until hover). Height 28-32px. Hover shifts the background one step. Focus shows a 2px `--focus` ring.
+- Buttons: filled (`--ink` on white text), outlined (hairline border, transparent), icon button (28px, no border until hover). Height is 28px everywhere (32px in forms), with no smaller size. Hover shifts the background one step. Focus shows a 2px `--focus` ring. The drawer heading takes focus programmatically and shows no ring; the drawer is announced by its label.
+- Stop rows keep a fixed order: time and title, then the note icon, then the status. "Add incident" is a full-width button under its input.
 - Rows: white surface, 1px hairline, 8px radius, 9-12px padding. Selected rows use `--surface-2` and a 3px inline-start bar in the technician's color.
 - Stop number: a 26px circle filled with the owner's color. A done stop is an outlined circle with a check.
 - Chips: 12px text, `--surface-2`, hairline, 6px radius. Skills only.
@@ -105,7 +112,51 @@ OpenStreetMap tiles stay, muted with a CSS filter on `.leaflet-tile-pane` only: 
 
 ## Motion
 
-Short, answering a user action only: 120ms background and color transitions, panel open and close. No entrance animations. Respect `prefers-reduced-motion`.
+Motion answers an action or shows a state change. It is never decoration, and the console is used all day, so most things do not animate.
+
+Tokens:
+
+| Token | Value |
+|---|---|
+| `--ease-out` | `cubic-bezier(0.23, 1, 0.32, 1)` |
+| `--ease-in-out` | `cubic-bezier(0.77, 0, 0.175, 1)` |
+| `--ease-drawer` | `cubic-bezier(0.32, 0.72, 0, 1)` |
+| `--dur-press` | 120ms |
+| `--dur-fast` | 150ms |
+| `--dur-pop` | 180ms |
+| `--dur-panel` | 220ms |
+
+Rules:
+- Animate only `transform` and `opacity`, and name the properties. Never `transition: all`, never `ease-in`, never a UI animation over 250ms. Exits are faster than entrances (at most 140ms).
+- Nothing starts from `scale(0)`. Popovers scale from 0.97 with a fade, from their trigger. Modals scale from 0.96 and stay centered.
+- Use CSS transitions, not keyframes, for anything that can be triggered rapidly, so it can be interrupted.
+- Hover effects are gated behind `@media (hover: hover) and (pointer: fine)`.
+- Keyboard-initiated actions do not animate. A drawer opened with Enter or Space appears instantly, and Escape closes it instantly.
+
+By element:
+
+| Element | Motion |
+|---|---|
+| Buttons and rows | Background and border color 120ms `--ease-out`. Buttons scale to 0.97 on press. |
+| Left-panel switch and date change | None. Content swaps instantly and the progress line shows loading. |
+| Work-day drawer (pointer) | Opens with a 24px slide from the inline-end side plus fade, `--dur-panel` `--ease-drawer`. Closes in 140ms `--ease-out`. |
+| New-job modal | Scrim fades 150ms. Dialog scales 0.96 to 1 with a fade, `--dur-pop`. Exit 120ms. |
+| Map-pick | The modal collapses to the pick bar with a 120ms fade. The crosshair appears instantly. |
+| Overflow menu | Scales from 0.97 with a fade at its trigger, 125ms. Exit instant. |
+| Stop row and options expand | Content fades in over 120ms. Height is not animated. |
+| Fade others on select | Opacity of other routes and markers goes to 20% over `--dur-fast`. Stroke width changes instantly. |
+| "Find a slot" preview | Dashed lines appear instantly on hover or focus and stay until another option is hovered, so moving between options does not flicker. |
+| Linked highlight | The marker or row pulses once (scale 1.35, 600ms `--ease-out`) when its pair is clicked. |
+| In-progress ring | Opacity pulse 1.6s `--ease-in-out`, a state indicator. Static under reduced motion. |
+| Toast | Enters with 8px rise plus fade in `--dur-panel`, exits in 140ms. Stays 3.5s. The timer pauses on hover and while the tab is hidden. |
+| Reload progress line | Grows across the top over 1s `--ease-out`. |
+| Map tooltips | 125ms. After one is open, the next opens with no delay and no animation. |
+
+Interaction details:
+- Save feedback: "Saving" appears only if a save takes longer than 400ms, so quick saves do not flicker. "Saved" stays for 2s.
+- Status actions (Start, Finish) are not optimistic, because the server can refuse them. The clicked button shows a busy state, and a refusal appears inline at the row.
+- Touch: hover previews are replaced by tap. The first tap on an option previews it, a second tap on "Assign here" commits.
+- Under `prefers-reduced-motion`, keep opacity fades and remove all movement and scaling.
 
 ## Copy
 
@@ -128,7 +179,7 @@ Standard: WCAG 2.1 AA, plus the 2.2 target-size rule.
 - Contrast: all text pairs in the token tables pass 4.5:1. Borders that identify a control use `--control-border` (3:1 or more). Hairlines separate only. White text on every route fill passes 4.5:1. Focus is a 2px ink ring with a 2px offset (16:1).
 - Target size: 28px minimum for dense controls. Under `@media (pointer: coarse)` buttons and rows grow to 44px. Map markers get a transparent hit area of at least 24px.
 - Status is never color alone: a ring or glyph plus a text label. Amber is only ever a dashed hollow ring, a badge with a number, or text with an icon, never a filled dot or a line. Under red-green color blindness amber sits close to the olive route (slot 2), and the dashed shape keeps them apart. Red always comes with an icon and a label.
-- Keyboard order follows the DOM and the visual order in both directions: top bar, left panel, map, drawer.
+- Keyboard order follows the DOM and the visual order in both directions: top bar, left panel, map, drawer. The left-panel switch is a tab list: arrow keys move between the two tabs (mirrored in RTL), and the active tab controls the list below it.
 - Focus management:
   - Opening the drawer moves focus to its heading, and closing it returns focus to the technician row that opened it.
   - The modal is `role="dialog"` with `aria-modal`, traps focus, starts on the Title field and returns focus to "Add job".
