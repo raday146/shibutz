@@ -47,6 +47,8 @@ export const jobs = pgTable(
   'jobs',
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    title: text('title').notNull(),
+    address: text('address').notNull(),
     location: geographyPoint('location').notNull(),
     serviceDurationS: integer('service_duration_s').notNull(),
     windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
