@@ -23,6 +23,15 @@ describe('seed', () => {
     expect([skills?.length, technicians?.length, jobs?.length]).toEqual([6, 8, 60]);
   });
 
+  it('stores Hebrew in logical order and every job has a title and address', async () => {
+    await loadDataset(app().get<Db>(DB), buildSeed());
+    const http = request(app().getHttpServer());
+    const techs = (await http.get('/technicians').expect(200)).body as { name: string }[];
+    expect(techs[0]?.name).toBe('\u05D3\u05E0\u05D4');
+    const jobs = (await http.get('/jobs').expect(200)).body as { title: string; address: string }[];
+    expect(jobs.every((j) => j.title.length > 0 && j.address.length > 0)).toBe(true);
+  });
+
   it('loads the comparison scenario with routed jobs assigned and the new job unassigned', async () => {
     await loadDataset(app().get<Db>(DB), comparisonScenario);
 
