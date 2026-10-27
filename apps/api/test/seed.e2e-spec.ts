@@ -32,6 +32,12 @@ describe('seed', () => {
     expect(jobs.every((j) => j.title.length > 0 && j.address.length > 0)).toBe(true);
   });
 
+  it('seeds a few notes on jobs', async () => {
+    await loadDataset(app().get<Db>(DB), buildSeed());
+    const { body } = await request(app().getHttpServer()).get('/jobs/1/note').expect(200);
+    expect(body.body.length).toBeGreaterThan(0);
+  });
+
   it('loads the comparison scenario with routed jobs assigned and the new job unassigned', async () => {
     await loadDataset(app().get<Db>(DB), comparisonScenario);
 
