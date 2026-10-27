@@ -50,7 +50,7 @@ describe('KPIs and empty state', () => {
     fakeApi(emptyDay);
     renderConsole();
     expect(await screen.findByText('אין עבודות בתאריך הזה')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'הוספת עבודה' })).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'הוספת עבודה' })).toHaveLength(2); // top bar and empty state
   });
 
   it('refresh reloads the day', async () => {
