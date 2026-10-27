@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { DaySummary, InsertionOption, InsertionSuggestions, Job, LonLat, RouteView, Skill, Technician } from '@shibutz/contracts';
 import { ApiError, createJob, fetchDaySummary, fetchJobs, fetchRoute, fetchSkills, fetchSuggestions, fetchTechnicians, insertJob, runOptimization } from './api';
-import { jerusalemToIso, today, unassignedRows } from './map';
+import { jerusalemToIso, today, unassignedJobs } from './map';
 import type { Key, Vars } from './i18n';
 import { useLang } from './lang';
 import { Legend } from './components/Legend';
 import { MapView } from './components/MapView';
 import type { Point } from './components/MapView';
+import { PanelTabs } from './components/PanelTabs';
+import type { Tab } from './components/PanelTabs';
 import { NewJobForm } from './components/NewJobForm';
 import type { JobDraft } from './components/NewJobForm';
 import { RouteStops } from './components/RouteStops';
@@ -37,12 +39,16 @@ export function App(): React.JSX.Element {
   const [date, setDateState] = useState(openingDate);
   const setDate = (d: string): void => {
     setDateState(d);
+    setTab(null);
     try {
       localStorage.setItem(DATE_KEY, d);
     } catch {
       // storage unavailable: the date is not remembered
     }
   };
+  // The user's choice of left-panel tab; null follows the default rule for the date.
+  const [tab, setTab] = useState<Tab | null>(null);
+  const [pinned, setPinned] = useState<number | null>(null);
   const [summary, setSummary] = useState<DaySummary | null>(null);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -121,7 +127,21 @@ export function App(): React.JSX.Element {
       setDraft((d) => ({ ...d, title: '', address: '' }));
       setStale(false);
       setSuggestions(await fetchSuggestions(job.id));
+      setTab('unassigned');
+      setPinned(job.id);
       await reload(); // the new job is on the map, unassigned, whatever the user picks next
+    } catch (e) {
+      setError(problem(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function find(jobId: number): Promise<void> {
+    setBusy(true);
+    try {
+      setSuggestions(await fetchSuggestions(jobId));
+      setStale(false);
     } catch (e) {
       setError(problem(e));
     } finally {
@@ -158,11 +178,18 @@ export function App(): React.JSX.Element {
   const dayJobs = jobs.filter((j) => j.day === date);
   const route = routes.find((r) => r.technicianId === selected) ?? null;
   const jobById = new Map(jobs.map((j) => [j.id, j]));
-  const unassigned = unassignedRows(dayJobs, date);
+  const unassigned = unassignedJobs(dayJobs, date);
+  // Unassigned first when there is work to place and nothing is planned yet.
+  const planned = !!summary?.technicians.some((x) => x.stopCount > 0);
+  const current: Tab = tab ?? (unassigned.length > 0 && summary && !planned ? 'unassigned' : 'technicians');
+  const selectTech = (id: number | null): void => {
+    setSelected(id);
+    setTab('technicians');
+  };
 
   return (
     <div className="app">
-      <TopBar date={date} summary={summary} busy={busy} loading={loading} onDate={setDate} onRefresh={() => void reload()} onOptimize={() => void optimize()} />
+      <TopBar date={date} summary={summary} busy={busy} loading={loading} onDate={setDate} onRefresh={() => void reload()} onOptimize={() => void optimize()} onUnassigned={() => setTab('unassigned')} />
       <div className="body">
       <aside className="side">
         {error && <p className="error" role="alert">{t(error.key, error.vars)}</p>}
@@ -174,7 +201,26 @@ export function App(): React.JSX.Element {
           </section>
         )}
 
-        <TechnicianList technicians={technicians} skills={skills} selected={selected} onSelect={setSelected} />
+        <PanelTabs tab={current} unassignedCount={unassigned.length} onTab={setTab} />
+        <div role="tabpanel" id="tabpanel" aria-labelledby={`tab-${current}`}>
+          {current === 'technicians' ? (
+            <TechnicianList technicians={technicians} days={summary?.technicians ?? []} skills={skills} selected={selected} onSelect={selectTech} />
+          ) : (
+            <>
+              {suggestions && (
+                <Suggestions
+                  suggestions={suggestions}
+                  notice={stale ? t('slot.stale') : ''}
+                  busy={busy}
+                  techName={techName}
+                  onChoose={(o) => void choose(o)}
+                  onClose={() => { setSuggestions(null); setStale(false); }}
+                />
+              )}
+              <UnassignedList jobs={unassigned} skills={skills} highlighted={pinned} busy={busy} onFocus={setFocus} onFind={(id) => void find(id)} />
+            </>
+          )}
+        </div>
         <NewJobForm
           date={date}
           skills={skills}
@@ -187,17 +233,6 @@ export function App(): React.JSX.Element {
           onCancel={() => { setPicking(false); setAt(null); }}
           onSubmit={() => void submitJob()}
         />
-        {suggestions && (
-          <Suggestions
-            suggestions={suggestions}
-            notice={stale ? t('slot.stale') : ''}
-            busy={busy}
-            techName={techName}
-            onChoose={(o) => void choose(o)}
-            onClose={() => { setSuggestions(null); setStale(false); }}
-          />
-        )}
-        <UnassignedList rows={unassigned} onFocus={setFocus} />
         {route && <RouteStops route={route} jobById={jobById} />}
       </aside>
       <main className="main">
@@ -211,7 +246,8 @@ export function App(): React.JSX.Element {
           picking={picking}
           at={at}
           onPick={setAt}
-          onSelect={setSelected}
+          onSelect={selectTech}
+          onSelectJob={(id) => { setTab('unassigned'); setPinned(id); }}
         />
         <Legend />
       </main>

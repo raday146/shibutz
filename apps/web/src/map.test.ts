@@ -1,5 +1,6 @@
+import type { Job } from '@shibutz/contracts';
 import { describe, expect, it } from 'vitest';
-import { JOB_STATUSES, jerusalemToIso, shiftLabel, skillLabel, statusColor, toLatLng, toLatLngs, unassignedRows } from './map';
+import { JOB_STATUSES, jerusalemToIso, shiftLabel, skillLabel, statusColor, toLatLng, toLatLngs, unassignedJobs } from './map';
 
 describe('map helpers', () => {
   it('flips [lon, lat] to Leaflet [lat, lng]', () => {
@@ -16,14 +17,10 @@ describe('map helpers', () => {
     expect(JOB_STATUSES).toEqual(['unassigned', 'assigned', 'in_progress', 'done', 'cancelled']);
   });
 
-  it('lists the unassigned jobs of the day by id, with their stored reason when there is one', () => {
-    const job = (id: number, status: 'unassigned' | 'assigned', day: string) => ({ id, title: `T${id}`, address: id === 3 ? '' : `A${id}`, status, day, location: [34.8, 32.1] as [number, number], unassignedReason: id === 3 ? 'NO_SKILLED_TECHNICIAN' as const : null });
+  it('lists the unassigned jobs of the day by id', () => {
+    const job = (id: number, status: 'unassigned' | 'assigned', day: string) => ({ id, status, day }) as Job;
     const jobs = [job(9, 'unassigned', '2026-11-02'), job(3, 'unassigned', '2026-11-02'), job(5, 'assigned', '2026-11-02'), job(7, 'unassigned', '2026-11-03')];
-
-    expect(unassignedRows(jobs, '2026-11-02')).toEqual([
-      { jobId: 3, title: 'T3', address: '', location: [34.8, 32.1], reason: 'NO_SKILLED_TECHNICIAN' },
-      { jobId: 9, title: 'T9', address: 'A9', location: [34.8, 32.1], reason: null },
-    ]);
+    expect(unassignedJobs(jobs, '2026-11-02').map((j) => j.id)).toEqual([3, 9]);
   });
 
   it('converts Israel wall-clock time to UTC across winter and summer time', () => {
