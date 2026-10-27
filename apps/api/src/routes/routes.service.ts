@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import type { RouteView } from '@shibutz/contracts';
 import { DB, type Db } from '../db/db.module';
-import { jobSkills, jobs, routeStops, routes } from '../db/schema';
+import { jobNotes, jobSkills, jobs, routeStops, routes } from '../db/schema';
 import { ROUTING_GATEWAY } from '../gateways/ports';
 import type { RoutingGateway } from '../gateways/ports';
 import { TechniciansService } from '../technicians/technicians.service';
@@ -32,6 +32,7 @@ export class RoutesService {
         skillIds: sql<number[]>`coalesce((
           select array_agg(${jobSkills.skillId} order by ${jobSkills.skillId})
           from ${jobSkills} where ${jobSkills.jobId} = ${jobs.id}), '{}')`,
+        hasNote: sql<boolean>`exists (select 1 from ${jobNotes} where ${jobNotes.jobId} = ${jobs.id} and ${jobNotes.body} <> '')`,
         eta: routeStops.eta,
         etd: routeStops.etd,
         actualArrival: routeStops.actualArrival,
@@ -50,8 +51,6 @@ export class RoutesService {
     const stops = rows.map((r, i) => ({
       ...r,
       driveS: leg(i),
-      // ponytail: notes arrive with their own ticket; until then no stop has one.
-      hasNote: false,
       eta: r.eta.toISOString(),
       etd: r.etd.toISOString(),
       actualArrival: iso(r.actualArrival),

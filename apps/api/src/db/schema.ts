@@ -125,3 +125,13 @@ export const routeStops = pgTable('route_stops', {
   actualArrival: timestamp('actual_arrival', { withTimezone: true }),
   actualDeparture: timestamp('actual_departure', { withTimezone: true }),
 });
+
+// At most one note per job; it belongs to the job, so unassign, re-plan and reassignment leave it alone.
+export const jobNotes = pgTable('job_notes', {
+  jobId: integer('job_id')
+    .primaryKey()
+    .references(() => jobs.id, { onDelete: 'cascade' }),
+  body: text('body').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
+});

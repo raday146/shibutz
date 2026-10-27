@@ -8,6 +8,8 @@ export interface Dataset {
   skills: CreateSkill[];
   technicians: CreateTechnician[];
   jobs: CreateJob[];
+  /** Notes by positional job id. */
+  notes?: { jobId: number; body: string }[];
 }
 
 /** Fixed planning day, so re-runs are identical. Israel is on winter time (+02:00) then. */
@@ -114,7 +116,14 @@ export function buildSeed(seed = 20261102): Dataset {
     };
   });
 
-  return { skills: SKILLS, technicians, jobs };
+  const notes = [
+    { jobId: 1, body: 'הלקוח מבקש להתקשר חצי שעה לפני ההגעה.' },
+    { jobId: 5, body: 'קוד כניסה לבניין: 1948. חניה ברחוב הצדדי.' },
+    { jobId: 12, body: 'להביא סולם גבוה. הציוד הוחלף בביקור הקודם.' },
+    { jobId: 20, body: 'Customer works from home, bring shoe covers.' },
+  ];
+
+  return { skills: SKILLS, technicians, jobs, notes };
 }
 
 /**
