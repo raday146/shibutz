@@ -44,3 +44,22 @@ describe('language toggle', () => {
     await waitFor(() => expect(screen.getAllByRole('button', { name: /Zed|Avi/ }).map((b) => b.textContent)).toEqual(['Avi', 'Zed']));
   });
 });
+
+describe('unassigned reasons', () => {
+  const job = (id: number, unassignedReason: string | null) => ({
+    id, title: `Job ${id}`, address: 'Herzl 1', location: [34.8, 32.1], skillIds: [], serviceDurationS: 600,
+    windowStart: '2026-11-02T07:00:00.000Z', windowEnd: '2026-11-02T10:00:00.000Z', priority: 50, status: 'unassigned', day: '2026-11-02',
+    unassignedReason, unassignedAt: unassignedReason ? '2026-11-01T08:00:00.000Z' : null,
+  });
+
+  it('shows the stored reason after a reload, localized, and "Not placed yet" when none is stored', async () => {
+    fakeApi({ ...emptyDay, '/jobs': [job(1, 'NO_SKILLED_TECHNICIAN'), job(2, null)] });
+    renderConsole();
+    expect(await screen.findByText('אין טכנאי עם כל הכישורים הנדרשים.')).toBeTruthy();
+    expect(screen.getByText('טרם שובצה.')).toBeTruthy();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Switch to English' }));
+    expect(screen.getByText('No technician has all the required skills.')).toBeTruthy();
+    expect(screen.getByText('Not placed yet.')).toBeTruthy();
+  });
+});
