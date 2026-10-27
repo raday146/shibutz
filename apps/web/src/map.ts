@@ -59,3 +59,9 @@ export const shiftLabel = (start: string, end: string): string => `${start.slice
 
 /** Israel wall-clock HH:MM of an ISO instant. */
 export const time = (iso: string): string => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: ZONE });
+
+/** Today's calendar date in Israel, `YYYY-MM-DD`. */
+export const today = (): string => new Intl.DateTimeFormat('en-CA', { timeZone: ZONE }).format(new Date());
+
+/** A `YYYY-MM-DD` day moved by `n` calendar days. */
+export const addDays = (day: string, n: number): string => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);

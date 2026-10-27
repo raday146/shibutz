@@ -210,4 +210,4 @@ The API's own messages are English only. Known ones map to keys: "Only the first
 
 ## Keys added by the foundation ticket
 
-Strings of the existing screen that the deck above did not cover: `date.label`, `lang.toggle.label` (accessible name of the toggle, written in the language it switches to), `tech.noSkills`, `job.ref` (a job shown as "Job {id}" until jobs have titles), `slot.close`, `map.legend.home`, `map.needs`, `route.title`, `stops.one`/`stops.two`/`stops.other`, `stop.line`. Source of truth is `apps/web/src/i18n.ts`.
+Strings of the existing screen that the deck above did not cover: `date.label`, `lang.toggle.label` (accessible name of the toggle, written in the language it switches to), `tech.noSkills`, `job.ref` (a job shown as "Job {id}" until jobs have titles), `slot.close`, `map.legend.home`, `map.needs`, `duration.min`, `route.title`, `stops.one`/`stops.two`/`stops.other`, `stop.line`. Source of truth is `apps/web/src/i18n.ts`.

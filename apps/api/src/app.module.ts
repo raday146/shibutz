@@ -6,6 +6,8 @@ import { ROUTING_GATEWAY, SOLVER_GATEWAY } from './gateways/ports';
 import { VroomSolverGateway } from './gateways/vroom.gateway';
 import { JobsController } from './jobs/jobs.controller';
 import { JobsService } from './jobs/jobs.service';
+import { DaysController } from './days/days.controller';
+import { DaysService } from './days/days.service';
 import { InsertionController } from './insertion/insertion.controller';
 import { InsertionService } from './insertion/insertion.service';
 import { JobStatusController } from './operations/job-status.controller';
@@ -21,13 +23,14 @@ import { TechniciansService } from './technicians/technicians.service';
 
 @Module({
   imports: [DbModule],
-  controllers: [SkillsController, TechniciansController, JobsController, JobStatusController, InsertionController, OptimizationController, RoutesController],
+  controllers: [SkillsController, TechniciansController, JobsController, JobStatusController, InsertionController, OptimizationController, RoutesController, DaysController],
   providers: [
     SkillsService,
     TechniciansService,
     JobsService,
     OptimizationService,
     RoutesService,
+    DaysService,
     JobStatusService,
     InsertionService,
     { provide: CLOCK, useValue: systemClock },
