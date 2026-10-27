@@ -11,3 +11,6 @@ html, body, #root { height: 100%; margin: 0; font: 14px system-ui, sans-serif; }
 .legend { list-style: none; padding: 0; margin: 12px 0 0; font-size: 12px; }
 .legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
 .legend .dot.home { background: #fff; border: 2px solid #111827; box-sizing: border-box; }
+.form { display: flex; flex-direction: column; gap: 4px; }
+.form input[type=number] { width: 4em; }
+.options li button { border: 1px solid #d1d5db; margin-bottom: 4px; }

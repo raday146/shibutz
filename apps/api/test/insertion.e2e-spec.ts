@@ -119,6 +119,20 @@ describe('POST /jobs/:id/insertion-suggestions (fake routing, fake clock)', () =
     await suggest(target.id, '?limit=0').expect(400);
   });
 
+  it('offers home -> job -> home at route version 0 when nobody has a route that day', async () => {
+    const avi = await technician(34.0);
+    const bea = await technician(34.05);
+    const target = await job(34.01);
+
+    const result = await body(target.id);
+
+    expect(result.rejections).toEqual([]);
+    expect(result.options.map((o) => [o.technicianId, o.position, o.routeVersion])).toEqual([
+      [avi, { afterJobId: null, beforeJobId: null }, 0],
+      [bea, { afterJobId: null, beforeJobId: null }, 0],
+    ]);
+  });
+
   it('only considers technicians within the radius, counting both home and stops', async () => {
     process.env.INSERTION_RADIUS_M = '2000'; // about 0.02 degrees of longitude
     const near = await technician(34.01);

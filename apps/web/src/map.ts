@@ -1,4 +1,4 @@
-import type { Job, JobStatus, LonLat } from '@shibutz/contracts';
+import type { InsertionOption, Job, JobStatus, LonLat, Skill } from '@shibutz/contracts';
 
 /** Contracts are `[lon, lat]` (GeoJSON); Leaflet wants `[lat, lng]`. The only place that flips. */
 export const toLatLng = ([lon, lat]: LonLat): [number, number] => [lat, lon];
@@ -28,4 +28,35 @@ export function unassignedRows(jobs: Pick<Job, 'id' | 'status' | 'day' | 'locati
     .filter((j) => j.day === date && j.status === 'unassigned')
     .map((j) => ({ jobId: j.id, location: j.location, reason: reasons.get(j.id) }))
     .sort((a, b) => a.jobId - b.jobId);
+}
+
+const ZONE = 'Asia/Jerusalem';
+
+/** Offset of ZONE from UTC at an instant, in ms (DST-aware via Intl). */
+function zoneOffsetMs(t: number): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: ZONE, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric',
+  }).formatToParts(new Date(t));
+  const n = (type: string): number => Number(parts.find((p) => p.type === type)?.value);
+  return Date.UTC(n('year'), n('month') - 1, n('day'), n('hour'), n('minute')) - t;
+}
+
+/** Israel wall-clock `date` + `HH:MM` to a UTC ISO instant; the second pass fixes the guess across a DST change. */
+export function jerusalemToIso(date: string, hhmm: string): string {
+  const [y = 0, mo = 1, d = 1] = date.split('-').map(Number);
+  const [h = 0, mi = 0] = hhmm.split(':').map(Number);
+  const guess = Date.UTC(y, mo - 1, d, h, mi);
+  const first = guess - zoneOffsetMs(guess);
+  return new Date(guess - zoneOffsetMs(first)).toISOString();
+}
+
+export const skillLabel = (ids: number[], skills: Skill[]): string =>
+  ids.map((id) => skills.find((s) => s.id === id)?.name ?? `#${id}`).join(', ');
+
+export const shiftLabel = (start: string, end: string): string => `${start.slice(0, 5)}-${end.slice(0, 5)}`;
+
+/** "after Job 3, before home": null neighbours are the technician's home. */
+export function positionLabel({ afterJobId, beforeJobId }: InsertionOption['position']): string {
+  const side = (id: number | null): string => (id === null ? 'home' : `Job ${id}`);
+  return `after ${side(afterJobId)}, before ${side(beforeJobId)}`;
 }
