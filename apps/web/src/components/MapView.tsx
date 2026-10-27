@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { latLngBounds } from 'leaflet';
 import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet';
 import type { Job, LonLat, RouteView, Skill, Technician } from '@shibutz/contracts';
+import { useLang } from '../lang';
 import { skillLabel, statusColor, toLatLng, toLatLngs } from '../map';
 
 export type Point = [number, number];
@@ -46,7 +47,8 @@ interface Props {
 }
 
 export function MapView({ technicians, dayJobs, skills, route, focus, picking, at, onPick, onSelect }: Props): React.JSX.Element {
-  const allPoints: Point[] = [...technicians.map((t) => toLatLng(t.home)), ...dayJobs.map((j) => toLatLng(j.location))];
+  const { t } = useLang();
+  const allPoints: Point[] = [...technicians.map((tech) => toLatLng(tech.home)), ...dayJobs.map((j) => toLatLng(j.location))];
   return (
     <MapContainer className="map" center={CENTER} zoom={10}>
       <TileLayer
@@ -61,18 +63,18 @@ export function MapView({ technicians, dayJobs, skills, route, focus, picking, a
       {route?.geometry && <Polyline positions={toLatLngs(route.geometry.coordinates)} color="#111827" weight={4} />}
       {dayJobs.map((j) => (
         <CircleMarker key={`j${j.id}`} center={toLatLng(j.location)} radius={6} pathOptions={{ color: statusColor(j.status), fillOpacity: 0.8 }}>
-          <Tooltip>{`Job ${j.id}: ${j.status}, needs ${skillLabel(j.skillIds, skills)}`}</Tooltip>
+          <Tooltip>{`${t('job.ref', { id: j.id })}: ${t(`status.${j.status}`)}, ${t('map.needs', { skills: skillLabel(j.skillIds, skills) })}`}</Tooltip>
         </CircleMarker>
       ))}
-      {technicians.map((t) => (
+      {technicians.map((tech) => (
         <CircleMarker
-          key={`t${t.id}`}
-          center={toLatLng(t.home)}
+          key={`t${tech.id}`}
+          center={toLatLng(tech.home)}
           radius={9}
           pathOptions={{ color: '#111827', fillColor: '#fff', fillOpacity: 1, weight: 3 }}
-          eventHandlers={{ click: () => onSelect(t.id) }}
+          eventHandlers={{ click: () => onSelect(tech.id) }}
         >
-          <Tooltip>{`${t.name} (home)`}</Tooltip>
+          <Tooltip>{t('map.home', { name: tech.name })}</Tooltip>
         </CircleMarker>
       ))}
     </MapContainer>

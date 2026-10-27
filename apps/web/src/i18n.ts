@@ -1,0 +1,143 @@
+export type Lang = 'he' | 'en';
+
+/** Hebrew is the source dictionary; `en` is typed from it, so a missing key fails typecheck. Copy deck: docs/console-copy.md. */
+export const he = {
+  'date.label': 'תאריך',
+  'plan.action': 'תכנון יום',
+  'plan.busy': 'התכנון מתבצע',
+  'lang.toggle': 'EN',
+  'lang.toggle.label': 'Switch to English',
+  loading: 'טעינה',
+  'error.action': 'הפעולה לא הושלמה. {message}',
+  'error.network': 'אין חיבור לשרת. יש לבדוק את החיבור ולנסות שוב.',
+  'techs.title': 'טכנאים',
+  'tech.noSkills': 'אין כישורים',
+  'tech.noStops': 'אין עצירות',
+  'unassigned.title': 'עבודות לא משובצות',
+  'reason.NO_SKILLED_TECHNICIAN': 'אין טכנאי עם כל הכישורים הנדרשים.',
+  'reason.WINDOW_OUTSIDE_ALL_SHIFTS': 'חלון הזמן של העבודה מחוץ למשמרות של כל הטכנאים.',
+  'reason.UNREACHABLE': 'אין דרך להגיע למיקום הזה בכביש.',
+  'reason.NOT_FEASIBLE_IN_PLAN': 'לא נמצא מקום בתכנון שעומד בכל חלונות הזמן.',
+  'job.ref': 'עבודה {id}',
+  'job.add': 'הוספת עבודה',
+  'job.new': 'עבודה חדשה',
+  'field.duration': 'משך השירות (בדקות)',
+  'field.window': 'חלון זמן (שעון ישראל)',
+  'location.pick': 'הגדרת מיקום במפה',
+  'location.picking': 'יש ללחוץ על המפה כדי להגדיר מיקום.',
+  'location.set': 'המיקום נקבע',
+  'modal.create': 'יצירה וחיפוש חלון',
+  'modal.close': 'סגירה',
+  'validation.location': 'יש להגדיר מיקום במפה.',
+  'validation.skills': 'יש לבחור לפחות כישור אחד.',
+  'validation.duration': 'משך השירות חייב להיות גדול מאפס.',
+  'validation.window': 'סיום החלון חייב להיות אחרי ההתחלה.',
+  'slot.title': 'האפשרויות הטובות ביותר',
+  'slot.detour': 'תוספת נסיעה: {n} דק׳',
+  'slot.position': 'אחרי {prev}, לפני {next}',
+  'slot.home': 'הבית',
+  'slot.none': 'אף טכנאי לא יכול לקחת את העבודה:',
+  'slot.close': 'סגירה, העבודה נשארת לא משובצת',
+  'slot.rejection.MISSING_SKILL': 'חסר כישור נדרש',
+  'slot.rejection.ROUTE_ALREADY_LATE': 'המסלול כבר מאחר',
+  'slot.rejection.NO_FEASIBLE_POSITION': 'אין מיקום שעומד בחלון הזמן',
+  'slot.stale': 'המסלול השתנה מאז חישוב האפשרויות. האפשרויות רועננו, יש לבחור שוב.',
+  'status.unassigned': 'לא משובצת',
+  'status.assigned': 'משובצת',
+  'status.in_progress': 'בביצוע',
+  'status.done': 'הושלמה',
+  'status.cancelled': 'בוטלה',
+  'map.legend.home': 'בית הטכנאי',
+  'map.home': 'הבית של {name}',
+  'map.needs': 'דורשת: {skills}',
+  'route.title': 'מסלול {date}',
+  'stops.one': 'עצירה אחת',
+  'stops.two': 'שתי עצירות',
+  'stops.other': '{n} עצירות',
+  'stop.line': 'הגעה {eta}, יציאה {etd}',
+} as const;
+
+export type Key = keyof typeof he;
+
+export const en: Record<Key, string> = {
+  'date.label': 'Date',
+  'plan.action': 'Plan day',
+  'plan.busy': 'Planning',
+  'lang.toggle': 'עב',
+  'lang.toggle.label': 'מעבר לעברית',
+  loading: 'Loading',
+  'error.action': "That didn't go through. {message}",
+  'error.network': "Can't reach the server. Check the connection and try again.",
+  'techs.title': 'Technicians',
+  'tech.noSkills': 'No skills',
+  'tech.noStops': 'No stops',
+  'unassigned.title': 'Unassigned jobs',
+  'reason.NO_SKILLED_TECHNICIAN': 'No technician has all the required skills.',
+  'reason.WINDOW_OUTSIDE_ALL_SHIFTS': "The job's time window is outside every technician's shift.",
+  'reason.UNREACHABLE': 'There is no road route to this location.',
+  'reason.NOT_FEASIBLE_IN_PLAN': 'No place in the plan meets every time window.',
+  'job.ref': 'Job {id}',
+  'job.add': 'Add job',
+  'job.new': 'New job',
+  'field.duration': 'Service time (minutes)',
+  'field.window': 'Time window (Israel time)',
+  'location.pick': 'Set location on map',
+  'location.picking': 'Click the map to set the location.',
+  'location.set': 'Location set',
+  'modal.create': 'Create and find a slot',
+  'modal.close': 'Close',
+  'validation.location': 'Set a location on the map.',
+  'validation.skills': 'Pick at least one skill.',
+  'validation.duration': 'Service time must be more than 0.',
+  'validation.window': 'The window must end after it starts.',
+  'slot.title': 'Best options',
+  'slot.detour': '{n} min added driving',
+  'slot.position': 'After {prev}, before {next}',
+  'slot.home': 'home',
+  'slot.none': 'No technician can take this job:',
+  'slot.close': 'Close, the job stays unassigned',
+  'slot.rejection.MISSING_SKILL': 'Missing a required skill',
+  'slot.rejection.ROUTE_ALREADY_LATE': 'The route is already running late',
+  'slot.rejection.NO_FEASIBLE_POSITION': 'No position fits the time window',
+  'slot.stale': 'The route changed since these options were calculated. Options are refreshed, choose again.',
+  'status.unassigned': 'Unassigned',
+  'status.assigned': 'Assigned',
+  'status.in_progress': 'In progress',
+  'status.done': 'Done',
+  'status.cancelled': 'Cancelled',
+  'map.legend.home': 'Technician home',
+  'map.home': "{name}'s home",
+  'map.needs': 'Needs {skills}',
+  'route.title': 'Route {date}',
+  'stops.one': '1 stop',
+  'stops.two': '2 stops',
+  'stops.other': '{n} stops',
+  'stop.line': 'Arrives {eta}, leaves {etd}',
+};
+
+export const dictionaries: Record<Lang, Record<Key, string>> = { he, en };
+
+export const isKey = (k: string): k is Key => k in he;
+
+export type Vars = Record<string, string | number>;
+
+/** Looks `key` up in `lang` and fills `{name}` placeholders. */
+export function translate(lang: Lang, key: Key, vars: Vars = {}): string {
+  return dictionaries[lang][key].replace(/\{(\w+)\}/g, (m, name: string) => (name in vars ? String(vars[name]) : m));
+}
+
+/** `stops.one` / `stops.two` / `stops.other` style key for a count, by the language's plural rules. */
+export function pluralKey<P extends string>(lang: Lang, n: number, prefix: P): `${P}.${'one' | 'two' | 'other'}` {
+  const c = new Intl.PluralRules(lang).select(n);
+  return `${prefix}.${c === 'one' || c === 'two' ? c : 'other'}`;
+}
+
+/** A `YYYY-MM-DD` day as a long date in the language (no time zone shift: the day is a calendar date). */
+export const formatDay = (lang: Lang, day: string): string =>
+  new Intl.DateTimeFormat(lang, { dateStyle: 'full', timeZone: 'UTC' }).format(new Date(`${day}T00:00:00Z`));
+
+/** Alphabetical for the language, so the list does not reorder as work progresses. */
+export function sortByName<T extends { name: string }>(lang: Lang, items: T[]): T[] {
+  const collator = new Intl.Collator(lang);
+  return [...items].sort((a, b) => collator.compare(a.name, b.name));
+}

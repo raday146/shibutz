@@ -1,4 +1,5 @@
 import type { LonLat, Skill } from '@shibutz/contracts';
+import { useLang } from '../lang';
 
 export interface JobDraft {
   skillIds: number[];
@@ -21,15 +22,16 @@ interface Props {
 }
 
 export function NewJobForm({ date, skills, picking, at, draft, busy, onDraft, onStart, onCancel, onSubmit }: Props): React.JSX.Element {
+  const { t } = useLang();
   const { skillIds, minutes, from, to } = draft;
   return (
     <>
-      <h2>New job ({date})</h2>
+      <h2>{t('job.new')} (<bdi dir="ltr">{date}</bdi>)</h2>
       {!picking && !at ? (
-        <button onClick={onStart}>Add job: click the map</button>
+        <button onClick={onStart}>{t('job.add')}: {t('location.pick')}</button>
       ) : (
         <div className="form">
-          <p className="muted">{at ? `Location ${at[1].toFixed(4)}, ${at[0].toFixed(4)} (click the map to move it)` : 'Click the map to set the location'}</p>
+          <p className="muted">{at ? <>{t('location.set')}: <bdi dir="ltr">{at[1].toFixed(4)}, {at[0].toFixed(4)}</bdi></> : t('location.picking')}</p>
           {skills.map((s) => (
             <label key={s.id}>
               <input
@@ -40,11 +42,16 @@ export function NewJobForm({ date, skills, picking, at, draft, busy, onDraft, on
               {s.name}
             </label>
           ))}
-          <label>Duration (min) <input type="number" min={1} value={minutes} onChange={(e) => onDraft({ ...draft, minutes: Number(e.target.value) })} /></label>
-          <label>Window <input type="time" value={from} onChange={(e) => onDraft({ ...draft, from: e.target.value })} /> - <input type="time" value={to} onChange={(e) => onDraft({ ...draft, to: e.target.value })} /> (Israel time)</label>
+          <label>{t('field.duration')} <input type="number" min={1} value={minutes} onChange={(e) => onDraft({ ...draft, minutes: Number(e.target.value) })} /></label>
+          <label>
+            {t('field.window')}{' '}
+            <bdi dir="ltr">
+              <input type="time" value={from} onChange={(e) => onDraft({ ...draft, from: e.target.value })} /> – <input type="time" value={to} onChange={(e) => onDraft({ ...draft, to: e.target.value })} />
+            </bdi>
+          </label>
           <div>
-            <button onClick={onSubmit} disabled={busy || !at}>Create and suggest</button>{' '}
-            <button onClick={onCancel}>Cancel</button>
+            <button onClick={onSubmit} disabled={busy || !at}>{t('modal.create')}</button>{' '}
+            <button onClick={onCancel}>{t('modal.close')}</button>
           </div>
         </div>
       )}
