@@ -89,8 +89,19 @@ input { min-height: 28px; border: 1px solid var(--control-border); border-radius
 .dialog { width: 420px; max-width: calc(100vw - 32px); padding: var(--space-5); background: var(--surface); border-radius: var(--radius-surface); box-shadow: var(--shadow-overlay); }
 .dialog h2 { margin: 0 0 var(--space-2); font-size: var(--text-lg); line-height: var(--lh-lg); }
 .empty { padding: var(--space-4) 0; }
-.side li button { width: 100%; text-align: start; padding: var(--space-1) var(--space-2); border: 0; }
-.side li button.on { background: var(--surface-2); }
+button.plain { min-height: 0; padding: 0; border: 0; font: inherit; font-weight: inherit; color: inherit; }
+.tabs { display: flex; gap: var(--space-1); margin-block-end: var(--space-3); border-bottom: 1px solid var(--hairline); }
+.tabs button { flex: 1; border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--ink-2); }
+.tabs button[aria-selected=true] { border-bottom-color: var(--ink); color: var(--ink); font-weight: 600; }
+.side li.row { padding-block: var(--space-1); border-bottom: 1px solid var(--hairline); border-radius: var(--radius-surface); }
+.side li.row.on, .side li button.on { background: var(--surface-2); }
+.side li.row p { margin: 0; }
+.side li > button:first-child { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--space-1); width: 100%; min-height: 28px; text-align: start; padding: var(--space-1) var(--space-2); border: 0; }
+.side .skills { flex-basis: 100%; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.row.idle b { color: var(--ink-3); }
+.bar { flex-basis: 100%; block-size: 4px; margin-block-start: var(--space-1); background: var(--hairline); border-radius: 2px; overflow: hidden; }
+.bar > span { display: block; block-size: 100%; background: var(--ink-2); }
+.badge { padding-inline: var(--space-1); background: var(--attention-bg); color: var(--attention-ink); border: 1px solid var(--attention); border-radius: var(--radius-control); font-size: var(--text-xs); }
 .error { color: var(--danger-ink); flex-basis: 100%; margin: 0; }
 .main { position: relative; flex: 1; min-width: 0; z-index: var(--z-map); }
 /* The map never mirrors under right-to-left. */

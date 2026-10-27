@@ -13,9 +13,10 @@ interface Props {
   onDate: (date: string) => void;
   onRefresh: () => void;
   onOptimize: () => void;
+  onUnassigned: () => void;
 }
 
-export function TopBar({ date, summary, busy, loading, onDate, onRefresh, onOptimize }: Props): React.JSX.Element {
+export function TopBar({ date, summary, busy, loading, onDate, onRefresh, onOptimize, onUnassigned }: Props): React.JSX.Element {
   const { lang, t, toggle } = useLang();
   const [confirming, setConfirming] = useState(false);
   const planRef = useRef<HTMLButtonElement>(null);
@@ -31,12 +32,15 @@ export function TopBar({ date, summary, busy, loading, onDate, onRefresh, onOpti
     setConfirming(false);
     planRef.current?.focus();
   };
-  const kpi = (key: Key, value: string, attention = false): React.JSX.Element => (
-    <div role="group" aria-label={t(key)} className={attention ? 'kpi attention' : 'kpi'}>
-      <span className="muted">{t(key)}</span>
-      <b><Ltr>{attention && <span aria-hidden="true">▲ </span>}{value}</Ltr></b>
-    </div>
-  );
+  const kpi = (key: Key, value: string, attention = false, onClick?: () => void): React.JSX.Element => {
+    const text = <Ltr>{attention && <span aria-hidden="true">▲ </span>}{value}</Ltr>;
+    return (
+      <div role="group" aria-label={t(key)} className={attention ? 'kpi attention' : 'kpi'}>
+        <span className="muted">{t(key)}</span>
+        <b>{onClick ? <button className="plain" aria-label={`${t(key)} ${value}`} onClick={onClick}>{text}</button> : text}</b>
+      </div>
+    );
+  };
   // Escape closes the dialog; Tab stays between its two buttons.
   const onDialogKey = (e: React.KeyboardEvent): void => {
     if (e.key === 'Escape') close();
@@ -57,7 +61,7 @@ export function TopBar({ date, summary, busy, loading, onDate, onRefresh, onOpti
       {totals && (
         <div className="kpis">
           {kpi('kpi.assigned', `${totals.assigned}/${totals.total}`)}
-          {kpi('kpi.unassigned', String(totals.unassigned), totals.unassigned > 0)}
+          {kpi('kpi.unassigned', String(totals.unassigned), totals.unassigned > 0, onUnassigned)}
           {kpi('kpi.done', `${totals.done}/${totals.total}`)}
           {kpi('kpi.drive', t('duration.min', { n: Math.round(totals.driveS / 60) }))}
         </div>

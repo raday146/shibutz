@@ -46,6 +46,7 @@ export interface Props {
   at: LonLat | null;
   onPick: (at: LonLat) => void;
   onSelect: (technicianId: number) => void;
+  onSelectJob: (jobId: number) => void;
 }
 
 // One icon per look, so a re-render never replaces a marker (and drops its keyboard focus).
@@ -87,7 +88,7 @@ function Pin({ at, cls, color = 1, text = '', label, faded, onClick, children }:
   );
 }
 
-export function MapView({ technicians, dayJobs, skills, routes, selected, focus, picking, at, onPick, onSelect }: Props): React.JSX.Element {
+export function MapView({ technicians, dayJobs, skills, routes, selected, focus, picking, at, onPick, onSelect, onSelectJob }: Props): React.JSX.Element {
   const { lang, t } = useLang();
   const jobById = new Map(dayJobs.map((j) => [j.id, j]));
   const colorOf = (id: number): number => technicians.find((tech) => tech.id === id)?.color ?? 1;
@@ -124,7 +125,7 @@ export function MapView({ technicians, dayJobs, skills, routes, selected, focus,
       {dayJobs
         .filter((j) => j.status === 'unassigned')
         .map((j) => (
-          <Pin key={`j${j.id}`} at={j.location} cls="unassigned" label={`${j.title}, ${t('status.unassigned')}`} faded={selected !== null}>
+          <Pin key={`j${j.id}`} at={j.location} cls="unassigned" label={`${j.title}, ${t('status.unassigned')}`} faded={selected !== null} onClick={() => onSelectJob(j.id)}>
             <b dir="auto">{j.title}</b>
             <div dir="auto">{j.address || t('job.noAddress')}</div>
             <div>{`${t('status.unassigned')}, ${t('map.needs', { skills: skillLabel(j.skillIds, skills, lang) })}`}</div>
