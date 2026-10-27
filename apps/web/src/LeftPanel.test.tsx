@@ -12,7 +12,7 @@ const job = (id: number) => ({
   priority: 50, status: 'unassigned', day: DAY, unassignedReason: 'NO_SKILLED_TECHNICIAN', unassignedAt: T0,
 });
 const sumTech = (technicianId: number, stopCount: number, doneCount = 0, openIncidents = 0) => ({ technicianId, stopCount, doneCount, driveS: 0, expectedFinish: null, openIncidents, stops: [] });
-const stop = { jobId: 9, title: 'S', address: 'A', sequence: 1, location: [34.8, 32.1], eta: T0, etd: T0, actualArrival: null, actualDeparture: null };
+const stop = { jobId: 9, title: 'S', address: 'A', sequence: 1, location: [34.8, 32.1], eta: T0, etd: T0, actualArrival: null, actualDeparture: null, status: 'assigned', skillIds: [], serviceDurationS: 1800, driveS: 0, hasNote: false };
 
 function api(stops: number, jobs = [job(1), job(2)]): Routes {
   return {
@@ -20,7 +20,7 @@ function api(stops: number, jobs = [job(1), job(2)]): Routes {
     '/jobs': jobs,
     '/skills': [{ id: 1, code: 'hvac', nameEn: 'HVAC', nameHe: 'מיזוג' }],
     [`/days/${DAY}/summary`]: daySummary(DAY, { total: 2, unassigned: jobs.length }, [sumTech(1, stops, 1, 2), sumTech(2, 0), sumTech(3, 0)]),
-    [`/routes/1/${DAY}`]: { technicianId: 1, date: DAY, stops: stops ? [stop] : [], geometry: null },
+    [`/routes/1/${DAY}`]: { technicianId: 1, date: DAY, stops: stops ? [stop] : [], summary: { doneCount: 0, driveS: 0, expectedFinish: null }, geometry: null },
   };
 }
 const open = (routes: Routes, lang: 'he' | 'en' = 'en'): void => {
