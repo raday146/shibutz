@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { JOB_STATUSES, statusColor, toLatLng, toLatLngs, unassignedRows } from './map';
+import { JOB_STATUSES, jerusalemToIso, positionLabel, shiftLabel, skillLabel, statusColor, toLatLng, toLatLngs, unassignedRows } from './map';
 
 describe('map helpers', () => {
   it('flips [lon, lat] to Leaflet [lat, lng]', () => {
@@ -24,5 +24,18 @@ describe('map helpers', () => {
       { jobId: 3, location: [34.8, 32.1], reason: 'NO_SKILLED_TECHNICIAN' },
       { jobId: 9, location: [34.8, 32.1], reason: undefined },
     ]);
+  });
+
+  it('converts Israel wall-clock time to UTC across winter and summer time', () => {
+    expect(jerusalemToIso('2026-11-02', '09:00')).toBe('2026-11-02T07:00:00.000Z');
+    expect(jerusalemToIso('2026-07-01', '09:00')).toBe('2026-07-01T06:00:00.000Z');
+    expect(jerusalemToIso('2026-03-27', '03:30')).toBe('2026-03-27T00:30:00.000Z'); // DST starts the same morning at 02:00
+  });
+
+  it('labels skills, shifts and insertion positions', () => {
+    const skills = [{ id: 2, code: 'plumbing', name: 'Plumbing' }];
+    expect(skillLabel([2, 9], skills)).toBe('Plumbing, #9');
+    expect(shiftLabel('08:00:00', '16:00:00')).toBe('08:00-16:00');
+    expect(positionLabel({ afterJobId: null, beforeJobId: 4 })).toBe('after home, before Job 4');
   });
 });
