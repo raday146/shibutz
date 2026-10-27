@@ -31,7 +31,6 @@ export function App(): React.JSX.Element {
   const [error, setError] = useState<Problem | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [reasons, setReasons] = useState<Map<number, string>>(new Map());
   const [focus, setFocus] = useState<Point | null>(null);
   const [skills, setSkills] = useState<Skill[]>([]);
   // New-job form: `picking` waits for a map click; `suggestions` is the panel shown after the job was created.
@@ -72,8 +71,7 @@ export function App(): React.JSX.Element {
   async function optimize(): Promise<void> {
     setBusy(true);
     try {
-      const plan = await runOptimization(date);
-      setReasons(new Map(plan.unassigned.map((u) => [u.jobId, u.reason])));
+      await runOptimization(date);
       await reload();
     } catch (e) {
       setError(problem(e));
@@ -141,7 +139,7 @@ export function App(): React.JSX.Element {
   const techName = (id: number): string => technicians.find((t) => t.id === id)?.name ?? `#${id}`;
   const dayJobs = jobs.filter((j) => j.day === date);
   const jobById = new Map(jobs.map((j) => [j.id, j]));
-  const unassigned = unassignedRows(dayJobs, date, reasons);
+  const unassigned = unassignedRows(dayJobs, date);
 
   return (
     <div className="app">

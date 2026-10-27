@@ -192,6 +192,68 @@ describeIfUp('vroom')('POST /optimization/day/:date unassigned reasons and repla
     );
   });
 
+  it('stores the reason and run time of each unplanned job, clears them on assignment and leaves other dates alone', async () => {
+    const elec = await skill('ELEC');
+    const carp = await skill('CARP');
+    await tech([elec]);
+    const noSkill = await job([carp], 34.01, '09:00', '10:00');
+    const kept = await job([elec], 34.01, '08:00', '08:30', 90);
+    const dropped = await job([elec], 34.01, '08:00', '08:30', 10);
+    const otherDay = (await http().post('/jobs').send({
+      title: 'Later', address: 'x', location: at(34.01), skillIds: [carp], serviceDurationS: 600,
+      windowStart: local('09:00', '2026-07-02'), windowEnd: local('10:00', '2026-07-02'), priority: 50,
+    }).expect(201)).body.id;
+    const reasonOf = async (id: number): Promise<[string | null, string | null]> => {
+      const j: Job = (await http().get(`/jobs/${id}`).expect(200)).body;
+      return [j.unassignedReason, j.unassignedAt];
+    };
+
+    const before = Date.now();
+    await http().post(`/optimization/day/${DATE}`).expect(201);
+    const [noSkillReason, noSkillAt] = await reasonOf(noSkill);
+    expect(noSkillReason).toBe('NO_SKILLED_TECHNICIAN');
+    expect(Date.parse(noSkillAt ?? '')).toBeGreaterThanOrEqual(before - 1000);
+    expect((await reasonOf(dropped))[0]).toBe('NOT_FEASIBLE_IN_PLAN');
+    expect(await reasonOf(kept)).toEqual([null, null]);
+    expect(await reasonOf(otherDay)).toEqual([null, null]);
+
+    // The other date keeps whatever it had; swapping priorities swaps who is placed.
+    await db().execute(sql`update jobs set unassigned_reason = 'UNREACHABLE', unassigned_at = now() where id = ${otherDay}`);
+    await http().patch(`/jobs/${dropped}`).send({ priority: 100 }).expect(200);
+    expect((await reasonOf(dropped))[0]).toBe('NOT_FEASIBLE_IN_PLAN'); // priority is not a requirement
+    await http().post(`/optimization/day/${DATE}`).expect(201);
+    expect(await reasonOf(dropped)).toEqual([null, null]);
+    expect((await reasonOf(kept))[0]).toBe('NOT_FEASIBLE_IN_PLAN');
+    expect((await reasonOf(otherDay))[0]).toBe('UNREACHABLE');
+  });
+
+  it('clears the stored reason when skills, location, duration or window change, not for title or address', async () => {
+    const elec = await skill('ELEC');
+    const carp = await skill('CARP');
+    await tech([elec]);
+    const id = await job([carp], 34.01, '09:00', '10:00');
+    const stored = async (): Promise<string | null> => ((await http().get(`/jobs/${id}`).expect(200)).body as Job).unassignedReason;
+    const replan = async (): Promise<void> => void (await http().post(`/optimization/day/${DATE}`).expect(201));
+    await replan();
+
+    await http().patch(`/jobs/${id}`).send({ title: 'Renamed', address: 'Elsewhere' }).expect(200);
+    expect(await stored()).toBe('NO_SKILLED_TECHNICIAN');
+    const changes: object[] = [
+      { skillIds: [carp, elec] },
+      { location: at(34.02) },
+      { serviceDurationS: 900 },
+      { windowStart: local('09:30') },
+      { windowEnd: local('11:00') },
+    ];
+    for (const change of changes) {
+      await replan();
+      expect(await stored()).not.toBeNull();
+      await http().patch(`/jobs/${id}`).send(change).expect(200);
+      expect(await stored()).toBeNull();
+      await http().patch(`/jobs/${id}`).send({ skillIds: [carp], serviceDurationS: 1800, location: at(34.01), windowStart: local('09:00'), windowEnd: local('10:00') }).expect(200);
+    }
+  });
+
   it('replaces the day idempotently, bumps versions and releases jobs that no longer fit', async () => {
     const elec = await skill('ELEC');
     const carp = await skill('CARP');

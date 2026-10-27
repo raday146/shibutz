@@ -1,4 +1,4 @@
-import type { Job, JobStatus, LonLat, Skill } from '@shibutz/contracts';
+import type { Job, JobStatus, LonLat, Skill, UnassignedReason } from '@shibutz/contracts';
 
 /** Contracts are `[lon, lat]` (GeoJSON); Leaflet wants `[lat, lng]`. The only place that flips. */
 export const toLatLng = ([lon, lat]: LonLat): [number, number] => [lat, lon];
@@ -21,14 +21,14 @@ export interface UnassignedRow {
   title: string;
   address: string;
   location: LonLat;
-  reason: string | undefined;
+  reason: UnassignedReason | null;
 }
 
-/** The day's unassigned jobs by id; `reasons` comes from the last batch run in this session, if any. */
-export function unassignedRows(jobs: Pick<Job, 'id' | 'title' | 'address' | 'status' | 'day' | 'location'>[], date: string, reasons: Map<number, string>): UnassignedRow[] {
+/** The day's unassigned jobs by id, each with the reason stored by the last Plan day run, if any. */
+export function unassignedRows(jobs: Pick<Job, 'id' | 'title' | 'address' | 'status' | 'day' | 'location' | 'unassignedReason'>[], date: string): UnassignedRow[] {
   return jobs
     .filter((j) => j.day === date && j.status === 'unassigned')
-    .map((j) => ({ jobId: j.id, title: j.title, address: j.address, location: j.location, reason: reasons.get(j.id) }))
+    .map((j) => ({ jobId: j.id, title: j.title, address: j.address, location: j.location, reason: j.unassignedReason }))
     .sort((a, b) => a.jobId - b.jobId);
 }
 
