@@ -171,6 +171,10 @@ Every string in the dispatch console, in Hebrew and English. The keys here becom
 | `location.picking` | יש ללחוץ על המפה כדי להגדיר מיקום. Esc לחזרה. | Click the map to set the location. Esc to go back. |
 | `location.set` | המיקום נקבע | Location set |
 | `location.change` | שינוי מיקום | Change location |
+| `location.use` | שימוש בנקודה הזו | Use this point |
+| `location.back` | חזרה | Back |
+| `field.window.from` | תחילת החלון | Window start |
+| `field.window.to` | סיום החלון | Window end |
 | `modal.create` | יצירה וחיפוש חלון | Create and find a slot |
 | `modal.close` | סגירה | Close |
 | `validation.title` | יש להזין כותרת. | Enter a title. |
