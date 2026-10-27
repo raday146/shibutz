@@ -14,7 +14,7 @@ export function RouteStops({ route, jobById }: { route: RouteView; jobById: Map<
           const status = jobById.get(s.jobId)?.status;
           return (
             <li key={s.jobId}>
-              {t('job.ref', { id: s.jobId })}{status ? ` (${t(`status.${status}`)})` : ''}:{' '}
+              <span dir="auto">{s.title}</span>{status ? ` (${t(`status.${status}`)})` : ''}, <span dir="auto">{s.address || t('job.noAddress')}</span>:{' '}
               {withLtrTimes(t('stop.line', { eta: time(s.eta), etd: time(s.etd) }))}
             </li>
           );

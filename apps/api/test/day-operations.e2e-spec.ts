@@ -56,6 +56,8 @@ describe('PATCH /jobs/:id/status (fake routing, fake clock)', () => {
 
   async function job(lon: number, status: JobStatus = 'unassigned', date = DATE): Promise<Job> {
     const body = {
+      title: 'Test job',
+      address: '1 Test St',
       location: [lon, 32],
       skillIds: [],
       serviceDurationS: 600,

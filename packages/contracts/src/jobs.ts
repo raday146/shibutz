@@ -13,6 +13,8 @@ const instant = z.iso.datetime({ offset: true });
  */
 export const createJobSchema = z
   .object({
+    title: z.string('Title is required').trim().min(1, 'Title is required'),
+    address: z.string('Address is required').trim().min(1, 'Address is required'),
     location: lonLatSchema,
     skillIds: skillIdsSchema,
     serviceDurationS: z.number().int().positive(),
@@ -28,6 +30,8 @@ export type UpdateJob = z.infer<typeof updateJobSchema>;
 
 export const jobSchema = createJobSchema.extend({
   id: z.number().int().positive(),
+  /** Backfilled jobs have an empty address; only new ones must have one. */
+  address: z.string(),
   status: jobStatusSchema,
   /** Local date (YYYY-MM-DD) of the window start; derived, read-only. */
   day: z.iso.date(),

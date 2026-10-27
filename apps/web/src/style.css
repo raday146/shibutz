@@ -92,3 +92,6 @@ input { min-height: 28px; border: 1px solid var(--control-border); border-radius
 .form { display: flex; flex-direction: column; gap: var(--space-1); }
 .form input[type=number] { width: 4em; }
 .options li button { border: 1px solid var(--control-border); margin-bottom: var(--space-1); }
+.form label.field { display: flex; flex-direction: column; gap: 2px; }
+.form input:not([type]), .form input[type=text] { border: 1px solid var(--control-border); padding: var(--space-1) 6px; }
+.form input[aria-invalid=true] { border-color: var(--danger); }

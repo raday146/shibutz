@@ -7,6 +7,8 @@ import { jobSkills, jobs, routeStops } from '../db/schema';
 
 const columns = {
   id: jobs.id,
+  title: jobs.title,
+  address: jobs.address,
   location: jobs.location,
   skillIds: sql<number[]>`coalesce((
     select array_agg(${jobSkills.skillId} order by ${jobSkills.skillId})

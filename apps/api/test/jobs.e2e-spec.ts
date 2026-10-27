@@ -15,6 +15,8 @@ describe('jobs', () => {
 
   // 2026-07-01 is summer time in Israel (UTC+3): local 09:00-12:00.
   const job = (skillIds: number[]): Record<string, unknown> => ({
+    title: 'Fix boiler',
+    address: '12 Herzl St, Tel Aviv',
     location: BANGKOK,
     skillIds,
     serviceDurationS: 1800,
@@ -34,6 +36,8 @@ describe('jobs', () => {
 
     expect(created.body).toEqual({
       id: expect.any(Number),
+      title: 'Fix boiler',
+      address: '12 Herzl St, Tel Aviv',
       location: BANGKOK,
       skillIds: [elec, plmb],
       serviceDurationS: 1800,
@@ -99,6 +103,31 @@ describe('jobs', () => {
       .send({ ...job([]), ...override })
       .expect(400);
     await http().get('/jobs').expect(200, []);
+  });
+
+  it.each([
+    ['missing title', { title: undefined }, 'title'],
+    ['blank title', { title: '   ' }, 'title'],
+    ['missing address', { address: undefined }, 'address'],
+    ['blank address', { address: '' }, 'address'],
+  ])('rejects a job with %s and says which field', async (_case, override, field) => {
+    const res = await http()
+      .post('/jobs')
+      .send({ ...job([]), ...override })
+      .expect(400);
+
+    expect(res.body.issues).toEqual([expect.objectContaining({ path: [field], message: expect.stringMatching(/required/) })]);
+    await http().get('/jobs').expect(200, []);
+  });
+
+  it('updates title and address and rejects blanks on patch', async () => {
+    const { body } = await http().post('/jobs').send(job([])).expect(201);
+
+    await http()
+      .patch(`/jobs/${body.id}`)
+      .send({ title: ' Replace pump ', address: '3 Allenby' })
+      .expect(200, { ...body, title: 'Replace pump', address: '3 Allenby' });
+    await http().patch(`/jobs/${body.id}`).send({ title: '' }).expect(400);
   });
 
   it('accepts priority 0 and 100', async () => {

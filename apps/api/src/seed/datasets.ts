@@ -57,7 +57,7 @@ export function buildSeed(seed = 20261102): Dataset {
     Math.round((lon + (rand() - 0.5) * 0.02) * 1e6) / 1e6,
     Math.round((lat + (rand() - 0.5) * 0.02) * 1e6) / 1e6,
   ];
-  const towns = Object.values(TOWNS);
+  const towns = Object.entries(TOWNS);
   const hhmm = (min: number): string => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
 
   const technicians: CreateTechnician[] = [
@@ -71,12 +71,15 @@ export function buildSeed(seed = 20261102): Dataset {
     { name: 'Tamar', home: near(TOWNS.ramatGan), shiftStart: '08:00:00', shiftEnd: '16:00:00', skillIds: [4, 6] },
   ];
 
-  const jobs = Array.from({ length: 60 }, (): CreateJob => {
+  const jobs = Array.from({ length: 60 }, (_, i): CreateJob => {
     const startMin = int(8 * 4, 15 * 4) * 15; // 08:00..15:00 in 15-minute steps
     const first = int(1, 6);
     const second = int(1, 6);
+    const [town, center] = pick(towns);
     return {
-      location: near(pick(towns)),
+      title: `Job ${i + 1}`,
+      address: `${i + 1} Main St, ${town}`,
+      location: near(center),
       // One skill mostly; a second one sometimes, which may match nobody (an unassigned reason).
       skillIds: rand() < 0.2 && second !== first ? [first, second] : [first],
       serviceDurationS: pick([1800, 2700, 3600]),
@@ -105,6 +108,8 @@ export interface Scenario extends Dataset {
 }
 
 const job = (location: LonLat, skillIds: number[], from: string, to: string): CreateJob => ({
+  title: 'Scenario job',
+  address: 'Scenario address',
   location,
   skillIds,
   serviceDurationS: 1800,
