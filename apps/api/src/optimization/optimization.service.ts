@@ -1,6 +1,7 @@
 import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { eq, inArray, sql } from 'drizzle-orm';
 import type { DayPlan } from '@shibutz/contracts';
+import { CLOCK, type Clock } from '../clock/clock';
 import { DB, type Db } from '../db/db.module';
 import { jobs as jobsTable, routeStops, routes as routesTable } from '../db/schema';
 import { NO_ROAD_S, ROUTING_GATEWAY, SOLVER_GATEWAY } from '../gateways/ports';
@@ -19,6 +20,7 @@ type PlannedRoutes = DayPlan['routes'];
 export class OptimizationService {
   constructor(
     @Inject(DB) private readonly db: Db,
+    @Inject(CLOCK) private readonly clock: Clock,
     private readonly technicians: TechniciansService,
     private readonly jobs: JobsService,
     @Inject(ROUTING_GATEWAY) private readonly routing: RoutingGateway,
@@ -47,7 +49,7 @@ export class OptimizationService {
     const { passing, unassigned } = precheckJobs(planTechnicians, planJobs);
 
     const { routes, unassigned: dropped } = await this.solve(date, planTechnicians, passing);
-    await this.replace(date, jobs.map((j) => j.id), routes);
+    await this.replace(date, jobs.map((j) => j.id), routes, [...unassigned, ...dropped]);
 
     return {
       date,
@@ -88,7 +90,8 @@ export class OptimizationService {
     return { routes, unassigned };
   }
 
-  private replace(date: string, jobIds: number[], routes: PlannedRoutes): Promise<void> {
+  private replace(date: string, jobIds: number[], routes: PlannedRoutes, unplaced: UnassignedJob[]): Promise<void> {
+    const at = this.clock.now();
     return this.db.transaction(async (tx) => {
       // Re-check under row locks (no external calls here): a status change racing the batch either committed
       // before this point (409) or waits until we are done.
@@ -105,7 +108,12 @@ export class OptimizationService {
         await tx.delete(routeStops).where(inArray(routeStops.routeId, existingIds));
         await tx.update(routesTable).set({ version: sql`${routesTable.version} + 1` }).where(inArray(routesTable.id, existingIds));
       }
-      if (jobIds.length) await tx.update(jobsTable).set({ status: 'unassigned' }).where(inArray(jobsTable.id, jobIds));
+      if (jobIds.length) {
+        await tx.update(jobsTable).set({ status: 'unassigned', unassignedReason: null, unassignedAt: null }).where(inArray(jobsTable.id, jobIds));
+      }
+      for (const { jobId, reason } of unplaced) {
+        await tx.update(jobsTable).set({ unassignedReason: reason, unassignedAt: at }).where(eq(jobsTable.id, jobId));
+      }
       for (const route of routes) {
         let routeId = existing.find((r) => r.technicianId === route.technicianId)?.id;
         if (routeId === undefined) {
