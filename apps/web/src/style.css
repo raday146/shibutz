@@ -14,3 +14,6 @@ html, body, #root { height: 100%; margin: 0; font: 14px system-ui, sans-serif; }
 .form { display: flex; flex-direction: column; gap: 4px; }
 .form input[type=number] { width: 4em; }
 .options li button { border: 1px solid #d1d5db; margin-bottom: 4px; }
+.form label.field { display: flex; flex-direction: column; gap: 2px; }
+.form input:not([type]), .form input[type=text] { border: 1px solid #8a837d; padding: 4px 6px; }
+.form input[aria-invalid=true] { border-color: #b91c1c; }

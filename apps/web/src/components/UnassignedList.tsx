@@ -1,4 +1,4 @@
-import { toLatLng } from '../map';
+import { addressLabel, toLatLng } from '../map';
 import type { UnassignedRow } from '../map';
 import type { Point } from './MapView';
 
@@ -11,7 +11,9 @@ export function UnassignedList({ rows, onFocus }: { rows: UnassignedRow[]; onFoc
         {rows.map((u) => (
           <li key={u.jobId}>
             <button onClick={() => onFocus(toLatLng(u.location))}>
-              Job {u.jobId}{u.reason ? `: ${u.reason}` : ''}
+              <b dir="auto">{u.title}</b>
+              <div className="muted" dir="auto">{addressLabel(u.address)}</div>
+              {u.reason && <div className="muted">{u.reason}</div>}
             </button>
           </li>
         ))}
