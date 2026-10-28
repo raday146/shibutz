@@ -157,6 +157,7 @@ describe('end-of-day summary', () => {
     const list = await within(d).findByRole('list', { name: 'Incidents' });
     expect(within(list).getByText('Wrong part')).toBeTruthy();
     expect(within(list).getByText('Open')).toBeTruthy();
+    expect(document.activeElement).toBe(within(d).getByRole('textbox', { name: 'What happened?' })); // not dropped on <body>
     expect(backend.calls.find((c) => c.method === 'POST')?.body).toEqual({ body: 'Wrong part', jobId: 10 });
     const row = rowOf('Bob');
     expect(await within(row).findByText('Open incidents: 1')).toBeTruthy();
@@ -170,6 +171,7 @@ describe('end-of-day summary', () => {
     await userEvent.click(await within(d).findByRole('button', { name: 'Mark reviewed' }));
     expect(await within(d).findByText('Reviewed')).toBeTruthy();
     expect(within(d).queryByRole('button', { name: 'Mark reviewed' })).toBeNull();
+    expect(document.activeElement).toBe(within(d).getByRole('list', { name: 'Incidents' })); // not dropped on <body>
     await vi.waitFor(() => expect(within(row).queryByText('Open incidents: 1')).toBeNull());
   });
 

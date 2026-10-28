@@ -6,6 +6,8 @@ import { Ltr, useLang } from '../lang';
 import { addDays, today } from '../map';
 import { IncidentsMenu } from './IncidentsMenu';
 
+const VALID_DATE = /^(19|20)\d\d-\d\d-\d\d$/;
+
 interface Props {
   date: string;
   summary: DaySummary | null;
@@ -29,6 +31,12 @@ export function TopBar({ planError, date, summary, busy, loading, onDate, onRefr
   const planRef = useRef<HTMLButtonElement>(null);
   const keepRef = useRef<HTMLButtonElement>(null);
   const okRef = useRef<HTMLButtonElement>(null);
+  const dateRef = useRef<HTMLInputElement>(null);
+  // Uncontrolled while typing: a half-typed year (0002, 262026) must not be fetched or overwritten.
+  useEffect(() => {
+    const el = dateRef.current;
+    if (el && document.activeElement !== el) el.value = date;
+  }, [date]);
   useEffect(() => {
     if (confirming) keepRef.current?.focus();
   }, [confirming]);
@@ -61,7 +69,7 @@ export function TopBar({ planError, date, summary, busy, loading, onDate, onRefr
     <header className="topbar">
       <div className="date">
         <button aria-label={t('date.prev')} onClick={() => onDate(addDays(date, -1))}><span aria-hidden="true" className="mirror">‹</span></button>
-        <input type="date" aria-label={t('date.label')} value={date} onChange={(e) => e.target.value && onDate(e.target.value)} />
+        <input ref={dateRef} type="date" aria-label={t('date.label')} defaultValue={date} onChange={(e) => VALID_DATE.test(e.target.value) && onDate(e.target.value)} />
         <button aria-label={t('date.next')} onClick={() => onDate(addDays(date, 1))}><span aria-hidden="true" className="mirror">›</span></button>
         <button onClick={() => onDate(today())}>{t('date.today')}</button>
       </div>
@@ -77,15 +85,16 @@ export function TopBar({ planError, date, summary, busy, loading, onDate, onRefr
         {loading && <span className="muted" role="status">{t('loading')}</span>}
         <IncidentsMenu summary={summary} technicians={technicians} onGo={onIncident} onReviewed={onIncidentReviewed} />
         <button onClick={onAdd}>{t('job.add')}</button>
-        <button onClick={onRefresh} disabled={loading}>{t('refresh')}</button>
+        <button onClick={() => !loading && onRefresh()} aria-disabled={loading || undefined}>{t('refresh')}</button>
         {planError && <p role="alert" className="error">{t('error.action', { message: planError })}</p>}
         {started && <span id="plan-why" className="muted">{t('plan.disabled')}</span>}
         <button
           ref={planRef}
           className="primary"
           aria-describedby={started ? 'plan-why' : undefined}
-          disabled={busy || started}
-          onClick={() => (totals && totals.assigned > 0 ? setConfirming(true) : onOptimize())}
+          disabled={started}
+          aria-disabled={busy || undefined} // not `disabled` while busy: that would drop keyboard focus to <body>
+          onClick={() => busy || (totals && totals.assigned > 0 ? setConfirming(true) : onOptimize())}
         >
           {busy ? t('plan.busy') : t('plan.action')}
         </button>

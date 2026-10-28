@@ -113,6 +113,7 @@ describe('find a slot in place', () => {
     expect(screen.getByRole('button', { name: /Bob/ }).getAttribute('aria-pressed')).toBe('true');
     expect(document.querySelector('[data-selected="true"]')?.getAttribute('data-color')).toBe('3');
     expect(screen.queryByTestId('preview')).toBeNull();
+    expect(screen.getByTestId('toasts').textContent).toMatch(/^Job assigned to \S+\.$/); // announced in the live region
   });
 
   it('on a stale route shows the message and refreshed options', async () => {
