@@ -6,7 +6,7 @@ import { runMigrations } from '../db/migrate';
 import * as schema from '../db/schema';
 import { buildSeed, comparisonScenario, type Dataset, type Scenario } from './datasets';
 
-const { jobSkills, jobs, skills, technicianSkills, technicians } = schema;
+const { jobNotes, jobSkills, jobs, skills, technicianSkills, technicians } = schema;
 
 /** Wipes the domain tables (identities restarted, so ids are positional) and inserts the dataset. */
 export async function loadDataset(db: Db, data: Dataset | Scenario): Promise<void> {
@@ -30,6 +30,8 @@ export async function loadDataset(db: Db, data: Dataset | Scenario): Promise<voi
       if (!row) throw new Error('Insert returned no row');
       await tx.insert(jobSkills).values(skillIds.map((skillId) => ({ jobId: row.id, skillId })));
     }
+    const at = new Date();
+    if (data.notes?.length) await tx.insert(jobNotes).values(data.notes.map((n) => ({ ...n, createdAt: at, updatedAt: at })));
   });
 }
 

@@ -119,6 +119,13 @@ export const he = {
   'unassign.ok': 'הסרת שיבוץ',
   'unassign.keep': 'השארת השיבוץ',
   'error.stale': 'המסלול עודכן במקום אחר. הנתונים רועננו, יש לנסות שוב.',
+  'note.label': 'הערה',
+  'note.placeholder': 'הערה על העבודה',
+  'note.saving': 'בשמירה',
+  'note.saved': 'נשמר',
+  'note.updated': 'עודכן {time}',
+  'note.error': 'השמירה נכשלה. הטקסט נשמר כאן, יש לנסות שוב.',
+  'error.retry': 'ניסיון חוזר',
 } as const;
 
 export type Key = keyof typeof he;
@@ -241,6 +248,13 @@ export const en: Record<Key, string> = {
   'unassign.ok': 'Unassign',
   'unassign.keep': 'Keep assignment',
   'error.stale': 'The route was changed elsewhere. Data is refreshed, try again.',
+  'note.label': 'Note',
+  'note.placeholder': 'Add a note about this job',
+  'note.saving': 'Saving',
+  'note.saved': 'Saved',
+  'note.updated': 'Updated {time}',
+  'note.error': "Couldn't save. Your text is still here. Try again.",
+  'error.retry': 'Try again',
 };
 
 export const dictionaries: Record<Lang, Record<Key, string>> = { he, en };

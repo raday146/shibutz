@@ -50,6 +50,13 @@
       "when": 1793125743191,
       "tag": "0006_skills_names_technician_color",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793140268727,
+      "tag": "0007_job_notes",
+      "breakpoints": true
     }
   ]
 }
