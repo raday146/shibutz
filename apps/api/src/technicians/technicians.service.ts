@@ -2,7 +2,7 @@ import { ConflictException, Inject, Injectable, NotFoundException } from '@nestj
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { CreateTechnician, Technician, UpdateTechnician } from '@shibutz/contracts';
 import { DB, type Db } from '../db/db.module';
-import { rejectInvalid } from '../db/errors';
+import { isForeignKeyViolation, rejectInvalid } from '../db/errors';
 import { jobs, routeStops, routes, technicianSkills, technicians } from '../db/schema';
 
 const columns = {
@@ -11,6 +11,7 @@ const columns = {
   home: technicians.home,
   shiftStart: technicians.shiftStart,
   shiftEnd: technicians.shiftEnd,
+  color: technicians.color,
   skillIds: sql<number[]>`coalesce((
     select array_agg(${technicianSkills.skillId} order by ${technicianSkills.skillId})
     from ${technicianSkills} where ${technicianSkills.technicianId} = ${technicians.id}), '{}')`,
@@ -33,7 +34,11 @@ export class TechniciansService {
   async create({ skillIds, ...fields }: CreateTechnician): Promise<Technician> {
     const id = await rejectInvalid(
       this.db.transaction(async (tx) => {
-        const [row] = await tx.insert(technicians).values(fields).returning({ id: technicians.id });
+        // Least-used slot, lowest first on ties; an unused slot has count 0, so it wins.
+        const used = await tx.select({ color: technicians.color }).from(technicians);
+        const count = (slot: number): number => used.filter((u) => u.color === slot).length;
+        const color = [1, 2, 3, 4, 5, 6, 7, 8].reduce((best, slot) => (count(slot) < count(best) ? slot : best));
+        const [row] = await tx.insert(technicians).values({ ...fields, color }).returning({ id: technicians.id });
         if (!row) throw new Error('Insert returned no row');
         if (skillIds.length) await tx.insert(technicianSkills).values(skillIds.map((skillId) => ({ technicianId: row.id, skillId })));
         return row.id;
@@ -47,7 +52,7 @@ export class TechniciansService {
       this.db.transaction(async (tx) => {
         // Home, shift and skills feed the stored ETAs and the skill match, so they are frozen while active stops exist.
         // Done stops are history and do not block edits.
-        if (skillIds || Object.keys(fields).some((k) => k !== 'name')) {
+        if (skillIds || Object.keys(fields).some((k) => k !== 'name' && k !== 'color')) {
           const [stop] = await tx
             .select({ id: routeStops.id })
             .from(routeStops)
@@ -77,7 +82,15 @@ export class TechniciansService {
       .where(eq(routes.technicianId, id))
       .limit(1);
     if (stop) throw new ConflictException('Technician has stops on a route; unassign or cancel those jobs first');
-    const [row] = await this.db.delete(technicians).where(eq(technicians.id, id)).returning({ id: technicians.id });
+    const [row] = await this.db
+      .delete(technicians)
+      .where(eq(technicians.id, id))
+      .returning({ id: technicians.id })
+      .catch((err: unknown) => {
+        // A day report or incident still refers to the technician.
+        if (isForeignKeyViolation(err)) throw new ConflictException('Technician has a day report or incidents and cannot be deleted');
+        throw err;
+      });
     if (!row) throw new NotFoundException('Technician not found');
   }
 }

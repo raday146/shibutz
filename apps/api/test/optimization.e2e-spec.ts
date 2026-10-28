@@ -25,7 +25,7 @@ const ms = (iso: string): number => new Date(iso).getTime();
 type Http = () => ReturnType<typeof request>;
 
 async function seedDay(http: Http): Promise<{ technicians: Technician[]; jobs: Job[] }> {
-  const skill = async (code: string): Promise<number> => (await http().post('/skills').send({ code, name: code }).expect(201)).body.id;
+  const skill = async (code: string): Promise<number> => (await http().post('/skills').send({ code, nameEn: code, nameHe: code }).expect(201)).body.id;
   const elec = await skill('ELEC');
   const plmb = await skill('PLMB');
   const carp = await skill('CARP');
@@ -39,6 +39,8 @@ async function seedDay(http: Http): Promise<{ technicians: Technician[]; jobs: J
   }
 
   const job = (lon: number, skillIds: number[], from: string, to: string, serviceDurationS = 1800, date = DATE): object => ({
+    title: 'Test job',
+    address: '1 Test St',
     location: at(lon),
     skillIds,
     serviceDurationS,
@@ -146,14 +148,14 @@ describeIfUp('vroom')('POST /optimization/day/:date unassigned reasons and repla
   const db = (): Db => app().get<Db>(DB);
 
   async function skill(code: string): Promise<number> {
-    return (await http().post('/skills').send({ code, name: code }).expect(201)).body.id;
+    return (await http().post('/skills').send({ code, nameEn: code, nameHe: code }).expect(201)).body.id;
   }
   async function tech(skillIds: number[]): Promise<number> {
     const body = { name: 'Avi', home: at(34.0), shiftStart: '08:00:00', shiftEnd: '12:00:00', skillIds };
     return (await http().post('/technicians').send(body).expect(201)).body.id;
   }
   async function job(skillIds: number[], lon: number, from: string, to: string, priority = 50, serviceDurationS = 1800): Promise<number> {
-    const body = { location: at(lon), skillIds, serviceDurationS, windowStart: local(from), windowEnd: local(to), priority };
+    const body = { title: 'Test job', address: '1 Test St', location: at(lon), skillIds, serviceDurationS, windowStart: local(from), windowEnd: local(to), priority };
     return (await http().post('/jobs').send(body).expect(201)).body.id;
   }
   async function snapshot(): Promise<unknown[]> {
@@ -188,6 +190,68 @@ describeIfUp('vroom')('POST /optimization/day/:date unassigned reasons and repla
         { jobId: dropped, reason: 'NOT_FEASIBLE_IN_PLAN' },
       ].sort((a, b) => a.jobId - b.jobId),
     );
+  });
+
+  it('stores the reason and run time of each unplanned job, clears them on assignment and leaves other dates alone', async () => {
+    const elec = await skill('ELEC');
+    const carp = await skill('CARP');
+    await tech([elec]);
+    const noSkill = await job([carp], 34.01, '09:00', '10:00');
+    const kept = await job([elec], 34.01, '08:00', '08:30', 90);
+    const dropped = await job([elec], 34.01, '08:00', '08:30', 10);
+    const otherDay = (await http().post('/jobs').send({
+      title: 'Later', address: 'x', location: at(34.01), skillIds: [carp], serviceDurationS: 600,
+      windowStart: local('09:00', '2026-07-02'), windowEnd: local('10:00', '2026-07-02'), priority: 50,
+    }).expect(201)).body.id;
+    const reasonOf = async (id: number): Promise<[string | null, string | null]> => {
+      const j: Job = (await http().get(`/jobs/${id}`).expect(200)).body;
+      return [j.unassignedReason, j.unassignedAt];
+    };
+
+    const before = Date.now();
+    await http().post(`/optimization/day/${DATE}`).expect(201);
+    const [noSkillReason, noSkillAt] = await reasonOf(noSkill);
+    expect(noSkillReason).toBe('NO_SKILLED_TECHNICIAN');
+    expect(Date.parse(noSkillAt ?? '')).toBeGreaterThanOrEqual(before - 1000);
+    expect((await reasonOf(dropped))[0]).toBe('NOT_FEASIBLE_IN_PLAN');
+    expect(await reasonOf(kept)).toEqual([null, null]);
+    expect(await reasonOf(otherDay)).toEqual([null, null]);
+
+    // The other date keeps whatever it had; swapping priorities swaps who is placed.
+    await db().execute(sql`update jobs set unassigned_reason = 'UNREACHABLE', unassigned_at = now() where id = ${otherDay}`);
+    await http().patch(`/jobs/${dropped}`).send({ priority: 100 }).expect(200);
+    expect((await reasonOf(dropped))[0]).toBe('NOT_FEASIBLE_IN_PLAN'); // priority is not a requirement
+    await http().post(`/optimization/day/${DATE}`).expect(201);
+    expect(await reasonOf(dropped)).toEqual([null, null]);
+    expect((await reasonOf(kept))[0]).toBe('NOT_FEASIBLE_IN_PLAN');
+    expect((await reasonOf(otherDay))[0]).toBe('UNREACHABLE');
+  });
+
+  it('clears the stored reason when skills, location, duration or window change, not for title or address', async () => {
+    const elec = await skill('ELEC');
+    const carp = await skill('CARP');
+    await tech([elec]);
+    const id = await job([carp], 34.01, '09:00', '10:00');
+    const stored = async (): Promise<string | null> => ((await http().get(`/jobs/${id}`).expect(200)).body as Job).unassignedReason;
+    const replan = async (): Promise<void> => void (await http().post(`/optimization/day/${DATE}`).expect(201));
+    await replan();
+
+    await http().patch(`/jobs/${id}`).send({ title: 'Renamed', address: 'Elsewhere' }).expect(200);
+    expect(await stored()).toBe('NO_SKILLED_TECHNICIAN');
+    const changes: object[] = [
+      { skillIds: [carp, elec] },
+      { location: at(34.02) },
+      { serviceDurationS: 900 },
+      { windowStart: local('09:30') },
+      { windowEnd: local('11:00') },
+    ];
+    for (const change of changes) {
+      await replan();
+      expect(await stored()).not.toBeNull();
+      await http().patch(`/jobs/${id}`).send(change).expect(200);
+      expect(await stored()).toBeNull();
+      await http().patch(`/jobs/${id}`).send({ skillIds: [carp], serviceDurationS: 1800, location: at(34.01), windowStart: local('09:00'), windowEnd: local('10:00') }).expect(200);
+    }
   });
 
   it('replaces the day idempotently, bumps versions and releases jobs that no longer fit', async () => {
@@ -242,9 +306,9 @@ describe('POST /optimization/day/:date racing a status change', () => {
   const http: Http = () => request(app().getHttpServer());
 
   it('returns 409 when a job of the day starts after the first check, and writes nothing', async () => {
-    const { id: elec } = (await http().post('/skills').send({ code: 'ELEC', name: 'ELEC' }).expect(201)).body;
+    const { id: elec } = (await http().post('/skills').send({ code: 'ELEC', nameEn: 'ELEC', nameHe: 'ELEC' }).expect(201)).body;
     await http().post('/technicians').send({ name: 'Avi', home: at(34.0), shiftStart: '08:00:00', shiftEnd: '12:00:00', skillIds: [elec] }).expect(201);
-    const body = { location: at(34.01), skillIds: [elec], serviceDurationS: 600, windowStart: local('08:00'), windowEnd: local('11:00'), priority: 50 };
+    const body = { title: 'Test job', address: '1 Test St', location: at(34.01), skillIds: [elec], serviceDurationS: 600, windowStart: local('08:00'), windowEnd: local('11:00'), priority: 50 };
     const { id } = (await http().post('/jobs').send(body).expect(201)).body;
     startJob = async () => void (await app().get<Db>(DB).execute(sql`update jobs set status = 'done'::job_status where id = ${id}`));
 

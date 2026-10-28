@@ -44,7 +44,7 @@ describe('POST /jobs/:id/insertion-suggestions (fake routing, fake clock)', () =
   });
 
   async function skill(code: string): Promise<number> {
-    return (await http().post('/skills').send({ code, name: code }).expect(201)).body.id;
+    return (await http().post('/skills').send({ code, nameEn: code, nameHe: code }).expect(201)).body.id;
   }
 
   async function technician(homeLon: number, skillIds: number[] = []): Promise<number> {
@@ -55,6 +55,8 @@ describe('POST /jobs/:id/insertion-suggestions (fake routing, fake clock)', () =
   async function job(lon: number, o: { status?: JobStatus; skillIds?: number[]; window?: [string, string] } = {}): Promise<Job> {
     const [from, to] = o.window ?? ['08:00:00', '17:00:00'];
     const body = {
+      title: 'Test job',
+      address: '1 Test St',
       location: [lon, 32],
       skillIds: o.skillIds ?? [],
       serviceDurationS: 600,
@@ -250,6 +252,19 @@ describe('POST /jobs/:id/insertion-suggestions (fake routing, fake clock)', () =
       expect((await db().select().from(routes))[0]?.version).toBe(2);
       const shown = (await http().get(`/routes/${avi}/${DATE}`).expect(200)).body;
       expect(shown.stops.map((s: { jobId: number }) => s.jobId)).toEqual([target.id, stop.id]);
+    });
+
+    it('clears the stored unassigned reason and its time when the job is placed', async () => {
+      const avi = await technician(34.0);
+      const stop = await job(34.02, { status: 'assigned' });
+      await route(avi, [{ job: stop }]);
+      const target = await job(34.01);
+      await db().execute(sql`update jobs set unassigned_reason = 'NOT_FEASIBLE_IN_PLAN', unassigned_at = now() where id = ${target.id}`);
+
+      await insert(target.id, avi, null, stop.id, 1).expect(200);
+
+      const placed: Job = (await http().get(`/jobs/${target.id}`).expect(200)).body;
+      expect([placed.unassignedReason, placed.unassignedAt]).toEqual([null, null]);
     });
 
     it('409s on a stale route version and changes nothing', async () => {

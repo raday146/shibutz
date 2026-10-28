@@ -86,6 +86,8 @@ pnpm typecheck && pnpm lint
 pnpm test                                   # unit tests: planning core, mapping, prechecks, seed (Jest)
 pnpm test:e2e                               # e2e + integration, against compose PostGIS
 pnpm --filter web test                      # web unit tests (Vitest)
+pnpm --filter web test:e2e                  # browser checks (Playwright: chromium, webkit, firefox; the API is mocked)
+# first time: pnpm --filter web exec playwright install chromium webkit firefox
 ```
 - E2E boots the real app against `shibutz_test`, truncating between tests, `--runInBand`. Set `TEST_DB_NAME` per
   worktree so parallel runs do not share a database. Batch e2e uses real VROOM with a fake routing gateway.

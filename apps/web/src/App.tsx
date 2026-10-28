@@ -1,113 +1,187 @@
-import { useCallback, useEffect, useState } from 'react';
-import { latLngBounds } from 'leaflet';
-import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet';
-import type { InsertionOption, InsertionSuggestions, Job, LonLat, RouteView, Skill, Technician } from '@shibutz/contracts';
-import { ApiError, createJob, fetchJobs, fetchRoute, fetchSkills, fetchSuggestions, fetchTechnicians, insertJob, runOptimization } from './api';
-import { JOB_STATUSES, jerusalemToIso, positionLabel, shiftLabel, skillLabel, statusColor, toLatLng, toLatLngs, unassignedRows } from './map';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { DaySummary, Incident, JobStatus, InsertionOption, InsertionSuggestions, Job, LonLat, RouteView, Skill, Technician } from '@shibutz/contracts';
+import { ApiError, createJob, fetchDaySummary, fetchJobs, fetchRoute, fetchSkills, fetchSuggestions, fetchTechnicians, insertJob, runOptimization, setJobStatus } from './api';
+import { jerusalemToIso, today, unassignedJobs } from './map';
+import type { Key, Vars } from './i18n';
+import { useLang } from './lang';
+import { Drawer } from './components/Drawer';
+import { RegionError, Skeleton, Toasts } from './components/Feedback';
+import { Legend } from './components/Legend';
+import { MapView } from './components/MapView';
+import type { Point } from './components/MapView';
+import { PanelTabs } from './components/PanelTabs';
+import type { Tab } from './components/PanelTabs';
+import { NewJobModal } from './components/NewJobModal';
+import type { JobDraft } from './components/NewJobModal';
+import { TechnicianList } from './components/TechnicianList';
+import { TopBar } from './components/TopBar';
+import { UnassignedList } from './components/UnassignedList';
 
-const SEED_DAY = '2026-11-02';
-const CENTER: [number, number] = [32.05, 34.85];
-const time = (iso: string): string => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' });
-const errorText = (e: unknown): string => (e instanceof Error ? e.message : String(e));
-
-type Point = [number, number];
-
-/** Fits the map to `points` when `fitKey` changes or the points first appear; later reloads keep the user's view. */
-function FitTo({ points, fitKey }: { points: Point[]; fitKey: string }): null {
-  const map = useMap();
-  const hasPoints = points.length > 0;
-  useEffect(() => {
-    if (hasPoints) map.fitBounds(latLngBounds(points), { padding: [30, 30] });
-    // points is deliberately not a dependency: refit on a new target only, not on every reload
-  }, [map, fitKey, hasPoints]);
-  return null;
+const DATE_KEY = 'shibutz.date';
+/** The last viewed date, else today; browser storage can be blocked. */
+function openingDate(): string {
+  try {
+    const saved = localStorage.getItem(DATE_KEY);
+    if (saved && /^\d{4}-\d\d-\d\d$/.test(saved)) return saved;
+  } catch {
+    // storage unavailable: start on today
+  }
+  return today();
 }
 
-/** Moves the map to a clicked unassigned job. */
-function FlyTo({ target }: { target: Point | null }): null {
-  const map = useMap();
-  useEffect(() => {
-    if (target) map.flyTo(target, 14);
-  }, [map, target]);
-  return null;
-}
-
-/** Reports map clicks while the new-job form is waiting for a location. */
-function PickLocation({ active, onPick }: { active: boolean; onPick: (at: LonLat) => void }): null {
-  useMapEvents({ click: (e) => active && onPick([e.latlng.lng, e.latlng.lat]) });
-  return null;
-}
+/** A message to show, kept untranslated until render so a language change does not reload data. */
+interface Problem { key: Key; vars?: Vars }
+const problem = (e: unknown): Problem =>
+  e instanceof TypeError ? { key: 'error.network' } : { key: 'error.action', vars: { message: e instanceof Error ? e.message : String(e) } };
 
 export function App(): React.JSX.Element {
-  const [date, setDate] = useState(SEED_DAY);
+  const { t } = useLang();
+  const [date, setDateState] = useState(openingDate);
+  const setDate = (d: string): void => {
+    setDateState(d);
+    setTab(null);
+    setFresh(null);
+    setSuggestions(null);
+    setPreviewed(null);
+    setPinned(null);
+    setLink(null);
+    setHighlighted(null);
+    try {
+      localStorage.setItem(DATE_KEY, d);
+    } catch {
+      // storage unavailable: the date is not remembered
+    }
+  };
+  // The user's choice of left-panel tab; null follows the default rule for the date.
+  const [tab, setTab] = useState<Tab | null>(null);
+  const [pinned, setPinned] = useState<number | null>(null);
+  const [summary, setSummary] = useState<DaySummary | null>(null);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
-  const [route, setRoute] = useState<RouteView | null>(null);
-  const [error, setError] = useState('');
+  // Drawer: the row that opened it (focus returns there), whether the keyboard did, and the stop linked with the map.
+  const opener = useRef<HTMLElement | null>(null);
+  const selectedNow = useRef<number | null>(null); // the selection as of now, since map handlers may hold older closures
+  const [instant, setInstant] = useState(false);
+  const [link, setLink] = useState<{ jobId: number } | null>(null);
+  const [highlighted, setHighlighted] = useState<number | null>(null);
+  const [routes, setRoutes] = useState<RouteView[]>([]);
+  // One error per region, shown where it happened: the left panel, the map data (also the drawer's), the Plan day button, a job's slot search.
+  const [panelError, setPanelError] = useState<Problem | null>(null);
+  const [mapError, setMapError] = useState<Problem | null>(null);
+  const [planError, setPlanError] = useState<Problem | null>(null);
+  const [slotError, setSlotError] = useState<{ jobId: number; problem: Problem } | null>(null);
+  const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [reasons, setReasons] = useState<Map<number, string>>(new Map());
   const [focus, setFocus] = useState<Point | null>(null);
   const [skills, setSkills] = useState<Skill[]>([]);
-  // New-job form: `picking` waits for a map click; `suggestions` is the panel shown after the job was created.
+  // New-job modal: `picking` waits for a map click or the center crosshair; `suggestions` is the panel shown after the job was created.
+  const [adding, setAdding] = useState(false);
   const [picking, setPicking] = useState(false);
   const [at, setAt] = useState<LonLat | null>(null);
-  const [skillIds, setSkillIds] = useState<number[]>([]);
-  const [minutes, setMinutes] = useState(30);
-  const [from, setFrom] = useState('09:00');
-  const [to, setTo] = useState('14:00');
+  const [createError, setCreateError] = useState<Problem | null>(null);
+  const [fresh, setFresh] = useState<number | null>(null);
+  const center = useRef<LonLat | null>(null);
+  const trigger = useRef<Element | null>(null);
   const [suggestions, setSuggestions] = useState<InsertionSuggestions | null>(null);
-  const [notice, setNotice] = useState('');
+  const [stale, setStale] = useState(false);
+  const [previewed, setPreviewed] = useState<InsertionOption | null>(null);
 
   // One reload for everything the map shows; also called after a batch run.
+  const latestReload = useRef(0);
   const reload = useCallback(async (): Promise<void> => {
+    const id = ++latestReload.current;
+    const current = (): boolean => id === latestReload.current; // a newer reload owns the screen
     setLoading(true);
-    setRoute((r) => (r && r.technicianId === selected ? r : null)); // do not show another technician's route while loading
+    setPanelError(null);
+    setMapError(null);
     try {
-      const [t, j, r, sk] = await Promise.all([
-        fetchTechnicians(),
-        fetchJobs(),
-        selected === null ? Promise.resolve(null) : fetchRoute(selected, date),
-        fetchSkills(),
-      ]);
+      const [t, j, sk, sum] = await Promise.all([fetchTechnicians(), fetchJobs(), fetchSkills(), fetchDaySummary(date)]);
+      // Every route is drawn in its owner's color, so fetch one per technician that has stops.
+      let r: RouteView[] = [];
+      let routeProblem: Problem | null = null;
+      try {
+        r = await Promise.all(sum.technicians.filter((x) => x.stopCount > 0).map((x) => fetchRoute(x.technicianId, date)));
+      } catch (e) {
+        routeProblem = problem(e); // the left panel still has its data
+      }
+      if (!current()) return;
+      setSummary(sum);
       setSkills(sk);
       setTechnicians(t);
       setJobs(j);
-      setRoute(r);
-      setError('');
+      setRoutes(r);
+      setMapError(routeProblem);
     } catch (e) {
-      setRoute(null); // never leave another technician's route on screen next to this error
-      setError(errorText(e));
+      if (!current()) return;
+      setSummary(null);
+      setRoutes([]); // never leave routes on screen next to this error
+      setPanelError(problem(e));
     } finally {
-      setLoading(false);
+      if (current()) setLoading(false);
     }
-  }, [selected, date]);
+  }, [date]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
+  // CSS skips entrance animations for keyboard-initiated actions (DESIGN.md), keyed on the last input device.
+  useEffect(() => {
+    const mark = (input: string) => (): void => { document.documentElement.dataset.input = input; };
+    const [key, pointer] = [mark('keyboard'), mark('pointer')];
+    document.addEventListener('keydown', key, true);
+    document.addEventListener('pointerdown', pointer, true);
+    return () => {
+      document.removeEventListener('keydown', key, true);
+      document.removeEventListener('pointerdown', pointer, true);
+    };
+  }, []);
 
   async function optimize(): Promise<void> {
     setBusy(true);
+    setPlanError(null);
     try {
       const plan = await runOptimization(date);
-      setReasons(new Map(plan.unassigned.map((u) => [u.jobId, u.reason])));
+      setToast({ id: Date.now(), text: t('plan.done', { assigned: plan.routes.reduce((n, r) => n + r.jobCount, 0), unassigned: plan.unassigned.length }) });
       await reload();
     } catch (e) {
-      setError(errorText(e));
+      setPlanError(problem(e));
     } finally {
       setBusy(false);
     }
   }
 
-  async function submitJob(): Promise<void> {
-    if (!at) return setError('Click the map to set the job location');
-    if (skillIds.length === 0) return setError('Pick at least one skill');
-    if (!(minutes > 0) || from >= to) return setError('Duration must be positive and the window must end after it starts');
+  // Not optimistic: wait for the server, then reload (also after a refusal, which means the screen was stale).
+  async function changeStatus(jobId: number, status: JobStatus, reason?: string): Promise<void> {
+    try {
+      await setJobStatus(jobId, status, reason);
+    } finally {
+      await reload();
+    }
+  }
+
+  const openModal = (): void => {
+    trigger.current = document.activeElement;
+    setCreateError(null);
+    setAdding(true);
+  };
+  const closeModal = useCallback((): void => {
+    setAdding(false);
+    setPicking(false);
+    setAt(null);
+    (trigger.current as HTMLElement | null)?.focus?.();
+  }, []);
+
+  async function submitJob({ title, address, skillIds, minutes, from, to }: JobDraft): Promise<void> {
+    if (!at) return;
     setBusy(true);
+    setCreateError(null);
+    setSlotError(null);
     try {
       const job = await createJob({
+        title,
+        address,
         location: at,
         skillIds,
         serviceDurationS: Math.round(minutes * 60),
@@ -115,13 +189,33 @@ export function App(): React.JSX.Element {
         windowEnd: jerusalemToIso(date, to),
         priority: 50,
       });
-      setPicking(false);
-      setAt(null);
-      setNotice('');
-      setSuggestions(await fetchSuggestions(job.id));
+      closeModal();
+      setStale(false);
+      setTab('unassigned');
+      setPinned(job.id);
+      setFresh(job.id);
+      try {
+        setSuggestions(await fetchSuggestions(job.id));
+      } catch (e) {
+        setSlotError({ jobId: job.id, problem: problem(e) }); // shown at the job's row; the job exists, so no retry of create
+      }
       await reload(); // the new job is on the map, unassigned, whatever the user picks next
     } catch (e) {
-      setError(errorText(e));
+      setCreateError(problem(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function find(jobId: number): Promise<void> {
+    setBusy(true);
+    setSlotError(null);
+    try {
+      setPreviewed(null);
+      setSuggestions(await fetchSuggestions(jobId));
+      setStale(false);
+    } catch (e) {
+      setSlotError({ jobId, problem: problem(e) });
     } finally {
       setBusy(false);
     }
@@ -130,169 +224,186 @@ export function App(): React.JSX.Element {
   async function choose(option: InsertionOption): Promise<void> {
     if (!suggestions) return;
     setBusy(true);
+    setSlotError(null);
     try {
       await insertJob(suggestions.jobId, { technicianId: option.technicianId, position: option.position, routeVersion: option.routeVersion });
       setSuggestions(null);
-      setNotice('');
-      if (option.technicianId === selected) await reload();
-      else setSelected(option.technicianId); // the selection change reloads route, jobs (colours) and the unassigned list
+      setPreviewed(null);
+      setStale(false);
+      await reload();
+      selectTech(option.technicianId);
+      setToast({ id: Date.now(), text: t('slot.assigned', { name: technicians.find((x) => x.id === option.technicianId)?.name ?? '' }) });
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
-        setNotice(`The route changed since these options were computed (${e.message}). Refreshed, please choose again.`);
+        setStale(true);
+        setPreviewed(null);
         try {
           setSuggestions(await fetchSuggestions(suggestions.jobId));
         } catch (again) {
           setSuggestions(null); // e.g. the job is no longer unassigned
-          setError(errorText(again));
+          setSlotError({ jobId: suggestions.jobId, problem: problem(again) });
         }
         await reload();
-      } else setError(errorText(e));
+      } else setSlotError({ jobId: suggestions.jobId, problem: problem(e) });
     } finally {
       setBusy(false);
     }
   }
 
-  const techName = (id: number): string => technicians.find((t) => t.id === id)?.name ?? `#${id}`;
+  const why = (p: Problem): string => (p.key === 'error.network' ? t(p.key) : String(p.vars?.message ?? ''));
+  // First load: nothing to show yet. A reload keeps the content and shows the progress line instead.
+  const first = loading && !summary;
+  // A saved note changes no route on the server, so patch the loaded view instead of reloading.
+  const noteSaved = (jobId: number, hasNote: boolean): void =>
+    setRoutes((rs) => rs.map((r) => ({ ...r, stops: r.stops.map((s) => (s.jobId === jobId ? { ...s, hasNote } : s)) })));
   const dayJobs = jobs.filter((j) => j.day === date);
   const jobById = new Map(jobs.map((j) => [j.id, j]));
-  const unassigned = unassignedRows(dayJobs, date, reasons);
-  const allPoints: Point[] = [...technicians.map((t) => toLatLng(t.home)), ...dayJobs.map((j) => toLatLng(j.location))];
+  const route = routes.find((r) => r.technicianId === selected);
+  const selectedTech = technicians.find((x) => x.id === selected);
+  const byId = unassignedJobs(dayJobs, date);
+  const unassigned = [...byId.filter((j) => j.id === fresh), ...byId.filter((j) => j.id !== fresh)]; // a new job goes on top
+  // Unassigned first when there is work to place and nothing is planned yet.
+  const planned = !!summary?.technicians.some((x) => x.stopCount > 0);
+  const current: Tab = tab ?? (unassigned.length > 0 && summary && !planned ? 'unassigned' : 'technicians');
+  // Slot preview: previous stop (or home), the job, next stop (or home), in the option's technician color.
+  const previewPath = ((): { points: LonLat[]; color: number } | null => {
+    const job = suggestions && jobById.get(suggestions.jobId);
+    const owner = previewed && technicians.find((x) => x.id === previewed.technicianId);
+    if (!previewed || !job || !owner) return null;
+    const stops = routes.find((r) => r.technicianId === owner.id)?.stops ?? [];
+    const at = (id: number | null): LonLat => stops.find((s) => s.jobId === id)?.location ?? owner.home;
+    return { points: [at(previewed.position.afterJobId), job.location, at(previewed.position.beforeJobId)], color: owner.color };
+  })();
+  selectedNow.current = selected;
+  const selectTech = (id: number | null, from?: HTMLElement, keyboard = false): void => {
+    setSelected(id);
+    setTab('technicians');
+    setLink(null);
+    setHighlighted(null);
+    if (id !== null) {
+      if (from || id !== selectedNow.current) opener.current = from ?? null;
+      setInstant(keyboard);
+    }
+  };
+  // From the incidents list: that day, that technician's drawer, and the linked stop expanded.
+  const goToIncident = (i: Incident, from: HTMLElement): void => {
+    if (i.date !== date) setDate(i.date);
+    selectTech(i.technicianId, from, true);
+    if (i.jobId !== null) setLink({ jobId: i.jobId });
+  };
+  const closeDrawer = useCallback(() => selectTech(null), []);
+  // Closing returns focus to the row that opened the drawer, if it is still on screen.
+  useEffect(() => {
+    if (selected === null && opener.current?.isConnected) opener.current.focus();
+    if (selected === null) opener.current = null;
+  }, [selected]);
 
   return (
     <div className="app">
+      {loading && !first && <div className="progress" role="progressbar" aria-label={t('loading')} />}
+      <TopBar planError={planError && why(planError)} date={date} summary={summary} busy={busy} loading={loading} onDate={setDate} onRefresh={() => void reload()} onOptimize={() => void optimize()} onUnassigned={() => setTab('unassigned')} onAdd={openModal} technicians={technicians} onIncident={goToIncident} onIncidentReviewed={() => void reload()} />
+      <div className="body">
       <aside className="side">
-        <input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} />{' '}
-        <button onClick={() => void optimize()} disabled={busy}>
-          {busy ? 'Running...' : 'Run optimization'}
-        </button>
-        {error && <p className="error">{error}</p>}
-        {loading && <p className="muted">Loading...</p>}
-        <ul className="legend">
-          {JOB_STATUSES.map((s) => (
-            <li key={s}>
-              <span className="dot" style={{ background: statusColor(s) }} /> {s.replace('_', ' ')}
-            </li>
-          ))}
-          <li>
-            <span className="dot home" /> technician home
-          </li>
-        </ul>
-        <h2>Technicians</h2>
-        <ul>
-          {technicians.map((t) => (
-            <li key={t.id}>
-              <button className={t.id === selected ? 'on' : ''} onClick={() => setSelected(t.id === selected ? null : t.id)}>
-                {t.name}
-              </button>
-              <div className="muted">{shiftLabel(t.shiftStart, t.shiftEnd)} · {skillLabel(t.skillIds, skills) || 'no skills'}</div>
-            </li>
-          ))}
-        </ul>
-        <h2>New job ({date})</h2>
-        {!picking && !at ? (
-          <button onClick={() => { setPicking(true); setError(''); }}>Add job: click the map</button>
-        ) : (
-          <div className="form">
-            <p className="muted">{at ? `Location ${at[1].toFixed(4)}, ${at[0].toFixed(4)} (click the map to move it)` : 'Click the map to set the location'}</p>
-            {skills.map((s) => (
-              <label key={s.id}>
-                <input
-                  type="checkbox"
-                  checked={skillIds.includes(s.id)}
-                  onChange={(e) => setSkillIds(e.target.checked ? [...skillIds, s.id] : skillIds.filter((x) => x !== s.id))}
-                />{' '}
-                {s.name}
-              </label>
-            ))}
-            <label>Duration (min) <input type="number" min={1} value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} /></label>
-            <label>Window <input type="time" value={from} onChange={(e) => setFrom(e.target.value)} /> - <input type="time" value={to} onChange={(e) => setTo(e.target.value)} /> (Israel time)</label>
-            <div>
-              <button onClick={() => void submitJob()} disabled={busy || !at}>Create and suggest</button>{' '}
-              <button onClick={() => { setPicking(false); setAt(null); }}>Cancel</button>
-            </div>
-          </div>
+        {summary?.totals.total === 0 && (
+          <section className="empty">
+            <h2>{t('empty.day.title')}</h2>
+            <p className="muted">{t('empty.day.body')}</p>
+            <button onClick={openModal}>{t('job.add')}</button>
+          </section>
         )}
-        {suggestions && (
-          <>
-            <h2>Options for Job {suggestions.jobId}</h2>
-            {notice && <p className="error">{notice}</p>}
-            {suggestions.options.length === 0 && <p>No technician can take it:</p>}
-            <ol className="options">
-              {suggestions.options.map((o) => (
-                <li key={`${o.technicianId}-${o.position.afterJobId}-${o.position.beforeJobId}`}>
-                  <button disabled={busy} onClick={() => void choose(o)}>
-                    <b>{techName(o.technicianId)}</b>: {positionLabel(o.position)}, detour {Math.round(o.detourS / 60)} min
-                    <div className="muted">{o.etas.map((e) => `Job ${e.jobId} ${time(e.eta)}`).join(' → ')}</div>
-                  </button>
-                </li>
-              ))}
-            </ol>
-            {suggestions.options.length === 0 && (
-              <ul>
-                {suggestions.rejections.map((r) => (
-                  <li key={r.technicianId}>{techName(r.technicianId)}: {r.reason}</li>
-                ))}
-              </ul>
-            )}
-            <button onClick={() => { setSuggestions(null); setNotice(''); }}>Close (job stays unassigned)</button>
-          </>
-        )}
-        {unassigned.length > 0 && (
-          <>
-            <h2>Unassigned ({unassigned.length})</h2>
-            <ul>
-              {unassigned.map((u) => (
-                <li key={u.jobId}>
-                  <button onClick={() => setFocus(toLatLng(u.location))}>
-                    Job {u.jobId}{u.reason ? `: ${u.reason}` : ''}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-        {route && (
-          <>
-            <h2>Route {route.date}</h2>
-            {route.stops.length === 0 && <p>No stops.</p>}
-            <ol>
-              {route.stops.map((s) => (
-                <li key={s.jobId}>
-                  Job {s.jobId} ({jobById.get(s.jobId)?.status ?? '?'}): ETA {time(s.eta)}, leave {time(s.etd)}
-                </li>
-              ))}
-            </ol>
-          </>
-        )}
+
+        <PanelTabs tab={current} unassignedCount={unassigned.length} onTab={setTab} />
+        <div role="tabpanel" id="tabpanel" aria-labelledby={`tab-${current}`} aria-busy={first}>
+          {panelError ? (
+            <RegionError message={why(panelError)} onRetry={() => void reload()} />
+          ) : first ? (
+            <Skeleton />
+          ) : current === 'technicians' ? (
+            <TechnicianList technicians={technicians} days={summary?.technicians ?? []} skills={skills} selected={selected} onSelect={selectTech} />
+          ) : (
+            <>
+              <UnassignedList
+                jobs={unassigned}
+                skills={skills}
+                highlighted={pinned}
+                busy={busy}
+                failure={slotError && { jobId: slotError.jobId, message: t('error.action', { message: why(slotError.problem) }) }}
+                onFocus={setFocus}
+                onFind={(id) => void find(id)}
+                slot={suggestions && {
+                  suggestions,
+                  notice: stale ? t('slot.stale') : '',
+                  technicians,
+                  titleOf: (id) => jobById.get(id)?.title ?? t('job.ref', { id }),
+                  previewed,
+                  onPreview: setPreviewed,
+                  onChoose: (o) => void choose(o),
+                  onClose: () => { setSuggestions(null); setStale(false); setPreviewed(null); },
+                }}
+              />
+            </>
+          )}
+        </div>
       </aside>
-      <MapContainer className="map" center={CENTER} zoom={10}>
-        <TileLayer
-          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-          maxZoom={19}
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      <main className="main">
+        <MapView
+          date={date}
+          technicians={technicians}
+          dayJobs={dayJobs}
+          skills={skills}
+          routes={routes}
+          selected={selected}
+          highlighted={highlighted}
+          focus={focus}
+          picking={picking}
+          at={at}
+          preview={previewPath}
+          onPick={(p) => { setAt(p); setPicking(false); }}
+          onCenter={(c) => { center.current = c; }}
+          onSelect={selectTech}
+          onSelectStop={(id, jobId) => { selectTech(id); setHighlighted(jobId); setLink({ jobId }); }}
+          onSelectJob={(id) => { setTab('unassigned'); setPinned(id); }}
         />
-        <FitTo points={route?.geometry ? toLatLngs(route.geometry.coordinates) : allPoints} fitKey={route ? `route${route.technicianId}` : 'all'} />
-        <FlyTo target={focus} />
-        <PickLocation active={picking || at !== null} onPick={setAt} />
-        {at && <CircleMarker center={toLatLng(at)} radius={8} pathOptions={{ color: '#dc2626', dashArray: '3' }} />}
-        {route?.geometry && <Polyline positions={toLatLngs(route.geometry.coordinates)} color="#111827" weight={4} />}
-        {dayJobs.map((j) => (
-          <CircleMarker key={`j${j.id}`} center={toLatLng(j.location)} radius={6} pathOptions={{ color: statusColor(j.status), fillOpacity: 0.8 }}>
-            <Tooltip>{`Job ${j.id}: ${j.status}, needs ${skillLabel(j.skillIds, skills)}`}</Tooltip>
-          </CircleMarker>
-        ))}
-        {technicians.map((t) => (
-          <CircleMarker
-            key={`t${t.id}`}
-            center={toLatLng(t.home)}
-            radius={9}
-            pathOptions={{ color: '#111827', fillColor: '#fff', fillOpacity: 1, weight: 3 }}
-            eventHandlers={{ click: () => setSelected(t.id) }}
-          >
-            <Tooltip>{`${t.name} (home)`}</Tooltip>
-          </CircleMarker>
-        ))}
-      </MapContainer>
+        {mapError && <div className="map-error"><RegionError message={why(mapError)} onRetry={() => void reload()} /></div>}
+        {picking && <div className="crosshair" aria-hidden="true" />}
+        <Legend />
+      </main>
+      {selectedTech && (
+        <Drawer
+          key={selectedTech.id}
+          technician={selectedTech}
+          route={route}
+          date={date}
+          skills={skills}
+          link={link}
+          instant={instant}
+          pending={loading && summary?.date !== date}
+          error={mapError && why(mapError)}
+          onRetry={() => void reload()}
+          onLink={setHighlighted}
+          onStatus={changeStatus}
+          onNoted={noteSaved}
+          stamp={summary}
+          onClose={closeDrawer}
+          onDayChanged={() => void reload()}
+        />
+      )}
+      </div>
+      {adding && (
+        <NewJobModal
+          date={date}
+          skills={skills}
+          busy={busy}
+          at={at}
+          picking={picking}
+          failure={createError && t('create.failed', { message: why(createError) })}
+          onPicking={setPicking}
+          onUsePoint={() => { if (center.current) { setAt(center.current); setPicking(false); } }}
+          onSubmit={(d) => void submitJob(d)}
+          onClose={closeModal}
+        />
+      )}
+      <Toasts toast={toast} onGone={() => setToast(null)} />
     </div>
   );
 }

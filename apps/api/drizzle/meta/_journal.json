@@ -29,6 +29,48 @@
       "when": 1793031502358,
       "tag": "0003_routes",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793125126832,
+      "tag": "0004_job_title_address",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793125710573,
+      "tag": "0005_warm_baron_strucker",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793125743191,
+      "tag": "0006_skills_names_technician_color",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793140268727,
+      "tag": "0007_job_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793140317486,
+      "tag": "0008_day_reports_incidents",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793157023381,
+      "tag": "0009_job_cancellations",
+      "breakpoints": true
     }
   ]
 }

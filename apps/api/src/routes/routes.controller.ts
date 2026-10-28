@@ -1,6 +1,6 @@
 import { Controller, Get, Param, ParseIntPipe } from '@nestjs/common';
 import { z } from 'zod';
-import type { RouteView } from '@shibutz/contracts';
+import type { Cancellation, RouteView } from '@shibutz/contracts';
 import { ZodValidationPipe } from '../zod-validation.pipe';
 import { RoutesService } from './routes.service';
 
@@ -14,5 +14,13 @@ export class RoutesController {
     @Param('date', new ZodValidationPipe(z.iso.date())) date: string,
   ): Promise<RouteView> {
     return this.routes.view(technicianId, date);
+  }
+
+  @Get(':technicianId/:date/cancellations')
+  cancellations(
+    @Param('technicianId', ParseIntPipe) technicianId: number,
+    @Param('date', new ZodValidationPipe(z.iso.date())) date: string,
+  ): Promise<Cancellation[]> {
+    return this.routes.cancellations(technicianId, date);
   }
 }
