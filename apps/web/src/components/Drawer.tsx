@@ -3,6 +3,7 @@ import type { JobStatus, RouteView, Skill, Technician } from '@shibutz/contracts
 import { Ltr, useLang, withLtrTimes } from '../lang';
 import { DayEnd } from './DayEnd';
 import { jerusalemToIso, skillLabel, time } from '../map';
+import { CancelledToday } from './CancelledToday';
 import { StopActions } from './StopActions';
 import { NoteField } from './NoteField';
 
@@ -18,7 +19,9 @@ interface Props {
   instant: boolean;
   onLink: (jobId: number) => void;
   /** Records day progress; resolves once the data is reloaded, rejects with the server's refusal. */
-  onStatus: (jobId: number, status: JobStatus) => Promise<void>;
+  onStatus: (jobId: number, status: JobStatus, reason?: string) => Promise<void>;
+  /** Changes whenever the day's data was reloaded, so the cancelled list refetches. */
+  stamp: unknown;
   onClose: () => void;
   /** An incident was added or reviewed. */
   onDayChanged: () => void;
@@ -28,7 +31,7 @@ const GLYPH: Record<JobStatus, string> = { unassigned: '', assigned: '○', in_p
 const minutes = (s: number): number => Math.round(s / 60);
 
 /** The work-day drawer: summary header and a timeline of stops that expand for detail. */
-export function Drawer({ technician, route, date, skills, link, instant, onLink, onStatus, onClose, onDayChanged }: Props): React.JSX.Element {
+export function Drawer({ technician, route, date, skills, link, instant, onLink, onStatus, stamp, onClose, onDayChanged }: Props): React.JSX.Element {
   const { lang, t } = useLang();
   const heading = useRef<HTMLHeadingElement>(null);
   const [open, setOpen] = useState<Set<number>>(new Set());
@@ -102,7 +105,7 @@ export function Drawer({ technician, route, date, skills, link, instant, onLink,
                       <p dir="auto">{s.address || t('job.noAddress')}</p>
                       <p>{skillLabel(s.skillIds, skills, lang)}</p>
                       <p className="muted"><Ltr>{t('stop.duration', { n: minutes(s.serviceDurationS) })}</Ltr>{' · '}<Ltr>{t('stop.drive', { n: minutes(s.driveS) })}</Ltr></p>
-                      <StopActions stop={s} earlier={stops.slice(0, i)} onStatus={async (id, to) => { await onStatus(id, to); if (to === 'unassigned') heading.current?.focus(); }} />
+                      <StopActions stop={s} earlier={stops.slice(0, i)} onStatus={async (id, to, reason) => { await onStatus(id, to, reason); if (to === 'unassigned' || to === 'cancelled') heading.current?.focus(); }} />
                       <NoteField jobId={s.jobId} hasNote={noted[s.jobId] ?? s.hasNote} date={date} onSaved={(id, has) => setNoted((n) => ({ ...n, [id]: has }))} />
                     </div>
                   )}
@@ -112,6 +115,7 @@ export function Drawer({ technician, route, date, skills, link, instant, onLink,
           </ol>
         </>
       )}
+      <CancelledToday technicianId={technician.id} date={date} stamp={stamp} />
       <DayEnd technicianId={technician.id} date={date} stops={stops} onChanged={onDayChanged} />
     </aside>
   );
