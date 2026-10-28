@@ -1,31 +1,56 @@
-import { useId, useLayoutEffect, useRef } from 'react';
+import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/react-dom';
 
-/** A dashed-ident for CSS anchor positioning, unique per call site. */
-export function useAnchorName(): string {
-  return `--anchor-${useId().replace(/\W/g, '')}`;
-}
-
-type Props = Omit<React.ComponentProps<'div'>, 'style' | 'popover'> & { anchor: string };
+type Props = Omit<React.ComponentProps<'div'>, 'style'> & {
+  /** The element the menu hangs from. It keeps focus handling: Escape returns focus to it. */
+  trigger: React.RefObject<HTMLElement | null>;
+  /** Escape or a press outside both the menu and the trigger. */
+  onClose: () => void;
+};
 
 /**
- * A menu or popover shown in the browser's top layer, so no ancestor's overflow can clip it, and anchored to the element that carries
- * `style={{ anchorName: anchor }}`. Placement is logical (below, starting at the anchor's inline-start edge) and flips when it does not
- * fit (see `.anchored` in style.css). `manual` leaves closing to the caller, which already handles Escape and blur.
+ * A menu or popover in a portal on <body>, so no ancestor's overflow can clip it, placed with Floating UI: below the trigger,
+ * aligned to its inline-start edge (it follows the document direction), flipping to the other side or above and shifting
+ * to stay inside the viewport. Escape closes it from anywhere, before any other Escape handler, and returns focus to the trigger.
  */
-export function Anchored({ anchor, className, ref, ...rest }: Props): React.JSX.Element {
-  const el = useRef<HTMLDivElement | null>(null);
-  useLayoutEffect(() => {
-    // Set here, not in JSX, so a browser (or jsdom) without the popover API never hides the element: it just renders in place.
-    // ponytail: no positioned fallback for browsers without the popover API; add one only if an old browser matters.
-    const node = el.current;
-    if (!node?.showPopover) return;
-    node.popover = 'manual';
-    node.showPopover();
-  }, []);
+export function Anchored({ trigger, onClose, ref, className, ...rest }: Props): React.JSX.Element {
+  // Until the first position is computed the menu waits off screen, still measurable and still in the accessibility tree.
+  const { refs, floatingStyles, isPositioned } = useFloating({
+    placement: 'bottom-start',
+    strategy: 'fixed',
+    transform: false, // top/left, so the menu's own scale-in animation can use transform
+    elements: { reference: trigger.current },
+    middleware: [offset(4), flip({ fallbackAxisSideDirection: 'start' }), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  });
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation(); // only the topmost layer closes
+      onClose();
+      trigger.current?.focus();
+    };
+    const onPress = (e: PointerEvent): void => {
+      const at = e.target as Node;
+      if (!refs.floating.current?.contains(at) && !trigger.current?.contains(at)) onClose();
+    };
+    document.addEventListener('keydown', onKey, true);
+    document.addEventListener('pointerdown', onPress, true);
+    return () => {
+      document.removeEventListener('keydown', onKey, true);
+      document.removeEventListener('pointerdown', onPress, true);
+    };
+  }, [onClose, refs.floating, trigger]);
+
   const own = (node: HTMLDivElement | null): void => {
-    el.current = node;
+    refs.setFloating(node);
     if (typeof ref === 'function') ref(node);
     else if (ref) ref.current = node;
   };
-  return <div ref={own} className={['anchored', className].filter(Boolean).join(' ')} {...rest} style={{ positionAnchor: anchor }} />;
+  return createPortal(
+    <div ref={own} className={['anchored', className].filter(Boolean).join(' ')} {...rest} style={isPositioned ? floatingStyles : { ...floatingStyles, left: -9999 }} />,
+    document.body,
+  );
 }

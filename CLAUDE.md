@@ -24,6 +24,7 @@ All UI work must follow `DESIGN.md`.
 ## Rules that bite
 - Coordinates are always `[lon, lat]` (OSRM, VROOM, `ST_MakePoint(lon, lat)`); use one helper.
 - VROOM uses integer ids and seconds; keep a mapping layer at that boundary. Store UTC.
+- Web: only use platform features (CSS, HTML, JS) that are Baseline "widely available", or ship a tested fallback. The console must work in current Chrome, Safari and Firefox (see DESIGN.md, Web platform support). Layout-dependent UI (menus, popovers, overflow) is checked in `apps/web/e2e` on all three engines.
 
 ## Agent skills
 

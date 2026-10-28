@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { DaySummary, Incident, Technician } from '@shibutz/contracts';
 import { fetchOpenIncidents, reviewIncident } from '../api';
 import { Ltr, useLang } from '../lang';
-import { Anchored, useAnchorName } from './Anchored';
+import { Anchored } from './Anchored';
 
 interface Props {
   /** A new day summary means incidents may have changed (added or reviewed in a drawer): refetch. */
@@ -19,7 +19,6 @@ export function IncidentsMenu({ summary, technicians, onGo, onReviewed }: Props)
   const [list, setList] = useState<Incident[] | null>(null);
   const [open, setOpen] = useState(false);
   const [failure, setFailure] = useState(false);
-  const anchor = useAnchorName();
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -34,10 +33,6 @@ export function IncidentsMenu({ summary, technicians, onGo, onReviewed }: Props)
   }, [open]);
 
   if (!list) return null;
-  const close = (): void => {
-    setOpen(false);
-    trigger.current?.focus();
-  };
   const review = async (id: number): Promise<void> => {
     try {
       await reviewIncident(id);
@@ -56,25 +51,26 @@ export function IncidentsMenu({ summary, technicians, onGo, onReviewed }: Props)
     <div
       ref={root}
       className="incidents-menu"
-      onBlur={(e) => { if (open && !root.current?.contains(e.relatedTarget as Node | null)) setOpen(false); }}
+      // Tabbing to another control closes it. A null target (a click on a button Safari and Firefox on macOS leave unfocused, or the
+      // browser chrome) does not: a press outside is handled by Anchored.
+      onBlur={(e) => {
+        const to = e.relatedTarget as Node | null;
+        if (open && to && !root.current?.contains(to) && !panel.current?.contains(to)) setOpen(false);
+      }}
     >
-      <button ref={trigger} style={{ anchorName: anchor }} aria-expanded={open} aria-controls="incidents-panel" className={list.length ? 'attention' : undefined} onClick={() => setOpen(!open)}>
+      <button ref={trigger} aria-expanded={open} aria-controls="incidents-panel" className={list.length ? 'attention' : undefined} onClick={() => setOpen(!open)}>
         {t('incidents.indicator')} <Ltr>{list.length > 0 && <span aria-hidden="true">▲ </span>}{list.length}</Ltr>
       </button>
       {open && (
         <Anchored
-          anchor={anchor}
+          trigger={trigger}
+          onClose={() => setOpen(false)}
           ref={panel}
           id="incidents-panel"
           role="dialog"
           aria-label={t('incidents.list.title')}
           tabIndex={-1}
           className="popover"
-          onKeyDown={(e) => {
-            if (e.key !== 'Escape') return;
-            e.stopPropagation(); // only the topmost layer closes
-            close();
-          }}
         >
           {list.length === 0 && <p className="muted">{t('incidents.list.empty')}</p>}
           {dates.map((d) => (

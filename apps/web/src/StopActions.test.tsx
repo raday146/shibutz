@@ -132,7 +132,7 @@ describe('start, finish and unassign from the drawer', () => {
     const d = await open();
     const r2 = await expand(d, 2);
     await userEvent.click(within(r2).getByRole('button', { name: 'More actions' }));
-    await userEvent.click(within(r2).getByRole('menuitem', { name: 'Unassign' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Unassign' }));
     const dialog = screen.getByRole('alertdialog', { name: 'Unassign "Fix 2"?' });
     expect(within(dialog).getByText('The job goes back to the unassigned list and can be placed again.')).toBeTruthy();
     expect(s.patches).toHaveLength(0);
@@ -152,7 +152,7 @@ describe('start, finish and unassign from the drawer', () => {
     const r2 = await expand(d, 2);
     const more = within(r2).getByRole('button', { name: 'More actions' });
     await userEvent.click(more);
-    await userEvent.click(within(r2).getByRole('menuitem', { name: 'Unassign' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Unassign' }));
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(screen.getByRole('complementary', { name: 'Bob' })).toBeTruthy();
@@ -167,13 +167,13 @@ describe('start, finish and unassign from the drawer', () => {
     const more = within(r2).getByRole('button', { name: 'More actions' });
     more.focus();
     await userEvent.keyboard('{Enter}');
-    expect(document.activeElement).toBe(within(r2).getByRole('menuitem', { name: 'Unassign' }));
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Unassign' }));
     await userEvent.keyboard('{ArrowDown}');
-    expect(document.activeElement).toBe(within(r2).getByRole('menuitem', { name: 'Cancel job' }));
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Cancel job' }));
     await userEvent.keyboard('{ArrowDown}');
-    expect(document.activeElement).toBe(within(r2).getByRole('menuitem', { name: 'Unassign' }));
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Unassign' }));
     await userEvent.keyboard('{Escape}');
-    expect(within(r2).queryByRole('menu')).toBeNull();
+    expect(screen.queryByRole('menu')).toBeNull();
     expect(document.activeElement).toBe(more);
     expect(screen.getByRole('complementary', { name: 'Bob' })).toBeTruthy();
   });
@@ -185,7 +185,7 @@ describe('cancel a job from the drawer', () => {
     const d = await open();
     const r2 = await expand(d, 2);
     await userEvent.click(within(r2).getByRole('button', { name: 'More actions' }));
-    await userEvent.click(within(r2).getByRole('menuitem', { name: 'Cancel job' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Cancel job' }));
     const dialog = screen.getByRole('alertdialog', { name: 'Cancel "Fix 2"?' });
     expect(within(dialog).getByText("The job leaves the route and later stops are re-timed. A cancelled job can't be restored.")).toBeTruthy();
     expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'Keep job' }));
@@ -205,7 +205,7 @@ describe('cancel a job from the drawer', () => {
     const d = await open('he');
     const r1 = await expand(d, 1);
     await userEvent.click(within(r1).getByRole('button', { name: 'פעולות נוספות' }));
-    await userEvent.click(within(r1).getByRole('menuitem', { name: 'ביטול עבודה' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'ביטול עבודה' }));
     const dialog = screen.getByRole('alertdialog');
     expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'השארת העבודה' }));
     await userEvent.tab();
@@ -219,7 +219,7 @@ describe('cancel a job from the drawer', () => {
     expect(s.patches).toHaveLength(0);
 
     await userEvent.click(within(r1).getByRole('button', { name: 'פעולות נוספות' }));
-    await userEvent.click(within(r1).getByRole('menuitem', { name: 'ביטול עבודה' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'ביטול עבודה' }));
     await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'ביטול עבודה' }));
     expect(s.patches).toEqual([{ path: '/jobs/1/status', body: { status: 'cancelled' } }]);
     expect(await within(d).findByRole('region', { name: 'בוטלו היום' })).toBeTruthy();
@@ -231,7 +231,21 @@ describe('cancel a job from the drawer', () => {
     const d = await open();
     const r1 = await expand(d, 1);
     await userEvent.click(within(r1).getByRole('button', { name: 'More actions' }));
-    expect(within(r1).getByRole('menuitem', { name: 'Cancel job' })).toBeTruthy();
-    expect(within(r1).queryByRole('menuitem', { name: 'Unassign' })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'Cancel job' })).toBeTruthy();
+    expect(screen.queryByRole('menuitem', { name: 'Unassign' })).toBeNull();
+  });
+
+  it('closes the menu on a press outside it, and the trigger toggles it', async () => {
+    server();
+    const d = await open();
+    const r2 = await expand(d, 2);
+    const more = within(r2).getByRole('button', { name: 'More actions' });
+    await userEvent.click(more);
+    expect(screen.getByRole('menu')).toBeTruthy();
+    await userEvent.click(more); // the trigger is not "outside": it closes the menu once, it does not reopen it
+    expect(screen.queryByRole('menu')).toBeNull();
+    await userEvent.click(more);
+    await userEvent.click(within(d).getByRole('heading', { name: 'Bob' }));
+    expect(screen.queryByRole('menu')).toBeNull();
   });
 });

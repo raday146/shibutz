@@ -111,7 +111,7 @@ OpenStreetMap tiles stay, muted with a CSS filter on `.leaflet-tile-pane` only: 
 ## Components
 
 - Buttons: filled (`--ink` on white text, one per view), standard (`--control-bg` fill with a `--control-border` border), icon button (28px square with the same fill and border, e.g. the modal ×). Height is 28px everywhere (32px in forms), with no smaller size. Hover moves the fill to `--control-bg-hover`, pressed to `--control-bg-active` with the 0.97 scale. A disabled button drops to `--bg` with a hairline. Row-like buttons (tabs, list rows, timeline rows, section toggles, menu items) have no fill or border: the row is the affordance, and hover uses `--surface-2`. Focus shows a 2px `--focus` ring. The drawer heading takes focus programmatically and shows no ring; the drawer is announced by its label.
-- Menus and popovers (stop overflow menu, incidents list) render in the browser's top layer through `Anchored`, so no drawer or panel overflow clips them, and they need no z-index. They are anchored with CSS anchor positioning in logical terms: below the trigger, starting at its inline-start edge, and flipped to the other side or above when they do not fit. Without the popover API they simply render in place.
+- Menus and popovers (stop overflow menu, incidents list) render in a portal on `<body>` through `Anchored`, so no drawer or panel overflow clips them. Floating UI (`@floating-ui/react-dom`) places them: below the trigger, aligned to its inline-start edge (it follows the document direction), flipping to the other side or above and shifting to stay inside the viewport. Escape and a press outside close them, and Escape returns focus to the trigger. They sit on the modal layer. An earlier version used the popover API and CSS anchor positioning, which Safari before 26 lacks: the menu rendered as a full-height box. `e2e/overlays.spec.ts` checks both overlays on Chromium, WebKit and Firefox.
 - Disclosure arrows follow the reading direction, chosen by language rather than by mirroring: closed is ▸ in English and ◂ in Hebrew, open is ▾.
 - Stop rows keep a fixed order: time and title, then the note icon, then the status. "Add incident" is a full-width button under its input.
 - Rows: white surface, 1px hairline, 8px radius, 9-12px padding. The selected technician row, while their drawer is open, has a 4px inline-start stripe in the technician's color and a tint of 14% of that color over white. Every row reserves the 4px transparent stripe, so selecting moves nothing. Muted text inside the tinted row uses `--ink-2` (4.5:1 or more on every tint).
@@ -184,6 +184,16 @@ All strings and their keys are in `docs/console-copy.md`.
 - Confirmations name the object and the consequence, and their buttons repeat the action ("ביטול עבודה" / "השארת העבודה").
 - Counts: prefer "label: number". Where a count sits inside a sentence, use `Intl.PluralRules` with one, two and other forms.
 - Dates use `Intl.DateTimeFormat` for the active language. Times and ranges sit in an LTR isolate.
+
+## Web platform support
+
+The console must work in current Chrome, Safari and Firefox, on desktop and touch.
+
+- Use only web platform features (CSS, HTML, JS APIs) that are Baseline "widely available", or ship a tested fallback that works in all three engines. "Newly available" is not enough, and neither is a feature one engine ships behind a flag. Check the feature at https://web-platform-dx.github.io/web-features/ or in the `web-features` data before using it.
+- Vite builds for its default `baseline-widely-available` target, so syntax is covered. Runtime APIs and CSS properties are not transpiled: those are the ones to check.
+- Do not rely on a click focusing a button. Safari and Firefox on macOS leave a clicked button unfocused, so focus-based logic (closing on blur, `:focus-within`) must treat a null `relatedTarget` as "unknown", not "left".
+- Playwright runs in `apps/web/e2e` on Chromium, WebKit and Firefox (`pnpm --filter web test:e2e`). A feature that depends on layout or the browser (positioning, overflow, top layer) gets a check there, because jsdom cannot see it.
+- Known exceptions, each with a graceful fallback: `-webkit-line-clamp` on the incident excerpt (prefixed, but supported in all three for years; unclamped text is the fallback).
 
 ## Language and accessibility
 
