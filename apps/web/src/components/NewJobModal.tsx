@@ -40,6 +40,7 @@ export function NewJobModal({ date, skills, busy, at, picking, failure, onPickin
   const locationRef = useRef<HTMLButtonElement>(null);
   const bar = useRef<HTMLDivElement>(null);
   const wasPicking = useRef(false);
+  const [leaving, setLeaving] = useState(false); // a pointer Cancel fades out first; the keyboard closes at once
   const { title, address, skillIds, minutes, from, to } = draft;
 
   const errors = {
@@ -92,7 +93,7 @@ export function NewJobModal({ date, skills, busy, at, picking, failure, onPickin
 
   return (
     <>
-      <div className="overlay" hidden={picking}>
+      <div className={leaving ? 'overlay leaving' : 'overlay'} hidden={picking}>
         <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby="job-modal-title" className="dialog form" onKeyDown={trap}>
           <h2 id="job-modal-title">{t('job.new')} (<bdi dir="ltr">{date}</bdi>)</h2>
           <div className="field">
@@ -146,7 +147,7 @@ export function NewJobModal({ date, skills, busy, at, picking, failure, onPickin
           {failure && <p className="error" role="alert">{failure}</p>}
           <div>
             <button onClick={create} disabled={busy}>{t('modal.create')}</button>{' '}
-            <button onClick={onClose}>{t('modal.close')}</button>
+            <button onClick={(e) => { if (e.detail === 0) onClose(); else { setLeaving(true); setTimeout(onClose, 120); } }}>{t('modal.close')}</button>
           </div>
         </div>
       </div>
