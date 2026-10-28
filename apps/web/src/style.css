@@ -166,7 +166,8 @@ button.plain { min-height: 0; padding: 0; border: 0; font: inherit; font-weight:
 .dayend .incidents li { padding-block: var(--space-2); border-bottom: 1px solid var(--hairline); }
 .dayend .incidents p { margin: 0; }
 .incident-form { display: flex; flex-direction: column; gap: var(--space-1); margin-block-start: var(--space-2); }
-.incident-form button { inline-size: 100%; }
+.incident-form button, .incident-form select { inline-size: 100%; box-sizing: border-box; }
+.incident-form label { display: flex; flex-direction: column; gap: 2px; }
 .drawer.animate { animation: drawer-in var(--dur-panel) var(--ease-drawer); }
 @keyframes drawer-in { from { opacity: 0; transform: translateX(24px); } }
 [dir=rtl] .drawer.animate { animation-name: drawer-in-rtl; }
