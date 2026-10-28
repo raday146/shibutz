@@ -35,6 +35,13 @@ function PickLocation({ active, onPick }: { active: boolean; onPick: (at: LonLat
   return null;
 }
 
+/** Reports the map's center, for the crosshair's "Use this point". */
+function ReportCenter({ onCenter }: { onCenter: (at: LonLat) => void }): null {
+  const map = useMapEvents({ moveend: () => onCenter([map.getCenter().lng, map.getCenter().lat]) });
+  useEffect(() => onCenter([map.getCenter().lng, map.getCenter().lat]), [map, onCenter]);
+  return null;
+}
+
 export interface Props {
   technicians: Technician[];
   dayJobs: Job[];
@@ -49,6 +56,7 @@ export interface Props {
   /** Dashed preview of a slot option: previous stop, the job, next stop, in the technician's color. */
   preview: { points: LonLat[]; color: number } | null;
   onPick: (at: LonLat) => void;
+  onCenter: (at: LonLat) => void;
   onSelect: (technicianId: number) => void;
   onSelectStop: (technicianId: number, jobId: number) => void;
   onSelectJob: (jobId: number) => void;
@@ -93,7 +101,7 @@ function Pin({ at, cls, color = 1, text = '', label, faded, onClick, children }:
   );
 }
 
-export function MapView({ technicians, dayJobs, skills, routes, selected, highlighted, focus, picking, at, preview, onPick, onSelect, onSelectStop, onSelectJob }: Props): React.JSX.Element {
+export function MapView({ technicians, dayJobs, skills, routes, selected, highlighted, focus, picking, at, preview, onPick, onCenter, onSelect, onSelectStop, onSelectJob }: Props): React.JSX.Element {
   const { lang, t } = useLang();
   const jobById = new Map(dayJobs.map((j) => [j.id, j]));
   const colorOf = (id: number): number => technicians.find((tech) => tech.id === id)?.color ?? 1;
@@ -113,7 +121,8 @@ export function MapView({ technicians, dayJobs, skills, routes, selected, highli
       />
       <FitTo points={selected !== null ? selectedPoints : allPoints} fitKey={selected !== null ? `route${selected}` : 'all'} />
       <FlyTo target={focus} />
-      <PickLocation active={picking || at !== null} onPick={onPick} />
+      <PickLocation active={picking} onPick={onPick} />
+      <ReportCenter onCenter={onCenter} />
       {at && <CircleMarker center={toLatLng(at)} radius={8} pathOptions={{ color: '#dc2626', dashArray: '3' }} />}
       {drawn.map((r) => {
         if (!r.geometry) return null;
