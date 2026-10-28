@@ -3,6 +3,7 @@ import type { JobStatus, RouteView, Skill, Technician } from '@shibutz/contracts
 import { Ltr, useLang, withLtrTimes } from '../lang';
 import { jerusalemToIso, skillLabel, time } from '../map';
 import { StopActions } from './StopActions';
+import { NoteField } from './NoteField';
 
 interface Props {
   technician: Technician;
@@ -28,6 +29,7 @@ export function Drawer({ technician, route, date, skills, link, instant, onLink,
   const { lang, t } = useLang();
   const heading = useRef<HTMLHeadingElement>(null);
   const [open, setOpen] = useState<Set<number>>(new Set());
+  const [noted, setNoted] = useState<Record<number, boolean>>({}); // notes saved here, ahead of the route view
   const stops = route?.stops ?? [];
   const summary = route?.summary;
 
@@ -89,7 +91,7 @@ export function Drawer({ technician, route, date, skills, link, instant, onLink,
                   <button aria-expanded={expanded} aria-controls={`stop-${s.jobId}-detail`} onClick={() => toggle(s.jobId)}>
                     <Ltr>{time(s.eta)}</Ltr>
                     <b dir="auto">{s.title}</b>
-                    {s.hasNote && <span role="img" aria-label={t('note.has')}>✎</span>}
+                    {(noted[s.jobId] ?? s.hasNote) &&<span role="img" aria-label={t('note.has')}>✎</span>}
                     <span className="muted"><span aria-hidden="true">{GLYPH[s.status]} </span>{t(`status.${s.status}`)}</span>
                   </button>
                   {expanded && (
@@ -98,6 +100,7 @@ export function Drawer({ technician, route, date, skills, link, instant, onLink,
                       <p>{skillLabel(s.skillIds, skills, lang)}</p>
                       <p className="muted"><Ltr>{t('stop.duration', { n: minutes(s.serviceDurationS) })}</Ltr>{' · '}<Ltr>{t('stop.drive', { n: minutes(s.driveS) })}</Ltr></p>
                       <StopActions stop={s} earlier={stops.slice(0, i)} onStatus={async (id, to) => { await onStatus(id, to); if (to === 'unassigned') heading.current?.focus(); }} />
+                      <NoteField jobId={s.jobId} hasNote={noted[s.jobId] ?? s.hasNote} date={date} onSaved={(id, has) => setNoted((n) => ({ ...n, [id]: has }))} />
                     </div>
                   )}
                 </li>
