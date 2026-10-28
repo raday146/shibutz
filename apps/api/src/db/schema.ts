@@ -142,3 +142,46 @@ export const jobCancellations = pgTable('job_cancellations', {
   cancelledAt: timestamp('cancelled_at', { withTimezone: true }).notNull(),
   reason: text('reason'),
 });
+
+// At most one note per job; it belongs to the job, so unassign, re-plan and reassignment leave it alone.
+export const jobNotes = pgTable('job_notes', {
+  jobId: integer('job_id')
+    .primaryKey()
+    .references(() => jobs.id, { onDelete: 'cascade' }),
+  body: text('body').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
+});
+
+// One optional end-of-day summary per technician and day. No cascade: a technician with a report cannot be deleted.
+export const dayReports = pgTable(
+  'day_reports',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    technicianId: integer('technician_id')
+      .notNull()
+      .references(() => technicians.id),
+    date: date('date', { mode: 'string' }).notNull(),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique('day_reports_technician_date').on(t.technicianId, t.date)],
+);
+
+export const incidentStatus = pgEnum('incident_status', ['open', 'reviewed']);
+
+// Belongs to the work day (technician and date), not to the report. Deleting the job only drops the link.
+export const incidents = pgTable('incidents', {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  technicianId: integer('technician_id')
+    .notNull()
+    .references(() => technicians.id),
+  date: date('date', { mode: 'string' }).notNull(),
+  jobId: integer('job_id').references(() => jobs.id, { onDelete: 'set null' }),
+  body: text('body').notNull(),
+  status: incidentStatus('status').notNull().default('open'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+});

@@ -6,7 +6,7 @@ import { runMigrations } from '../db/migrate';
 import * as schema from '../db/schema';
 import { buildSeed, comparisonScenario, SEED_DAY, type Dataset, type Scenario } from './datasets';
 
-const { jobCancellations, jobSkills, jobs, skills, technicianSkills, technicians } = schema;
+const { dayReports, incidents, jobCancellations, jobNotes, jobSkills, jobs, skills, technicianSkills, technicians } = schema;
 
 /** Wipes the domain tables (identities restarted, so ids are positional) and inserts the dataset. */
 export async function loadDataset(db: Db, data: Dataset | Scenario): Promise<void> {
@@ -33,6 +33,12 @@ export async function loadDataset(db: Db, data: Dataset | Scenario): Promise<voi
     }
     for (const { cancelledAt, ...c } of data.cancellations ?? []) {
       await tx.insert(jobCancellations).values({ ...c, date: SEED_DAY, cancelledAt: new Date(cancelledAt) });
+    }
+    const at = new Date();
+    if (data.notes?.length) await tx.insert(jobNotes).values(data.notes.map((n) => ({ ...n, createdAt: at, updatedAt: at })));
+    if (data.workDay) {
+      await tx.insert(dayReports).values({ technicianId: 1, date: SEED_DAY, body: data.workDay.report });
+      await tx.insert(incidents).values({ technicianId: 1, date: SEED_DAY, jobId: 1, body: data.workDay.incident });
     }
   });
 }

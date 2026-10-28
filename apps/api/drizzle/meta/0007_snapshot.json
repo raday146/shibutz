@@ -1,85 +1,43 @@
 {
-  "id": "2a6a7baa-5315-47f1-b628-1ce3078afdf5",
+  "id": "a3065436-0a5a-453f-bcc9-65ef44ec3578",
   "prevId": "6966dc63-966c-47c3-87af-c659db6a142e",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.job_cancellations": {
-      "name": "job_cancellations",
+    "public.job_notes": {
+      "name": "job_notes",
       "schema": "",
       "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "job_cancellations_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
-        },
         "job_id": {
           "name": "job_id",
           "type": "integer",
-          "primaryKey": false,
+          "primaryKey": true,
           "notNull": true
         },
-        "technician_id": {
-          "name": "technician_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "date": {
-          "name": "date",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "previous_status": {
-          "name": "previous_status",
-          "type": "job_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "actual_arrival": {
-          "name": "actual_arrival",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "actual_departure": {
-          "name": "actual_departure",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cancelled_at": {
-          "name": "cancelled_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "reason": {
-          "name": "reason",
+        "body": {
+          "name": "body",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
         }
       },
       "indexes": {},
       "foreignKeys": {
-        "job_cancellations_job_id_jobs_id_fk": {
-          "name": "job_cancellations_job_id_jobs_id_fk",
-          "tableFrom": "job_cancellations",
+        "job_notes_job_id_jobs_id_fk": {
+          "name": "job_notes_job_id_jobs_id_fk",
+          "tableFrom": "job_notes",
           "tableTo": "jobs",
           "columnsFrom": [
             "job_id"
@@ -89,31 +47,10 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
-        },
-        "job_cancellations_technician_id_technicians_id_fk": {
-          "name": "job_cancellations_technician_id_technicians_id_fk",
-          "tableFrom": "job_cancellations",
-          "tableTo": "technicians",
-          "columnsFrom": [
-            "technician_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "job_cancellations_job_id_unique": {
-          "name": "job_cancellations_job_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "job_id"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
