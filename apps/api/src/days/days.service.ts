@@ -6,7 +6,7 @@ import { jobs, routes } from '../db/schema';
 import { ROUTING_GATEWAY } from '../gateways/ports';
 import type { RoutingGateway } from '../gateways/ports';
 import { IncidentsService } from '../incidents/incidents.service';
-import { loadStops } from '../routes/stops';
+import { driveLegs, loadStops } from '../routes/stops';
 import { TechniciansService } from '../technicians/technicians.service';
 
 @Injectable()
@@ -29,10 +29,8 @@ export class DaysService {
     const rows = await Promise.all(
       technicians.map(async (t) => {
         const mine = stops.filter((s) => s.technicianId === t.id);
-        const points = [t.home, ...mine.map((s) => s.location), t.home];
-        const matrix = mine.length ? await this.routing.durationMatrix(points) : [];
-        // ponytail: a leg with no road counts as 0 s; the plan already refuses unreachable jobs.
-        const driveS = points.slice(1).reduce((sum, _, i) => sum + (matrix[i]?.[i + 1] ?? 0), 0);
+        // ponytail: OSRM down shows 0 drive time for that technician; counts stay DB-only.
+        const driveS = (await driveLegs(this.routing, t.home, mine.map((s) => s.location)).catch(() => [])).reduce((sum, l) => sum + l, 0);
         return {
           technicianId: t.id,
           stopCount: mine.length,

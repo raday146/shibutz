@@ -5,6 +5,7 @@ import { DB, type Db } from '../db/db.module';
 import { jobCancellations, jobNotes, jobSkills, jobs, routeStops, routes } from '../db/schema';
 import { ROUTING_GATEWAY } from '../gateways/ports';
 import type { RoutingGateway } from '../gateways/ports';
+import { driveLegs } from './stops';
 import { TechniciansService } from '../technicians/technicians.service';
 
 const iso = (d: Date | null): string | null => d?.toISOString() ?? null;
@@ -64,10 +65,12 @@ export class RoutesService {
       .where(and(eq(routes.technicianId, technicianId), eq(routes.date, date)))
       .orderBy(asc(routeStops.sequence));
 
-    const points = [home, ...rows.map((r) => r.location), home];
-    const matrix = rows.length ? await this.routing.durationMatrix(points) : [];
-    // ponytail: a leg with no road counts as 0 s; the plan already refuses unreachable jobs.
-    const leg = (i: number): number => Math.round(matrix[i]?.[i + 1] ?? 0);
+    const geometryPoints = [home, ...rows.map((r) => r.location), home];
+    const [legs, geometry] = await Promise.all([
+      driveLegs(this.routing, home, rows.map((r) => r.location)),
+      rows.length ? this.routing.routeGeometry(geometryPoints) : null,
+    ]);
+    const leg = (i: number): number => Math.round(legs[i] ?? 0);
     const stops = rows.map((r, i) => ({
       ...r,
       driveS: leg(i),
@@ -76,10 +79,9 @@ export class RoutesService {
       actualArrival: iso(r.actualArrival),
       actualDeparture: iso(r.actualDeparture),
     }));
-    const geometry = stops.length ? await this.routing.routeGeometry([home, ...stops.map((s) => s.location), home]) : null;
     const summary = {
       doneCount: stops.filter((s) => s.status === 'done').length,
-      driveS: points.slice(1).reduce((sum, _, i) => sum + leg(i), 0),
+      driveS: legs.reduce((sum, _, i) => sum + leg(i), 0),
       expectedFinish: stops.at(-1)?.etd ?? null,
     };
     return { technicianId, date, stops, summary, geometry };
