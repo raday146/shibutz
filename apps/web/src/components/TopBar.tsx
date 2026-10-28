@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import type { DaySummary } from '@shibutz/contracts';
+import type { DaySummary, Incident, Technician } from '@shibutz/contracts';
 import { pluralKey } from '../i18n';
 import type { Key } from '../i18n';
 import { Ltr, useLang } from '../lang';
 import { addDays, today } from '../map';
+import { IncidentsMenu } from './IncidentsMenu';
 
 interface Props {
   date: string;
@@ -15,9 +16,12 @@ interface Props {
   onOptimize: () => void;
   onUnassigned: () => void;
   onAdd: () => void;
+  technicians: Technician[];
+  onIncident: (incident: Incident, from: HTMLElement) => void;
+  onIncidentReviewed: () => void;
 }
 
-export function TopBar({ date, summary, busy, loading, onDate, onRefresh, onOptimize, onUnassigned, onAdd }: Props): React.JSX.Element {
+export function TopBar({ date, summary, busy, loading, onDate, onRefresh, onOptimize, onUnassigned, onAdd, technicians, onIncident, onIncidentReviewed }: Props): React.JSX.Element {
   const { lang, t, toggle } = useLang();
   const [confirming, setConfirming] = useState(false);
   const planRef = useRef<HTMLButtonElement>(null);
@@ -69,6 +73,7 @@ export function TopBar({ date, summary, busy, loading, onDate, onRefresh, onOpti
       )}
       <div className="actions">
         {loading && <span className="muted" role="status">{t('loading')}</span>}
+        <IncidentsMenu summary={summary} technicians={technicians} onGo={onIncident} onReviewed={onIncidentReviewed} />
         <button onClick={onAdd}>{t('job.add')}</button>
         <button onClick={onRefresh} disabled={loading}>{t('refresh')}</button>
         {started && <span id="plan-why" className="muted">{t('plan.disabled')}</span>}

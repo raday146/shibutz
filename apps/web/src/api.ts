@@ -53,4 +53,5 @@ export const fetchIncidents = (technicianId: number, date: string): Promise<Inci
   request(z.array(incidentSchema), `${workDay(technicianId, date)}/incidents`);
 export const addIncident = (technicianId: number, date: string, incident: CreateIncident): Promise<Incident> =>
   request(incidentSchema, `${workDay(technicianId, date)}/incidents`, post(incident));
+export const fetchOpenIncidents = (): Promise<Incident[]> => request(z.array(incidentSchema), '/incidents/open');
 export const reviewIncident = (id: number): Promise<Incident> => request(incidentSchema, `/incidents/${id}/review`, { method: 'POST' });
