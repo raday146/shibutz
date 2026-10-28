@@ -153,6 +153,14 @@ button.plain { min-height: 0; padding: 0; border: 0; font: inherit; font-weight:
 .timeline li > button { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); inline-size: 100%; min-block-size: 36px; padding: var(--space-1) var(--space-2); border: 0; text-align: start; }
 .timeline .detail { padding: 0 var(--space-2) var(--space-2); animation: fade 120ms var(--ease-out); }
 .timeline .detail p { margin: 2px 0; }
+.stop-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-block-start: var(--space-2); }
+.stop-actions button[aria-disabled=true] { color: var(--ink-3); cursor: not-allowed; }
+.stop-actions button[aria-busy=true] { cursor: progress; }
+.stop-actions .error { margin: 0; }
+.stop-actions .menu { position: relative; }
+.stop-actions [role=menu] { position: absolute; inset-inline-start: 0; inset-block-start: 100%; z-index: var(--z-drawer); display: grid; min-inline-size: 140px; padding: var(--space-1); background: var(--surface); border: 1px solid var(--control-border); border-radius: var(--radius-surface); box-shadow: var(--shadow-overlay); animation: fade 125ms var(--ease-out); }
+[dir=rtl] .stop-actions [role=menu] { inset-inline-start: auto; inset-inline-end: 0; }
+.stop-actions [role=menuitem] { border: 0; text-align: start; }
 .drawer.animate { animation: drawer-in var(--dur-panel) var(--ease-drawer); }
 @keyframes drawer-in { from { opacity: 0; transform: translateX(24px); } }
 [dir=rtl] .drawer.animate { animation-name: drawer-in-rtl; }
