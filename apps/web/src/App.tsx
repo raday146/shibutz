@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { DaySummary, JobStatus, InsertionOption, InsertionSuggestions, Job, LonLat, RouteView, Skill, Technician } from '@shibutz/contracts';
+import type { DaySummary, Incident, JobStatus, InsertionOption, InsertionSuggestions, Job, LonLat, RouteView, Skill, Technician } from '@shibutz/contracts';
 import { ApiError, createJob, fetchDaySummary, fetchJobs, fetchRoute, fetchSkills, fetchSuggestions, fetchTechnicians, insertJob, runOptimization, setJobStatus } from './api';
 import { jerusalemToIso, today, unassignedJobs } from './map';
 import type { Key, Vars } from './i18n';
@@ -234,6 +234,12 @@ export function App(): React.JSX.Element {
       setInstant(keyboard);
     }
   };
+  // From the incidents list: that day, that technician's drawer, and the linked stop expanded.
+  const goToIncident = (i: Incident, from: HTMLElement): void => {
+    if (i.date !== date) setDate(i.date);
+    selectTech(i.technicianId, from, true);
+    if (i.jobId !== null) setLink({ jobId: i.jobId });
+  };
   const closeDrawer = useCallback(() => selectTech(null), []);
   // Closing returns focus to the row that opened the drawer, if it is still on screen.
   useEffect(() => {
@@ -243,7 +249,7 @@ export function App(): React.JSX.Element {
 
   return (
     <div className="app">
-      <TopBar date={date} summary={summary} busy={busy} loading={loading} onDate={setDate} onRefresh={() => void reload()} onOptimize={() => void optimize()} onUnassigned={() => setTab('unassigned')} onAdd={openModal} />
+      <TopBar date={date} summary={summary} busy={busy} loading={loading} onDate={setDate} onRefresh={() => void reload()} onOptimize={() => void optimize()} onUnassigned={() => setTab('unassigned')} onAdd={openModal} technicians={technicians} onIncident={goToIncident} onIncidentReviewed={() => void reload()} />
       <div className="body">
       <aside className="side">
         {error && <p className="error" role="alert">{t(error.key, error.vars)}</p>}
