@@ -106,3 +106,14 @@ describe('work-day drawer', () => {
     for (const text of ['משמרת 08:00–16:00', '1/2 הושלמו', 'סיום צפוי 18:30', 'צפוי איחור של 150 דק׳']) expect(drawer().textContent).toContain(text);
   });
 });
+
+describe('drawer pointer close', () => {
+  it('does not close a different drawer opened before the fade-out ends', async () => {
+    open();
+    await userEvent.click(await techButton('Bob'));
+    await userEvent.click(within(drawer()).getByRole('button', { name: 'Close' })); // pointer: closes after a short fade
+    await userEvent.click(await techButton('Alice'));
+    await new Promise((r) => setTimeout(r, 200));
+    expect(drawer('Alice')).toBeTruthy();
+  });
+});

@@ -3,6 +3,8 @@ import type { Lang } from './i18n';
 
 /** Contracts are `[lon, lat]` (GeoJSON); Leaflet wants `[lat, lng]`. The only place that flips. */
 export const toLatLng = ([lon, lat]: LonLat): [number, number] => [lat, lon];
+/** The inverse of `toLatLng`, for a Leaflet point. */
+export const fromLatLng = ({ lat, lng }: { lat: number; lng: number }): LonLat => [lng, lat];
 export const toLatLngs = (points: LonLat[]): [number, number][] => points.map(toLatLng);
 
 const COLORS: Record<JobStatus, string> = {

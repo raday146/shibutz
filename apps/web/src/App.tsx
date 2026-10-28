@@ -41,6 +41,11 @@ export function App(): React.JSX.Element {
     setDateState(d);
     setTab(null);
     setFresh(null);
+    setSuggestions(null);
+    setPreviewed(null);
+    setPinned(null);
+    setLink(null);
+    setHighlighted(null);
     try {
       localStorage.setItem(DATE_KEY, d);
     } catch {
@@ -84,7 +89,10 @@ export function App(): React.JSX.Element {
   const [previewed, setPreviewed] = useState<InsertionOption | null>(null);
 
   // One reload for everything the map shows; also called after a batch run.
+  const latestReload = useRef(0);
   const reload = useCallback(async (): Promise<void> => {
+    const id = ++latestReload.current;
+    const current = (): boolean => id === latestReload.current; // a newer reload owns the screen
     setLoading(true);
     setPanelError(null);
     setMapError(null);
@@ -98,6 +106,7 @@ export function App(): React.JSX.Element {
       } catch (e) {
         routeProblem = problem(e); // the left panel still has its data
       }
+      if (!current()) return;
       setSummary(sum);
       setSkills(sk);
       setTechnicians(t);
@@ -105,11 +114,12 @@ export function App(): React.JSX.Element {
       setRoutes(r);
       setMapError(routeProblem);
     } catch (e) {
+      if (!current()) return;
       setSummary(null);
       setRoutes([]); // never leave routes on screen next to this error
       setPanelError(problem(e));
     } finally {
-      setLoading(false);
+      if (current()) setLoading(false);
     }
   }, [date]);
 
@@ -167,6 +177,7 @@ export function App(): React.JSX.Element {
     if (!at) return;
     setBusy(true);
     setCreateError(null);
+    setSlotError(null);
     try {
       const job = await createJob({
         title,
@@ -180,10 +191,14 @@ export function App(): React.JSX.Element {
       });
       closeModal();
       setStale(false);
-      setSuggestions(await fetchSuggestions(job.id));
       setTab('unassigned');
       setPinned(job.id);
       setFresh(job.id);
+      try {
+        setSuggestions(await fetchSuggestions(job.id));
+      } catch (e) {
+        setSlotError({ jobId: job.id, problem: problem(e) }); // shown at the job's row; the job exists, so no retry of create
+      }
       await reload(); // the new job is on the map, unassigned, whatever the user picks next
     } catch (e) {
       setCreateError(problem(e));
@@ -329,6 +344,7 @@ export function App(): React.JSX.Element {
       </aside>
       <main className="main">
         <MapView
+          date={date}
           technicians={technicians}
           dayJobs={dayJobs}
           skills={skills}
