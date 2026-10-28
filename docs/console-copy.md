@@ -127,6 +127,8 @@ Every string in the dispatch console, in Hebrew and English. The keys here becom
 | `status.cancelled` | בוטלה | Cancelled |
 | `cancelled.title` | בוטלו היום | Cancelled today |
 | `cancelled.reason` | סיבה: {reason} | Reason: {reason} |
+| `cancelled.at` | בוטלה ב־{time} | Cancelled at {time} |
+| `cancelled.arrived` | הגעה {time} | Arrived {time} |
 
 ## Confirmations
 

@@ -5,15 +5,16 @@ import { daySummary, fakeApi, renderConsole } from './test/render';
 
 const DAY = '2026-11-02';
 const LOC: [number, number] = [34.8, 32.1];
-type Status = 'assigned' | 'in_progress' | 'done' | 'unassigned';
+type Status = 'assigned' | 'in_progress' | 'done' | 'unassigned' | 'cancelled';
 
 /** A tiny stateful server: three stops for Bob; PATCH /jobs/:id/status moves them, routes and the day summary follow. */
 function server(refuse?: { status: number; message: string }) {
   const status: Record<number, Status> = { 1: 'assigned', 2: 'assigned', 3: 'assigned' };
   const patches: Array<{ path: string; body: unknown }> = [];
+  const history: unknown[] = [];
   const gate: { release?: () => void; hold: boolean } = { hold: false };
   const stops = () =>
-    [1, 2, 3].filter((id) => status[id] !== 'unassigned').map((id, i) => ({
+    [1, 2, 3].filter((id) => status[id] !== 'unassigned' && status[id] !== 'cancelled').map((id, i) => ({
       jobId: id, title: `Fix ${id}`, address: `Addr ${id}`, sequence: i + 1, location: LOC, status: status[id] ?? 'assigned', skillIds: [1], serviceDurationS: 1800, driveS: 600, hasNote: false,
       eta: `2026-11-02T0${5 + id}:00:00.000Z`, etd: `2026-11-02T0${5 + id}:30:00.000Z`, actualArrival: null, actualDeparture: null,
     }));
@@ -31,7 +32,9 @@ function server(refuse?: { status: number; message: string }) {
       if (refuse) return reply(false, refuse.status, { message: refuse.message });
       const id = Number(/\/jobs\/(\d+)\//.exec(path)?.[1]);
       const run = (): Promise<unknown> => {
-        status[id] = (JSON.parse(String(init.body)) as { status: Status }).status;
+        const sent = JSON.parse(String(init.body)) as { status: Status; reason?: string };
+        status[id] = sent.status;
+        if (sent.status === 'cancelled') history.push({ jobId: id, title: `Fix ${id}`, previousStatus: 'assigned', actualArrival: null, actualDeparture: null, cancelledAt: `${DAY}T07:30:00.000Z`, reason: sent.reason || null });
         return reply(true, 200, job(id));
       };
       return gate.hold ? new Promise((r) => (gate.release = () => r(run()))) : run();
@@ -43,11 +46,12 @@ function server(refuse?: { status: number; message: string }) {
       [`/days/${DAY}/summary`]: daySummary(DAY, { total: 3, assigned: live.length, unassigned: 3 - live.length, done }, [
         { technicianId: 1, stopCount: live.length, doneCount: done, driveS: 0, expectedFinish: null, openIncidents: 0, stops: live.map((s) => ({ jobId: s.jobId, status: s.status, location: s.location })) },
       ]),
+      [`/routes/1/${DAY}/cancellations`]: history,
       [`/routes/1/${DAY}`]: { technicianId: 1, date: DAY, geometry: null, stops: live, summary: { doneCount: done, driveS: 1200, expectedFinish: null } },
     };
     return path in body ? reply(true, 200, body[path]) : reply(false, 404, { message: `no fake for ${path}` });
   });
-  return { status, patches, gate };
+  return { status, patches, gate, history };
 }
 
 const open = async (lang: 'he' | 'en' = 'en') => {
@@ -167,5 +171,62 @@ describe('start, finish and unassign from the drawer', () => {
     expect(within(r2).queryByRole('menu')).toBeNull();
     expect(document.activeElement).toBe(more);
     expect(screen.getByRole('complementary', { name: 'Bob' })).toBeTruthy();
+  });
+});
+
+describe('cancel a job from the drawer', () => {
+  it('confirms with the consequences and an optional reason, then lists the job under Cancelled today', async () => {
+    const s = server();
+    const d = await open();
+    const r2 = await expand(d, 2);
+    await userEvent.click(within(r2).getByRole('button', { name: 'More actions' }));
+    await userEvent.click(within(r2).getByRole('menuitem', { name: 'Cancel job' }));
+    const dialog = screen.getByRole('alertdialog', { name: 'Cancel "Fix 2"?' });
+    expect(within(dialog).getByText("The job leaves the route and later stops are re-timed. A cancelled job can't be restored.")).toBeTruthy();
+    expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'Keep job' }));
+    expect(s.patches).toHaveLength(0);
+    await userEvent.type(within(dialog).getByLabelText('Reason (optional)'), 'Customer moved');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel job' }));
+    expect(s.patches).toEqual([{ path: '/jobs/2/status', body: { status: 'cancelled', reason: 'Customer moved' } }]);
+    const list = await within(d).findByRole('region', { name: 'Cancelled today' });
+    expect(within(list).getByText('Fix 2')).toBeTruthy();
+    expect(within(list).getByText('Reason: Customer moved')).toBeTruthy();
+    expect(list.textContent).toContain('Cancelled at 09:30');
+    expect(within(d).queryByRole('button', { name: /Fix 2/ })).toBeNull();
+  });
+
+  it('keeps the job with Keep job and cycles Tab through the reason field, and cancelling with no reason sends none', async () => {
+    const s = server();
+    const d = await open('he');
+    const r1 = await expand(d, 1);
+    await userEvent.click(within(r1).getByRole('button', { name: 'פעולות נוספות' }));
+    await userEvent.click(within(r1).getByRole('menuitem', { name: 'ביטול עבודה' }));
+    const dialog = screen.getByRole('alertdialog');
+    expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'השארת העבודה' }));
+    await userEvent.tab();
+    expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'ביטול עבודה' }));
+    await userEvent.tab();
+    expect(document.activeElement).toBe(within(dialog).getByLabelText('סיבה (לא חובה)'));
+    await userEvent.tab();
+    expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'השארת העבודה' }));
+    await userEvent.click(document.activeElement as HTMLElement);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(s.patches).toHaveLength(0);
+
+    await userEvent.click(within(r1).getByRole('button', { name: 'פעולות נוספות' }));
+    await userEvent.click(within(r1).getByRole('menuitem', { name: 'ביטול עבודה' }));
+    await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'ביטול עבודה' }));
+    expect(s.patches).toEqual([{ path: '/jobs/1/status', body: { status: 'cancelled' } }]);
+    expect(await within(d).findByRole('region', { name: 'בוטלו היום' })).toBeTruthy();
+  });
+
+  it('offers Cancel job (not Unassign) for the stop in progress', async () => {
+    const s = server();
+    s.status[1] = 'in_progress';
+    const d = await open();
+    const r1 = await expand(d, 1);
+    await userEvent.click(within(r1).getByRole('button', { name: 'More actions' }));
+    expect(within(r1).getByRole('menuitem', { name: 'Cancel job' })).toBeTruthy();
+    expect(within(r1).queryByRole('menuitem', { name: 'Unassign' })).toBeNull();
   });
 });
