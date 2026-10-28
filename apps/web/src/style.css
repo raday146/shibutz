@@ -68,12 +68,12 @@ body { background: var(--bg); color: var(--ink); font: 400 var(--text-md)/var(--
 
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
-button, input { font: inherit; color: inherit; }
+button, input, textarea { font: inherit; color: inherit; }
 button { min-height: 28px; padding-inline: var(--space-2); background: transparent; border: 1px solid var(--control-border); border-radius: var(--radius-control); cursor: pointer; }
 button:disabled { color: var(--ink-3); cursor: not-allowed; }
 button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
 button.primary:disabled { background: var(--ink-3); border-color: var(--ink-3); }
-input { min-height: 28px; border: 1px solid var(--control-border); border-radius: var(--radius-control); background: var(--surface); }
+input, textarea { min-height: 28px; border: 1px solid var(--control-border); border-radius: var(--radius-control); background: var(--surface); }
 @media (pointer: coarse) { button, input { min-height: 44px; } }
 
 .app { display: flex; flex-direction: column; height: 100%; }
@@ -96,6 +96,8 @@ input { min-height: 28px; border: 1px solid var(--control-border); border-radius
 .dialog fieldset { border: 0; padding: 0; margin: 0; }
 .pickbar { position: fixed; inset-block-start: calc(var(--topbar, 52px) + var(--space-3)); inset-inline: 0; margin-inline: auto; width: max-content; max-width: calc(100vw - 32px); z-index: var(--z-modal); display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--surface); border-radius: var(--radius-surface); box-shadow: var(--shadow-overlay); }
 .crosshair { position: absolute; inset-block-start: 50%; inset-inline-start: 50%; width: 24px; height: 24px; margin: -12px; z-index: var(--z-map-controls); pointer-events: none; background: linear-gradient(var(--ink), var(--ink)) center / 2px 100% no-repeat, linear-gradient(var(--ink), var(--ink)) center / 100% 2px no-repeat; filter: drop-shadow(0 0 1px #fff); }
+.dialog label { display: grid; gap: var(--space-1); margin-block-end: var(--space-3); }
+.dialog textarea { padding: var(--space-1) 6px; resize: vertical; }
 .dialog h2 { margin: 0 0 var(--space-2); font-size: var(--text-lg); line-height: var(--lh-lg); }
 .empty { padding: var(--space-4) 0; }
 button.plain { min-height: 0; padding: 0; border: 0; font: inherit; font-weight: inherit; color: inherit; }

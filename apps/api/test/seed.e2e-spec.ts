@@ -23,6 +23,15 @@ describe('seed', () => {
     expect([skills?.length, technicians?.length, jobs?.length]).toEqual([6, 8, 60]);
   });
 
+  it('seeds one cancelled job with its record', async () => {
+    await loadDataset(app().get<Db>(DB), buildSeed());
+    const http = request(app().getHttpServer());
+    const jobs = (await http.get('/jobs').expect(200)).body as { id: number; status: string }[];
+    expect(jobs.filter((j) => j.status === 'cancelled').map((j) => j.id)).toEqual([60]);
+    const rows = await Promise.all([1, 2, 3, 4, 5, 6, 7, 8].map(async (t) => (await http.get(`/routes/${t}/2026-11-02/cancellations`).expect(200)).body as { jobId: number; reason: string }[]));
+    expect(rows.flat()).toMatchObject([{ jobId: 60, reason: 'הלקוח ביטל את הביקור' }]);
+  });
+
   it('stores Hebrew in logical order and every job has a title and address', async () => {
     await loadDataset(app().get<Db>(DB), buildSeed());
     const http = request(app().getHttpServer());

@@ -125,3 +125,20 @@ export const routeStops = pgTable('route_stops', {
   actualArrival: timestamp('actual_arrival', { withTimezone: true }),
   actualDeparture: timestamp('actual_departure', { withTimezone: true }),
 });
+
+// Who a cancelled job belonged to and its actual times (ADR 0001); the stop itself is deleted.
+export const jobCancellations = pgTable('job_cancellations', {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  jobId: integer('job_id')
+    .notNull()
+    .unique()
+    .references(() => jobs.id, { onDelete: 'cascade' }),
+  // Null when the job was never assigned.
+  technicianId: integer('technician_id').references(() => technicians.id, { onDelete: 'set null' }),
+  date: date('date', { mode: 'string' }).notNull(),
+  previousStatus: jobStatus('previous_status').notNull(),
+  actualArrival: timestamp('actual_arrival', { withTimezone: true }),
+  actualDeparture: timestamp('actual_departure', { withTimezone: true }),
+  cancelledAt: timestamp('cancelled_at', { withTimezone: true }).notNull(),
+  reason: text('reason'),
+});

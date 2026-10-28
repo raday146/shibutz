@@ -3,7 +3,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import type { Job, JobStatus, LonLat } from '@shibutz/contracts';
 import { CLOCK, type Clock } from '../clock/clock';
 import { DB, type Db } from '../db/db.module';
-import { jobs, routeStops, routes, technicians } from '../db/schema';
+import { jobCancellations, jobs, routeStops, routes, technicians } from '../db/schema';
 import { NO_ROAD_S, ROUTING_GATEWAY } from '../gateways/ports';
 import type { RoutingGateway } from '../gateways/ports';
 import { JobsService } from '../jobs/jobs.service';
@@ -46,17 +46,21 @@ export class JobStatusService {
     private readonly jobsService: JobsService,
   ) {}
 
-  async change(jobId: number, to: JobStatus): Promise<Job> {
-    const from = (await this.jobsService.get(jobId)).status;
+  async change(jobId: number, to: JobStatus, reason?: string): Promise<Job> {
+    const job = await this.jobsService.get(jobId);
+    const from = job.status;
     if (!ALLOWED[from].includes(to)) throw new ConflictException(`Cannot change a job from ${from} to ${to}`);
 
     if (from === 'unassigned') {
-      const [row] = await this.db
-        .update(jobs)
-        .set({ status: to })
-        .where(and(eq(jobs.id, jobId), eq(jobs.status, from)))
-        .returning({ id: jobs.id });
-      if (!row) throw new ConflictException('Job changed concurrently; retry');
+      await this.db.transaction(async (tx) => {
+        const [row] = await tx
+          .update(jobs)
+          .set({ status: to })
+          .where(and(eq(jobs.id, jobId), eq(jobs.status, from)))
+          .returning({ id: jobs.id });
+        if (!row) throw new ConflictException('Job changed concurrently; retry');
+        await tx.insert(jobCancellations).values({ jobId, technicianId: null, date: job.day, previousStatus: from, cancelledAt: this.clock.now(), reason: reason?.trim() || null });
+      });
       return this.jobsService.get(jobId);
     }
 
@@ -86,8 +90,19 @@ export class JobStatusService {
       if (to === 'done') await tx.update(routeStops).set({ actualDeparture: now }).where(eq(routeStops.id, stop.id));
       if (to === 'in_progress' || to === 'done') return;
 
-      // ponytail: a cancelled in_progress stop is deleted, so its actual departure (= now) is not stored;
-      // it only anchors the recompute below.
+      if (to === 'cancelled') {
+        await tx.insert(jobCancellations).values({
+          jobId,
+          technicianId: route.technicianId,
+          date: route.date,
+          previousStatus: from,
+          // An in_progress job leaves the site now; the deleted stop cannot keep that.
+          actualArrival: stop.actualArrival,
+          actualDeparture: from === 'in_progress' ? now : null,
+          cancelledAt: now,
+          reason: reason?.trim() || null,
+        });
+      }
       await tx.delete(routeStops).where(eq(routeStops.id, stop.id));
       await tx
         .update(routeStops)

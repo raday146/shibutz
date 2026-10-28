@@ -20,16 +20,18 @@ interface Props {
   /** The stops before this one, in order. */
   earlier: Stop[];
   /** Resolves once the server accepted the change and the data was reloaded; rejects with the refusal. */
-  onStatus: (jobId: number, status: JobStatus) => Promise<void>;
+  onStatus: (jobId: number, status: JobStatus, reason?: string) => Promise<void>;
 }
 
-/** The stop's primary action (Start or Finish) and an overflow menu with Unassign. Not optimistic: the server can refuse. */
+/** The stop's primary action (Start or Finish) and an overflow menu with Unassign and Cancel job. Not optimistic: the server can refuse. */
 export function StopActions({ stop, earlier, onStatus }: Props): React.JSX.Element | null {
   const { t } = useLang();
   const [busy, setBusy] = useState<JobStatus | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [menu, setMenu] = useState(false);
-  const [confirming, setConfirming] = useState(false);
+  const [confirming, setConfirming] = useState<'unassigned' | 'cancelled' | null>(null);
+  const [reason, setReason] = useState('');
+  const dialog = useRef<HTMLDivElement>(null);
   const more = useRef<HTMLButtonElement>(null);
   const item = useRef<HTMLButtonElement>(null);
   const keep = useRef<HTMLButtonElement>(null);
@@ -45,13 +47,14 @@ export function StopActions({ stop, earlier, onStatus }: Props): React.JSX.Eleme
   const blocked: Key | null =
     stop.status !== 'assigned' ? null : earlier.some((s) => s.status === 'in_progress') ? 'blocked.busy' : earlier.some((s) => s.status !== 'done') ? 'blocked.order' : null;
   const whyId = `stop-${stop.jobId}-why`;
+  const cancelling = confirming === 'cancelled';
   const next: JobStatus = stop.status === 'assigned' ? 'in_progress' : 'done';
 
-  const run = async (to: JobStatus): Promise<void> => {
+  const run = async (to: JobStatus, why?: string): Promise<void> => {
     setBusy(to);
     setFailed(null);
     try {
-      await onStatus(stop.jobId, to);
+      await onStatus(stop.jobId, to, why);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       const known = KNOWN[message];
@@ -65,7 +68,7 @@ export function StopActions({ stop, earlier, onStatus }: Props): React.JSX.Eleme
     more.current?.focus();
   };
   const closeConfirm = (): void => {
-    setConfirming(false);
+    setConfirming(null);
     more.current?.focus();
   };
   const onDialogKey = (e: React.KeyboardEvent): void => {
@@ -75,7 +78,9 @@ export function StopActions({ stop, earlier, onStatus }: Props): React.JSX.Eleme
     }
     if (e.key === 'Tab') {
       e.preventDefault();
-      (document.activeElement === keep.current ? ok.current : keep.current)?.focus();
+      const all = [...(dialog.current?.querySelectorAll<HTMLElement>('textarea,button') ?? [])];
+      const at = all.indexOf(document.activeElement as HTMLElement);
+      all[(at + (e.shiftKey ? -1 : 1) + all.length) % all.length]?.focus();
     }
   };
 
@@ -90,7 +95,7 @@ export function StopActions({ stop, earlier, onStatus }: Props): React.JSX.Eleme
         {t(stop.status === 'assigned' ? 'action.start' : 'action.finish')}{busy === next && '…'}
       </button>
       {blocked && <span id={whyId} className="muted">{t(blocked)}</span>}
-      {stop.status === 'assigned' && (
+      {(
         <span
           className="menu"
           onKeyDown={(e) => {
@@ -105,7 +110,10 @@ export function StopActions({ stop, earlier, onStatus }: Props): React.JSX.Eleme
           </button>
           {menu && (
             <div role="menu">
-              <button ref={item} role="menuitem" onClick={() => { setMenu(false); setConfirming(true); }}>{t('action.unassign')}</button>
+              {stop.status === 'assigned' && (
+                <button ref={item} role="menuitem" onClick={() => { setMenu(false); setConfirming('unassigned'); }}>{t('action.unassign')}</button>
+              )}
+              <button ref={stop.status === 'assigned' ? undefined : item} role="menuitem" onClick={() => { setMenu(false); setReason(''); setConfirming('cancelled'); }}>{t('action.cancelJob')}</button>
             </div>
           )}
         </span>
@@ -113,11 +121,17 @@ export function StopActions({ stop, earlier, onStatus }: Props): React.JSX.Eleme
       {failed && <p role="alert" className="error">{failed}</p>}
       {confirming && createPortal(
         <div className="overlay">
-          <div role="alertdialog" aria-modal="true" aria-labelledby={`unassign-${stop.jobId}-title`} className="dialog" onKeyDown={onDialogKey}>
-            <h2 id={`unassign-${stop.jobId}-title`} dir="auto">{t('unassign.title', { title: stop.title })}</h2>
-            <p>{t('unassign.body')}</p>
-            <button ref={keep} onClick={closeConfirm}>{t('unassign.keep')}</button>{' '}
-            <button ref={ok} onClick={() => { setConfirming(false); more.current?.focus(); void run('unassigned'); }}>{t('unassign.ok')}</button>
+          <div ref={dialog} role="alertdialog" aria-modal="true" aria-labelledby={`confirm-${stop.jobId}-title`} className="dialog" onKeyDown={onDialogKey}>
+            <h2 id={`confirm-${stop.jobId}-title`} dir="auto">{cancelling ? t('cancel.title', { title: stop.title }) : t('unassign.title', { title: stop.title })}</h2>
+            <p>{cancelling ? t('cancel.body') : t('unassign.body')}</p>
+            {cancelling && (
+              <label>
+                {t('cancel.reason')}
+                <textarea dir="auto" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+              </label>
+            )}
+            <button ref={keep} onClick={closeConfirm}>{cancelling ? t('cancel.keep') : t('unassign.keep')}</button>{' '}
+            <button ref={ok} onClick={() => { setConfirming(null); more.current?.focus(); void run(confirming, cancelling ? reason.trim() : undefined); }}>{cancelling ? t('cancel.ok') : t('unassign.ok')}</button>
           </div>
         </div>,
         document.body,

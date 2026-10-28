@@ -4,13 +4,14 @@ import type { CreateJob, JobStatus, LonLat } from '@shibutz/contracts';
 import { DEFAULT_DATABASE_URL, type Db } from '../db/db.module';
 import { runMigrations } from '../db/migrate';
 import * as schema from '../db/schema';
-import { buildSeed, comparisonScenario, type Dataset, type Scenario } from './datasets';
+import { buildSeed, comparisonScenario, SEED_DAY, type Dataset, type Scenario } from './datasets';
 
-const { jobSkills, jobs, skills, technicianSkills, technicians } = schema;
+const { jobCancellations, jobSkills, jobs, skills, technicianSkills, technicians } = schema;
 
 /** Wipes the domain tables (identities restarted, so ids are positional) and inserts the dataset. */
 export async function loadDataset(db: Db, data: Dataset | Scenario): Promise<void> {
   const routed = new Set('routes' in data ? data.routes.flatMap((r) => r.jobIds) : []);
+  const cancelled = new Set(data.cancellations?.map((c) => c.jobId));
   const allJobs = 'newJob' in data ? [...data.jobs, data.newJob] : data.jobs;
 
   await db.transaction(async (tx) => {
@@ -22,13 +23,16 @@ export async function loadDataset(db: Db, data: Dataset | Scenario): Promise<voi
       await tx.insert(technicianSkills).values(skillIds.map((skillId) => ({ technicianId: row.id, skillId })));
     }
     for (const [i, { skillIds, windowStart, windowEnd, ...j }] of allJobs.entries()) {
-      const status: JobStatus = routed.has(i + 1) ? 'assigned' : 'unassigned';
+      const status: JobStatus = cancelled.has(i + 1) ? 'cancelled' : routed.has(i + 1) ? 'assigned' : 'unassigned';
       const [row] = await tx
         .insert(jobs)
         .values({ ...j, status, windowStart: new Date(windowStart), windowEnd: new Date(windowEnd) })
         .returning({ id: jobs.id });
       if (!row) throw new Error('Insert returned no row');
       await tx.insert(jobSkills).values(skillIds.map((skillId) => ({ jobId: row.id, skillId })));
+    }
+    for (const { cancelledAt, ...c } of data.cancellations ?? []) {
+      await tx.insert(jobCancellations).values({ ...c, date: SEED_DAY, cancelledAt: new Date(cancelledAt) });
     }
   });
 }
