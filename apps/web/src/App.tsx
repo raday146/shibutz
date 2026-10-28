@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { DaySummary, InsertionOption, InsertionSuggestions, Job, LonLat, RouteView, Skill, Technician } from '@shibutz/contracts';
-import { ApiError, createJob, fetchDaySummary, fetchJobs, fetchRoute, fetchSkills, fetchSuggestions, fetchTechnicians, insertJob, runOptimization } from './api';
+import type { DaySummary, JobStatus, InsertionOption, InsertionSuggestions, Job, LonLat, RouteView, Skill, Technician } from '@shibutz/contracts';
+import { ApiError, createJob, fetchDaySummary, fetchJobs, fetchRoute, fetchSkills, fetchSuggestions, fetchTechnicians, insertJob, runOptimization, setJobStatus } from './api';
 import { jerusalemToIso, today, unassignedJobs } from './map';
 import type { Key, Vars } from './i18n';
 import { useLang } from './lang';
@@ -112,6 +112,15 @@ export function App(): React.JSX.Element {
       setError(problem(e));
     } finally {
       setBusy(false);
+    }
+  }
+
+  // Not optimistic: wait for the server, then reload (also after a refusal, which means the screen was stale).
+  async function changeStatus(jobId: number, status: JobStatus): Promise<void> {
+    try {
+      await setJobStatus(jobId, status);
+    } finally {
+      await reload();
     }
   }
 
@@ -305,6 +314,7 @@ export function App(): React.JSX.Element {
           link={link}
           instant={instant}
           onLink={setHighlighted}
+          onStatus={changeStatus}
           onClose={closeDrawer}
         />
       )}
