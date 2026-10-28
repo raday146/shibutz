@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { InsertionOption, InsertionSuggestions, Technician } from '@shibutz/contracts';
-import { useLang, withLtrTimes } from '../lang';
+import { useLang, withLtrNumbers } from '../lang';
 import { routeVar, time } from '../map';
 
 export interface Props {
@@ -46,8 +46,8 @@ export function SlotOptions({ suggestions, notice, busy, technicians, titleOf, p
             >
               <span className="swatch" style={{ background: routeVar(owner?.color ?? 1) }} aria-hidden="true" />
               <b dir="auto">{owner?.name ?? `#${o.technicianId}`}</b>: {t('slot.position', { prev: side(o.position.afterJobId), next: side(o.position.beforeJobId) })},{' '}
-              {t('slot.detour', { n: Math.round(o.detourS / 60) })}
-              <div className="muted">{withLtrTimes(o.etas.map((e) => `${titleOf(e.jobId)}: ${t('slot.eta', { time: time(e.eta) })}`).join(' → '))}</div>
+              {withLtrNumbers(t('slot.detour', { n: Math.round(o.detourS / 60) }))}
+              <div className="muted">{withLtrNumbers(o.etas.map((e) => `${titleOf(e.jobId)}: ${t('slot.eta', { time: time(e.eta) })}`).join(' → '))}</div>
               <button
                 disabled={busy}
                 onPointerDown={(e) => { touch.current = e.pointerType === 'touch' ? { fresh: previewed !== o } : null; }}

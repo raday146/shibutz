@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { fetchNote, saveNote } from '../api';
-import { useLang, withLtrTimes } from '../lang';
+import { useLang, withLtrNumbers } from '../lang';
 import { time } from '../map';
 
 interface Props {
@@ -80,7 +80,7 @@ export function NoteField({ jobId, hasNote, date, onSaved }: Props): React.JSX.E
       />
       <p id={`${id}-status`} role="status" className="muted">
         {[status, updatedAt && state !== 'saving' ? t('note.updated', { time: time(updatedAt) }) : ''].filter(Boolean).map((s, i) => (
-          <span key={i}>{i > 0 && ' · '}{withLtrTimes(s)}</span>
+          <span key={i}>{i > 0 && ' · '}{withLtrNumbers(s)}</span>
         ))}
       </p>
       {(state === 'error' || loadFailed) && (

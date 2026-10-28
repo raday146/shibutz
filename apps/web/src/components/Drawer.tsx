@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { JobStatus, RouteView, Skill, Technician } from '@shibutz/contracts';
-import { Ltr, useLang, withLtrTimes } from '../lang';
+import { Ltr, useLang, withLtrNumbers } from '../lang';
 import { DayEnd } from './DayEnd';
 import { jerusalemToIso, routeVar, skillLabel, time } from '../map';
 import { CancelledToday } from './CancelledToday';
@@ -88,7 +88,7 @@ export function Drawer({ technician, route, date, skills, link, instant, pending
         <button onClick={(e) => { if (e.detail === 0) onClose(); else { setLeaving(true); closing.current = setTimeout(onClose, 140); } }}>{t('drawer.close')}</button>
       </header>
       <p className="muted">
-        {withLtrTimes(t('drawer.shift', { start: technician.shiftStart.slice(0, 5), end: technician.shiftEnd.slice(0, 5) }))}
+        {withLtrNumbers(t('drawer.shift', { start: technician.shiftStart.slice(0, 5), end: technician.shiftEnd.slice(0, 5) }))}
         {' · '}{skillLabel(technician.skillIds, skills, lang) || t('tech.noSkills')}
       </p>
       {pending ? (
@@ -100,13 +100,13 @@ export function Drawer({ technician, route, date, skills, link, instant, pending
       ) : (
         <>
           <p>
-            <Ltr>{t('tech.progress', { done: summary?.doneCount ?? 0, total: stops.length })}</Ltr>{' · '}
-            {t('kpi.drive')} <Ltr>{t('duration.min', { n: minutes(summary?.driveS ?? 0) })}</Ltr>
+            {withLtrNumbers(t('tech.progress', { done: summary?.doneCount ?? 0, total: stops.length }))}{' · '}
+            {t('kpi.drive')} {withLtrNumbers(t('duration.min', { n: minutes(summary?.driveS ?? 0) }))}
           </p>
           {finish && (
             <p>
-              {withLtrTimes(t('drawer.finish', { time: time(finish) }))}
-              {late > 0 && <span className="late"> · {t('drawer.late', { n: late })}</span>}
+              {withLtrNumbers(t('drawer.finish', { time: time(finish) }))}
+              {late > 0 && <span className="late"> · {withLtrNumbers(t('drawer.late', { n: late }))}</span>}
             </p>
           )}
           <ol aria-label={t('drawer.stops')} className="timeline">
@@ -125,7 +125,7 @@ export function Drawer({ technician, route, date, skills, link, instant, pending
                     <div id={`stop-${s.jobId}-detail`} className="detail">
                       <p dir="auto">{s.address || t('job.noAddress')}</p>
                       <p>{skillLabel(s.skillIds, skills, lang)}</p>
-                      <p className="muted"><Ltr>{t('stop.duration', { n: minutes(s.serviceDurationS) })}</Ltr>{' · '}<Ltr>{t('stop.drive', { n: minutes(s.driveS) })}</Ltr></p>
+                      <p className="muted">{withLtrNumbers(t('stop.duration', { n: minutes(s.serviceDurationS) }))}{' · '}{withLtrNumbers(t('stop.drive', { n: minutes(s.driveS) }))}</p>
                       <StopActions stop={s} earlier={stops.slice(0, i)} onStatus={async (id, to, reason) => { await onStatus(id, to, reason); refocus(id, to); }} />
                       <NoteField jobId={s.jobId} hasNote={s.hasNote} date={date} onSaved={onNoted} />
                     </div>

@@ -57,7 +57,11 @@ export function Ltr({ children }: { children: React.ReactNode }): React.JSX.Elem
   return <bdi dir="ltr">{children}</bdi>;
 }
 
-/** Isolates every HH:MM, and every HH:MM–HH:MM range as one unit so it never reads reversed, in a translated sentence. */
-export function withLtrTimes(text: string): React.ReactNode[] {
-  return text.split(/(\d\d:\d\d(?:–\d\d:\d\d)?)/).map((part, i) => (i % 2 ? <Ltr key={i}>{part}</Ltr> : part));
+/**
+ * Isolates every number in a translated string as its own left-to-right unit: times and ranges (08:00–16:00), counts and
+ * fractions (3/7), durations (45). The words around it, units included ("דק׳"), stay in the sentence's own direction, so
+ * "45 דק׳" reads number first in Hebrew. Never wrap a whole translated string in <Ltr>: that flips the unit before the number.
+ */
+export function withLtrNumbers(text: string): React.ReactNode[] {
+  return text.split(/(\d\d:\d\d(?:–\d\d:\d\d)?|\d+(?:[/.]\d+)*)/).map((part, i) => (i % 2 ? <Ltr key={i}>{part}</Ltr> : part));
 }

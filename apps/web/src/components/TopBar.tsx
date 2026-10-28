@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { DaySummary, Incident, Technician } from '@shibutz/contracts';
 import { pluralKey } from '../i18n';
 import type { Key } from '../i18n';
-import { Ltr, useLang } from '../lang';
+import { useLang, withLtrNumbers } from '../lang';
 import { addDays, today } from '../map';
 import { IncidentsMenu } from './IncidentsMenu';
 
@@ -48,7 +48,7 @@ export function TopBar({ planError, date, summary, busy, loading, onDate, onRefr
     planRef.current?.focus();
   };
   const kpi = (key: Key, value: string, attention = false, onClick?: () => void): React.JSX.Element => {
-    const text = <Ltr>{attention && <span aria-hidden="true">▲ </span>}{value}</Ltr>;
+    const text = <>{attention && <span aria-hidden="true">▲ </span>}{withLtrNumbers(value)}</>;
     return (
       <div role="group" aria-label={t(key)} className={attention ? 'kpi attention' : 'kpi'}>
         <span className="muted">{t(key)}</span>

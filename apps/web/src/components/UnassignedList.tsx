@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Job, Skill } from '@shibutz/contracts';
-import { useLang, withLtrTimes } from '../lang';
+import { useLang, withLtrNumbers } from '../lang';
 import { skillLabel, time, toLatLng } from '../map';
 import type { Point } from './MapView';
 import { SlotOptions } from './SlotOptions';
@@ -43,7 +43,7 @@ export function UnassignedList({ jobs, skills, highlighted, busy, failure, onFoc
           {open === j.id && (
             <div className="muted">
               <p dir="auto">{j.address || t('job.noAddress')}</p>
-              <p>{withLtrTimes(t('job.window', { start: time(j.windowStart), end: time(j.windowEnd) }))}</p>
+              <p>{withLtrNumbers(t('job.window', { start: time(j.windowStart), end: time(j.windowEnd) }))}</p>
               <p>{skillLabel(j.skillIds, skills, lang)}</p>
             </div>
           )}
