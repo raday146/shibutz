@@ -14,6 +14,7 @@ vi.mock('../components/MapView', () => ({
         </li>
       ))}
     </ul>
+    {picking && <div className="leaflet-container" tabIndex={0} aria-label="Map" />}
     <ul aria-label="routes">
       {picking && <li><button onClick={() => onPick([34.9, 32.2])}>map click</button><button onClick={() => onCenter([34.7, 32.0])}>pan map</button></li>}
       {preview && <li data-testid="preview" data-color={preview.color} data-points={JSON.stringify(preview.points)} />}

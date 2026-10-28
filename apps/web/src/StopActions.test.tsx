@@ -91,6 +91,7 @@ describe('start, finish and unassign from the drawer', () => {
     const r1 = await expand(d, 1);
     await userEvent.click(within(r1).getByRole('button', { name: 'Finish' }));
     await waitFor(() => expect(within(r1).getByText('Done')).toBeTruthy());
+    expect(document.activeElement).toBe(within(r1).getByRole('button', { name: /Fix 1/ })); // Finish unmounted: focus is not dropped on <body>
     const r2 = await expand(d, 2);
     expect(within(r2).getByRole('button', { name: 'Start' }).getAttribute('aria-disabled')).toBeNull();
   });
@@ -166,6 +167,10 @@ describe('start, finish and unassign from the drawer', () => {
     const more = within(r2).getByRole('button', { name: 'More actions' });
     more.focus();
     await userEvent.keyboard('{Enter}');
+    expect(document.activeElement).toBe(within(r2).getByRole('menuitem', { name: 'Unassign' }));
+    await userEvent.keyboard('{ArrowDown}');
+    expect(document.activeElement).toBe(within(r2).getByRole('menuitem', { name: 'Cancel job' }));
+    await userEvent.keyboard('{ArrowDown}');
     expect(document.activeElement).toBe(within(r2).getByRole('menuitem', { name: 'Unassign' }));
     await userEvent.keyboard('{Escape}');
     expect(within(r2).queryByRole('menu')).toBeNull();

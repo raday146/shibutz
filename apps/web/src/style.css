@@ -74,9 +74,9 @@ body { background: var(--bg); color: var(--ink); font: 400 var(--text-md)/var(--
 
 button, input, textarea { font: inherit; color: inherit; }
 button { transition: background-color var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out), transform var(--dur-press) var(--ease-out); min-height: 28px; padding-inline: var(--space-2); background: transparent; border: 1px solid var(--control-border); border-radius: var(--radius-control); cursor: pointer; }
-button:disabled { color: var(--ink-3); cursor: not-allowed; }
+button:disabled, .topbar button[aria-disabled=true] { color: var(--ink-3); cursor: not-allowed; }
 button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
-button.primary:disabled { background: var(--ink-3); border-color: var(--ink-3); }
+button.primary:disabled, .topbar button.primary[aria-disabled=true] { background: var(--ink-3); border-color: var(--ink-3); }
 input, textarea { min-height: 28px; border: 1px solid var(--control-border); border-radius: var(--radius-control); background: var(--surface); }
 @media (pointer: coarse) { button, input { min-height: 44px; } }
 .note { margin-block: var(--space-2) 0; }
@@ -162,6 +162,7 @@ button.plain { min-height: 0; padding: 0; border: 0; font: inherit; font-weight:
 .option button { margin-block-start: var(--space-1); }
 .form .field { display: flex; flex-direction: column; gap: 2px; }
 .form input:not([type]), .form input[type=text] { border: 1px solid var(--control-border); padding: var(--space-1) 6px; }
+.form fieldset label { display: flex; align-items: center; gap: var(--space-2); margin-block-end: 0; }
 .form [aria-invalid=true] { border-color: var(--danger); }
 
 /* Work-day drawer on the inline-end side; the map keeps its own corner controls on the inline-start side. */

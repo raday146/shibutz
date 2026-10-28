@@ -103,6 +103,12 @@ export function StopActions({ stop, earlier, onStatus }: Props): React.JSX.Eleme
               e.stopPropagation();
               closeMenu();
             }
+            if (menu && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+              e.preventDefault();
+              const items = [...e.currentTarget.querySelectorAll<HTMLElement>('[role=menuitem]')];
+              const to = items.indexOf(document.activeElement as HTMLElement) + (e.key === 'ArrowDown' ? 1 : -1);
+              items[(to + items.length) % items.length]?.focus();
+            }
           }}
         >
           <button ref={more} aria-haspopup="menu" aria-expanded={menu} aria-busy={busy === 'unassigned' || undefined} aria-label={t('action.more')} onClick={() => setMenu(!menu)}>

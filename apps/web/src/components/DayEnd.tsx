@@ -28,6 +28,8 @@ export function DayEnd({ technicianId, date, stops, onChanged }: Props): React.J
   const [failure, setFailure] = useState<string | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const draftRef = useRef<HTMLTextAreaElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
   const latest = useRef({ text, saved });
   latest.current = { text, saved };
 
@@ -81,6 +83,7 @@ export function DayEnd({ technicianId, date, stops, onChanged }: Props): React.J
       setIncidents((list) => [...list, incident]);
       setDraft('');
       setJobId('');
+      draftRef.current?.focus(); // the Add button just became disabled; keep focus in the form
       setFailure(null);
       onChanged();
     } catch (e) {
@@ -92,6 +95,7 @@ export function DayEnd({ technicianId, date, stops, onChanged }: Props): React.J
     try {
       const done = await reviewIncident(id);
       setIncidents((list) => list.map((i) => (i.id === id ? done : i)));
+      listRef.current?.focus(); // the Mark reviewed button is gone
       setFailure(null);
       onChanged();
     } catch (e) {
@@ -130,7 +134,7 @@ export function DayEnd({ technicianId, date, stops, onChanged }: Props): React.J
           {incidents.length === 0 ? (
             <p className="muted">{t('incident.none')}</p>
           ) : (
-            <ul aria-label={t('incidents.title')} className="incidents">
+            <ul ref={listRef} tabIndex={-1} aria-label={t('incidents.title')} className="incidents">
               {incidents.map((i) => (
                 <li key={i.id}>
                   <p dir="auto">{i.body}</p>
@@ -144,7 +148,7 @@ export function DayEnd({ technicianId, date, stops, onChanged }: Props): React.J
             </ul>
           )}
           <div className="incident-form">
-            <textarea dir="auto" rows={2} aria-label={t('incident.placeholder')} placeholder={t('incident.placeholder')} value={draft} onChange={(e) => setDraft(e.target.value)} />
+            <textarea ref={draftRef} dir="auto" rows={2} aria-label={t('incident.placeholder')} placeholder={t('incident.placeholder')} value={draft} onChange={(e) => setDraft(e.target.value)} />
             <label className="field">
               {t('incident.link')}
               <select value={jobId} onChange={(e) => setJobId(e.target.value)}>

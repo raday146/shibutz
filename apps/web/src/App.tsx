@@ -217,6 +217,7 @@ export function App(): React.JSX.Element {
       setStale(false);
       await reload();
       selectTech(option.technicianId);
+      setToast({ id: Date.now(), text: t('slot.assigned', { name: technicians.find((x) => x.id === option.technicianId)?.name ?? '' }) });
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
         setStale(true);
