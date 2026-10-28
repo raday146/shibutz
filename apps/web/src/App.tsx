@@ -10,8 +10,8 @@ import { MapView } from './components/MapView';
 import type { Point } from './components/MapView';
 import { PanelTabs } from './components/PanelTabs';
 import type { Tab } from './components/PanelTabs';
-import { NewJobForm } from './components/NewJobForm';
-import type { JobDraft } from './components/NewJobForm';
+import { NewJobModal } from './components/NewJobModal';
+import type { JobDraft } from './components/NewJobModal';
 import { TechnicianList } from './components/TechnicianList';
 import { TopBar } from './components/TopBar';
 import { UnassignedList } from './components/UnassignedList';
@@ -39,6 +39,7 @@ export function App(): React.JSX.Element {
   const setDate = (d: string): void => {
     setDateState(d);
     setTab(null);
+    setFresh(null);
     try {
       localStorage.setItem(DATE_KEY, d);
     } catch {
@@ -64,10 +65,14 @@ export function App(): React.JSX.Element {
   const [loading, setLoading] = useState(false);
   const [focus, setFocus] = useState<Point | null>(null);
   const [skills, setSkills] = useState<Skill[]>([]);
-  // New-job form: `picking` waits for a map click; `suggestions` is the panel shown after the job was created.
+  // New-job modal: `picking` waits for a map click or the center crosshair; `suggestions` is the panel shown after the job was created.
+  const [adding, setAdding] = useState(false);
   const [picking, setPicking] = useState(false);
   const [at, setAt] = useState<LonLat | null>(null);
-  const [draft, setDraft] = useState<JobDraft>({ title: '', address: '', skillIds: [], minutes: 30, from: '09:00', to: '14:00' });
+  const [createError, setCreateError] = useState<Problem | null>(null);
+  const [fresh, setFresh] = useState<number | null>(null);
+  const center = useRef<LonLat | null>(null);
+  const trigger = useRef<Element | null>(null);
   const [suggestions, setSuggestions] = useState<InsertionSuggestions | null>(null);
   const [stale, setStale] = useState(false);
   const [previewed, setPreviewed] = useState<InsertionOption | null>(null);
@@ -110,13 +115,22 @@ export function App(): React.JSX.Element {
     }
   }
 
-  async function submitJob(): Promise<void> {
-    const { title, address, skillIds, minutes, from, to } = draft;
-    if (!at) return setError({ key: 'validation.location' });
-    if (skillIds.length === 0) return setError({ key: 'validation.skills' });
-    if (!(minutes > 0)) return setError({ key: 'validation.duration' });
-    if (from >= to) return setError({ key: 'validation.window' });
+  const openModal = (): void => {
+    trigger.current = document.activeElement;
+    setCreateError(null);
+    setAdding(true);
+  };
+  const closeModal = useCallback((): void => {
+    setAdding(false);
+    setPicking(false);
+    setAt(null);
+    (trigger.current as HTMLElement | null)?.focus?.();
+  }, []);
+
+  async function submitJob({ title, address, skillIds, minutes, from, to }: JobDraft): Promise<void> {
+    if (!at) return;
     setBusy(true);
+    setCreateError(null);
     try {
       const job = await createJob({
         title,
@@ -128,16 +142,15 @@ export function App(): React.JSX.Element {
         windowEnd: jerusalemToIso(date, to),
         priority: 50,
       });
-      setPicking(false);
-      setAt(null);
-      setDraft((d) => ({ ...d, title: '', address: '' }));
+      closeModal();
       setStale(false);
       setSuggestions(await fetchSuggestions(job.id));
       setTab('unassigned');
       setPinned(job.id);
+      setFresh(job.id);
       await reload(); // the new job is on the map, unassigned, whatever the user picks next
     } catch (e) {
-      setError(problem(e));
+      setCreateError(problem(e));
     } finally {
       setBusy(false);
     }
@@ -187,7 +200,8 @@ export function App(): React.JSX.Element {
   const jobById = new Map(jobs.map((j) => [j.id, j]));
   const route = routes.find((r) => r.technicianId === selected);
   const selectedTech = technicians.find((x) => x.id === selected);
-  const unassigned = unassignedJobs(dayJobs, date);
+  const byId = unassignedJobs(dayJobs, date);
+  const unassigned = [...byId.filter((j) => j.id === fresh), ...byId.filter((j) => j.id !== fresh)]; // a new job goes on top
   // Unassigned first when there is work to place and nothing is planned yet.
   const planned = !!summary?.technicians.some((x) => x.stopCount > 0);
   const current: Tab = tab ?? (unassigned.length > 0 && summary && !planned ? 'unassigned' : 'technicians');
@@ -220,7 +234,7 @@ export function App(): React.JSX.Element {
 
   return (
     <div className="app">
-      <TopBar date={date} summary={summary} busy={busy} loading={loading} onDate={setDate} onRefresh={() => void reload()} onOptimize={() => void optimize()} onUnassigned={() => setTab('unassigned')} />
+      <TopBar date={date} summary={summary} busy={busy} loading={loading} onDate={setDate} onRefresh={() => void reload()} onOptimize={() => void optimize()} onUnassigned={() => setTab('unassigned')} onAdd={openModal} />
       <div className="body">
       <aside className="side">
         {error && <p className="error" role="alert">{t(error.key, error.vars)}</p>}
@@ -228,7 +242,7 @@ export function App(): React.JSX.Element {
           <section className="empty">
             <h2>{t('empty.day.title')}</h2>
             <p className="muted">{t('empty.day.body')}</p>
-            <button onClick={() => { setPicking(true); setError(null); }}>{t('job.add')}</button>
+            <button onClick={openModal}>{t('job.add')}</button>
           </section>
         )}
 
@@ -259,18 +273,6 @@ export function App(): React.JSX.Element {
             </>
           )}
         </div>
-        <NewJobForm
-          date={date}
-          skills={skills}
-          picking={picking}
-          at={at}
-          draft={draft}
-          busy={busy}
-          onDraft={setDraft}
-          onStart={() => { setPicking(true); setError(null); }}
-          onCancel={() => { setPicking(false); setAt(null); }}
-          onSubmit={() => void submitJob()}
-        />
       </aside>
       <main className="main">
         <MapView
@@ -284,11 +286,13 @@ export function App(): React.JSX.Element {
           picking={picking}
           at={at}
           preview={previewPath}
-          onPick={setAt}
+          onPick={(p) => { setAt(p); setPicking(false); }}
+          onCenter={(c) => { center.current = c; }}
           onSelect={selectTech}
           onSelectStop={(id, jobId) => { selectTech(id); setHighlighted(jobId); setLink({ jobId }); }}
           onSelectJob={(id) => { setTab('unassigned'); setPinned(id); }}
         />
+        {picking && <div className="crosshair" aria-hidden="true" />}
         <Legend />
       </main>
       {selectedTech && (
@@ -306,6 +310,20 @@ export function App(): React.JSX.Element {
         />
       )}
       </div>
+      {adding && (
+        <NewJobModal
+          date={date}
+          skills={skills}
+          busy={busy}
+          at={at}
+          picking={picking}
+          failure={createError && t('create.failed', { message: createError.key === 'error.network' ? t(createError.key) : String(createError.vars?.message ?? '') })}
+          onPicking={setPicking}
+          onUsePoint={() => { if (center.current) { setAt(center.current); setPicking(false); } }}
+          onSubmit={(d) => void submitJob(d)}
+          onClose={closeModal}
+        />
+      )}
     </div>
   );
 }
