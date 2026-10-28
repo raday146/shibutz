@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { DB, type Db } from '../src/db/db.module';
-import { buildSeed, comparisonScenario } from '../src/seed/datasets';
+import { buildSeed, comparisonScenario, SEED_DAY } from '../src/seed/datasets';
 import { loadDataset, snapCheck } from '../src/seed/load';
 import { setupTestApp } from './app';
 import { describeIfUp, OSRM_URL } from './stack';
@@ -30,6 +30,16 @@ describe('seed', () => {
     expect(techs[0]?.name).toBe('\u05D3\u05E0\u05D4');
     const jobs = (await http.get('/jobs').expect(200)).body as { title: string; address: string }[];
     expect(jobs.every((j) => j.title.length > 0 && j.address.length > 0)).toBe(true);
+  });
+
+  it('seeds one day report and one open incident', async () => {
+    await loadDataset(app().get<Db>(DB), buildSeed());
+    const http = request(app().getHttpServer());
+    const day = `/technicians/1/days/${SEED_DAY}`;
+    expect((await http.get(`${day}/report`).expect(200)).body.body).toContain('יום');
+    const open = (await http.get('/incidents/open').expect(200)).body as { technicianId: number; date: string; jobId: number }[];
+    expect(open).toHaveLength(1);
+    expect(open[0]).toMatchObject({ technicianId: 1, date: SEED_DAY, jobId: 1 });
   });
 
   it('loads the comparison scenario with routed jobs assigned and the new job unassigned', async () => {

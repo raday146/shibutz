@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { JobStatus, RouteView, Skill, Technician } from '@shibutz/contracts';
 import { Ltr, useLang, withLtrTimes } from '../lang';
+import { DayEnd } from './DayEnd';
 import { jerusalemToIso, skillLabel, time } from '../map';
 
 interface Props {
@@ -15,13 +16,15 @@ interface Props {
   instant: boolean;
   onLink: (jobId: number) => void;
   onClose: () => void;
+  /** An incident was added or reviewed. */
+  onDayChanged: () => void;
 }
 
 const GLYPH: Record<JobStatus, string> = { unassigned: '', assigned: '○', in_progress: '●', done: '✓', cancelled: '✕' };
 const minutes = (s: number): number => Math.round(s / 60);
 
 /** The work-day drawer: summary header and a timeline of stops that expand for detail. */
-export function Drawer({ technician, route, date, skills, link, instant, onLink, onClose }: Props): React.JSX.Element {
+export function Drawer({ technician, route, date, skills, link, instant, onLink, onClose, onDayChanged }: Props): React.JSX.Element {
   const { lang, t } = useLang();
   const heading = useRef<HTMLHeadingElement>(null);
   const [open, setOpen] = useState<Set<number>>(new Set());
@@ -102,6 +105,7 @@ export function Drawer({ technician, route, date, skills, link, instant, onLink,
           </ol>
         </>
       )}
+      <DayEnd technicianId={technician.id} date={date} stops={stops} onChanged={onDayChanged} />
     </aside>
   );
 }

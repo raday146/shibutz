@@ -100,6 +100,21 @@ export const he = {
   'stop.drive': '{n} דק׳ נסיעה',
   'stop.duration': '{n} דק׳',
   'note.has': 'יש הערה',
+  'report.title': 'סיכום יום',
+  'report.placeholder': 'סיכום קצר של היום',
+  'incidents.title': 'אירועים',
+  'incident.add': 'הוספת אירוע',
+  'incident.placeholder': 'מה קרה?',
+  'incident.link': 'קישור לעבודה (לא חובה)',
+  'incident.open': 'פתוח',
+  'incident.reviewed': 'נבדק',
+  'incident.mark': 'סימון כנבדק',
+  'incident.none': 'לא נרשמו אירועים.',
+  'note.saving': 'בשמירה',
+  'note.saved': 'נשמר',
+  'note.updated': 'עודכן {time}',
+  'note.error': 'השמירה נכשלה. הטקסט נשמר כאן, יש לנסות שוב.',
+  'error.retry': 'ניסיון חוזר',
 } as const;
 
 export type Key = keyof typeof he;
@@ -203,6 +218,21 @@ export const en: Record<Key, string> = {
   'stop.drive': '{n} min drive',
   'stop.duration': '{n} min',
   'note.has': 'Has a note',
+  'report.title': 'End-of-day summary',
+  'report.placeholder': 'A short summary of the day',
+  'incidents.title': 'Incidents',
+  'incident.add': 'Add incident',
+  'incident.placeholder': 'What happened?',
+  'incident.link': 'Linked job (optional)',
+  'incident.open': 'Open',
+  'incident.reviewed': 'Reviewed',
+  'incident.mark': 'Mark reviewed',
+  'incident.none': 'No incidents logged.',
+  'note.saving': 'Saving',
+  'note.saved': 'Saved',
+  'note.updated': 'Updated {time}',
+  'note.error': "Couldn't save. Your text is still here. Try again.",
+  'error.retry': 'Try again',
 };
 
 export const dictionaries: Record<Lang, Record<Key, string>> = { he, en };
