@@ -5,6 +5,7 @@ import { DayEnd } from './DayEnd';
 import { jerusalemToIso, skillLabel, time } from '../map';
 import { StopActions } from './StopActions';
 import { NoteField } from './NoteField';
+import { RegionError, Skeleton } from './Feedback';
 
 interface Props {
   technician: Technician;
@@ -16,6 +17,11 @@ interface Props {
   link: { jobId: number } | null;
   /** Opened from the keyboard: no animation. */
   instant: boolean;
+  /** The day's data is loading: stops show as a skeleton. */
+  pending: boolean;
+  /** The route could not be loaded (already localized). */
+  error: string | null;
+  onRetry: () => void;
   onLink: (jobId: number) => void;
   /** Records day progress; resolves once the data is reloaded, rejects with the server's refusal. */
   onStatus: (jobId: number, status: JobStatus) => Promise<void>;
@@ -28,10 +34,12 @@ const GLYPH: Record<JobStatus, string> = { unassigned: '', assigned: '○', in_p
 const minutes = (s: number): number => Math.round(s / 60);
 
 /** The work-day drawer: summary header and a timeline of stops that expand for detail. */
-export function Drawer({ technician, route, date, skills, link, instant, onLink, onStatus, onClose, onDayChanged }: Props): React.JSX.Element {
+export function Drawer({ technician, route, date, skills, link, instant, pending, error, onRetry, onLink, onStatus, onClose, onDayChanged }: Props): React.JSX.Element {
   const { lang, t } = useLang();
   const heading = useRef<HTMLHeadingElement>(null);
   const [open, setOpen] = useState<Set<number>>(new Set());
+  // A pointer close fades out first; the keyboard (Escape, Enter on Close) closes at once.
+  const [leaving, setLeaving] = useState(false);
   const [noted, setNoted] = useState<Record<number, boolean>>({}); // notes saved here, ahead of the route view
   const stops = route?.stops ?? [];
   const summary = route?.summary;
@@ -63,16 +71,20 @@ export function Drawer({ technician, route, date, skills, link, instant, onLink,
   };
 
   return (
-    <aside className={instant ? 'drawer' : 'drawer animate'} aria-label={technician.name}>
+    <aside className={[instant ? 'drawer' : 'drawer animate', leaving && 'leaving'].filter(Boolean).join(' ')} aria-label={technician.name}>
       <header>
         <h2 ref={heading} tabIndex={-1} dir="auto">{technician.name}</h2>
-        <button onClick={onClose}>{t('drawer.close')}</button>
+        <button onClick={(e) => { if (e.detail === 0) onClose(); else { setLeaving(true); setTimeout(onClose, 140); } }}>{t('drawer.close')}</button>
       </header>
       <p className="muted">
         {withLtrTimes(t('drawer.shift', { start: technician.shiftStart.slice(0, 5), end: technician.shiftEnd.slice(0, 5) }))}
         {' · '}{skillLabel(technician.skillIds, skills, lang) || t('tech.noSkills')}
       </p>
-      {stops.length === 0 ? (
+      {pending ? (
+        <Skeleton rows={3} />
+      ) : error ? (
+        <RegionError message={error} onRetry={onRetry} />
+      ) : stops.length === 0 ? (
         <p className="muted">{t('drawer.empty')}</p>
       ) : (
         <>
