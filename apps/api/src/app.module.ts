@@ -8,6 +8,8 @@ import { JobsController } from './jobs/jobs.controller';
 import { JobsService } from './jobs/jobs.service';
 import { DaysController } from './days/days.controller';
 import { DaysService } from './days/days.service';
+import { IncidentsController } from './incidents/incidents.controller';
+import { IncidentsService } from './incidents/incidents.service';
 import { InsertionController } from './insertion/insertion.controller';
 import { InsertionService } from './insertion/insertion.service';
 import { JobStatusController } from './operations/job-status.controller';
@@ -23,7 +25,7 @@ import { TechniciansService } from './technicians/technicians.service';
 
 @Module({
   imports: [DbModule],
-  controllers: [SkillsController, TechniciansController, JobsController, JobStatusController, InsertionController, OptimizationController, RoutesController, DaysController],
+  controllers: [SkillsController, TechniciansController, JobsController, JobStatusController, InsertionController, OptimizationController, RoutesController, DaysController, IncidentsController],
   providers: [
     SkillsService,
     TechniciansService,
@@ -31,6 +33,7 @@ import { TechniciansService } from './technicians/technicians.service';
     OptimizationService,
     RoutesService,
     DaysService,
+    IncidentsService,
     JobStatusService,
     InsertionService,
     { provide: CLOCK, useValue: systemClock },

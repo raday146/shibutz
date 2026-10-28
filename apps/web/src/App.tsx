@@ -302,6 +302,7 @@ export function App(): React.JSX.Element {
           instant={instant}
           onLink={setHighlighted}
           onClose={closeDrawer}
+          onDayChanged={() => void reload()}
         />
       )}
       </div>

@@ -2,7 +2,7 @@ import { ConflictException, Inject, Injectable, NotFoundException } from '@nestj
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { CreateTechnician, Technician, UpdateTechnician } from '@shibutz/contracts';
 import { DB, type Db } from '../db/db.module';
-import { rejectInvalid } from '../db/errors';
+import { isForeignKeyViolation, rejectInvalid } from '../db/errors';
 import { jobs, routeStops, routes, technicianSkills, technicians } from '../db/schema';
 
 const columns = {
@@ -82,7 +82,15 @@ export class TechniciansService {
       .where(eq(routes.technicianId, id))
       .limit(1);
     if (stop) throw new ConflictException('Technician has stops on a route; unassign or cancel those jobs first');
-    const [row] = await this.db.delete(technicians).where(eq(technicians.id, id)).returning({ id: technicians.id });
+    const [row] = await this.db
+      .delete(technicians)
+      .where(eq(technicians.id, id))
+      .returning({ id: technicians.id })
+      .catch((err: unknown) => {
+        // A day report or incident still refers to the technician.
+        if (isForeignKeyViolation(err)) throw new ConflictException('Technician has a day report or incidents and cannot be deleted');
+        throw err;
+      });
     if (!row) throw new NotFoundException('Technician not found');
   }
 }

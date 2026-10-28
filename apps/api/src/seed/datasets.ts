@@ -8,6 +8,8 @@ export interface Dataset {
   skills: CreateSkill[];
   technicians: CreateTechnician[];
   jobs: CreateJob[];
+  /** A day report and an incident for technician 1 on SEED_DAY; the incident links job 1. */
+  workDay?: { report: string; incident: string };
 }
 
 /** Fixed planning day, so re-runs are identical. Israel is on winter time (+02:00) then. */
@@ -114,7 +116,8 @@ export function buildSeed(seed = 20261102): Dataset {
     };
   });
 
-  return { skills: SKILLS, technicians, jobs };
+  const workDay = { report: 'יום רגוע, כל העבודות הסתיימו בזמן.', incident: 'הלקוח לא היה בבית בהגעה, נדרשת בדיקה.' };
+  return { skills: SKILLS, technicians, jobs, workDay };
 }
 
 /**
