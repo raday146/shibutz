@@ -23,7 +23,12 @@ Status: base decisions plus the type scale, route palette, status colors, spacin
 | `--ink` | `#1c1917` | Headings, primary text, the one filled button |
 | `--ink-2` | `#57534e` | Secondary text |
 | `--ink-3` | `#6f6963` | Quiet text. 5.2:1 on `--bg`, 5.4:1 on `--surface`, 5.0:1 on `--surface-2` |
-| `--control-border` | `#8a837d` | Borders of inputs, checkboxes and outlined buttons (3.4 to 3.7:1). `--hairline` is decoration only |
+| `--control-border` | `#8a837d` | Borders of inputs, checkboxes and buttons (3.7:1 on white, 3.3:1 on `--control-bg`). `--hairline` is decoration only |
+| `--control-bg` | `#f1efed` | Fill of every standalone button. `--ink-3` text on it is 4.7:1 |
+| `--control-bg-hover` | `#e7e5e4` | Button hover (13.9:1 for ink) |
+| `--control-bg-active` | `#d6d3d1` | Button pressed (11.7:1 for ink) |
+| `--done-ink` / `--done-bg` / `--done-line` | `#166534` / `#f0fdf4` / `#4d9a68` | Done status pill (text 6.8:1, border 3.3:1) |
+| `--progress-ink` / `--progress-bg` / `--progress-line` | `#1e40af` / `#eff6ff` / `#5b83d6` | In-progress status pill (text 8.0:1, border 3.4:1) |
 | `--focus` | `#1c1917` | Focus ring: 2px ink with a 2px offset. Not blue, because blue is a route color |
 | `--attention` | `#b45309` | Amber: needs attention (unassigned, open incident, late) |
 | `--attention-ink` | `#92400e` | Text on `--attention-bg` (6.8:1) |
@@ -52,13 +57,15 @@ Eight fixed slots, stored as `technicians.color` (1 to 8). The order never chang
 The hues deliberately skip roughly 0 to 100 degrees (red, orange, amber, yellow), which belong to status. Validated with the dataviz palette validator on the light surface:
 - Adjacent pairs: worst color-blind separation 9.5 (target 8), worst normal-vision separation 19.5 (floor 15).
 - Contrast: at least 3.5:1 against the muted basemap land and at least 4.5:1 for white text on a route fill (stop numbers). Against the darkest 5% of basemap pixels some slots drop to about 2.1 to 2.4, which is why every route line has a white casing (below).
-- All pairs: eight colors cannot all be pairwise distinct (worst pair about 10 against the 15 floor). So color is never the only carrier of identity. Each home marker shows the technician's initial, the selected route shows numbered stops, tooltips carry the name, and selecting one fades the rest.
+- All pairs: eight colors cannot all be pairwise distinct (worst pair about 10 against the 15 floor). So color is never the only carrier of identity. Each home marker shows the technician's initial, the selected route shows numbered stops, tooltips carry the name, and selecting one fades the rest to 45%.
 - A ninth technician reuses the least-used slot, lowest slot first on a tie. Colors only ever mark a technician: no status, no chart series.
-- Route color is never used for text. Text stays in ink tokens beside a colored mark.
+- Route color is never used for text on a light surface. Text stays in ink tokens beside a colored mark. White text on a route fill is the one exception (drawer header band, stop badges): every slot passes 4.5:1 for it.
+- Where the color shows in the panels: the selected technician's row (stripe and tint), the drawer header band, and the numbered stop badges in the drawer. Nowhere else, so the color keeps meaning one technician.
+- Status uses its own pills, never a route color: done is green, in progress is blue, assigned is neutral, unassigned is amber. Amber and red stay reserved for attention.
 
 ### Basemap
 
-OpenStreetMap tiles stay, muted with a CSS filter on `.leaflet-tile-pane` only: `grayscale(1) contrast(0.8) brightness(1.12)`. Never on the overlay, marker or any other pane, or the validated route and status colors would turn grey. No new tile provider. Median basemap luminance after the filter is about 0.72, so land reads as light grey. Route lines are 3.5px, drawn over a 7px white casing. Thin default routes are 2px over a 5px casing. Home markers and stop numbers get a 2px white ring.
+OpenStreetMap tiles stay, muted with a CSS filter on `.leaflet-tile-pane` only: `grayscale(1) contrast(0.72) brightness(1.2)`, a lighter wash than the first pass so the route colors carry more of the picture. Never on the overlay, marker or any other pane, or the validated route and status colors would turn grey. No new tile provider. The filter maps land (about 93% grey in the tiles) to 97%, hill shading (70%) to 77% and map text (35%) to 47%. Against filtered land the weakest route color is 4.25:1 (4.0:1 before), against hill shading 2.6:1, which the white casing covers. Route lines are 3.5px, drawn over a 7px white casing. Thin default routes are 2px over a 5px casing. Home markers and stop numbers get a 2px white ring.
 
 ## Typography
 
@@ -102,10 +109,14 @@ OpenStreetMap tiles stay, muted with a CSS filter on `.leaflet-tile-pane` only: 
 
 ## Components
 
-- Buttons: filled (`--ink` on white text), outlined (hairline border, transparent), icon button (28px, no border until hover). Height is 28px everywhere (32px in forms), with no smaller size. Hover shifts the background one step. Focus shows a 2px `--focus` ring. The drawer heading takes focus programmatically and shows no ring; the drawer is announced by its label.
+- Buttons: filled (`--ink` on white text, one per view), standard (`--control-bg` fill with a `--control-border` border), icon button (28px square with the same fill and border, e.g. the modal ×). Height is 28px everywhere (32px in forms), with no smaller size. Hover moves the fill to `--control-bg-hover`, pressed to `--control-bg-active` with the 0.97 scale. A disabled button drops to `--bg` with a hairline. Row-like buttons (tabs, list rows, timeline rows, section toggles, menu items) have no fill or border: the row is the affordance, and hover uses `--surface-2`. Focus shows a 2px `--focus` ring. The drawer heading takes focus programmatically and shows no ring; the drawer is announced by its label.
 - Stop rows keep a fixed order: time and title, then the note icon, then the status. "Add incident" is a full-width button under its input.
-- Rows: white surface, 1px hairline, 8px radius, 9-12px padding. Selected rows use `--surface-2` and a 3px inline-start bar in the technician's color.
-- Stop number: a 26px circle filled with the owner's color. A done stop is an outlined circle with a check.
+- Rows: white surface, 1px hairline, 8px radius, 9-12px padding. The selected technician row, while their drawer is open, has a 4px inline-start stripe in the technician's color and a tint of 14% of that color over white. Every row reserves the 4px transparent stripe, so selecting moves nothing. Muted text inside the tinted row uses `--ink-2` (4.5:1 or more on every tint).
+- Drawer header: a full-width band in the technician's color with the name and the Close button in white (the button is a translucent white fill with a white border).
+- Stop badge: a 22px circle in the owner's color with the stop's number in white, before the time in each drawer row. It repeats the number on the map pin and is hidden from assistive technology.
+- Status pill: 12px text, 999px radius, a glyph plus the word. Done is green, in progress is blue, assigned is neutral (`--surface-2`), unassigned is amber.
+- New-job modal: anchored 48px below the top edge, never vertically centered, so its height changing never moves the title. Every field reserves one line under it for its validation message. A × icon button sits in the top inline-end corner (top-left in RTL) next to the title, and "Close" stays at the bottom. Both dismiss the same way.
+- Map stop number: a 26px circle filled with the owner's color. A done stop is an outlined circle with a check.
 - Chips: 12px text, `--surface-2`, hairline, 6px radius. Skills only.
 - Inline notes: a quiet block under the stop with the text and an "Updated 08:55" line. A collapsed stop with a note shows a small note glyph.
 - Empty, loading and error states: skeleton rows on first load, a thin progress line on reloads, per-region errors with Retry, action errors inline at the control that failed.
@@ -128,10 +139,10 @@ Tokens:
 
 Rules:
 - Animate only `transform` and `opacity`, and name the properties. Never `transition: all`, never `ease-in`, never a UI animation over 250ms. Exits are faster than entrances (at most 140ms).
-- Nothing starts from `scale(0)`. Popovers scale from 0.97 with a fade, from their trigger. Modals scale from 0.96 and stay centered.
+- Nothing starts from `scale(0)`. Popovers scale from 0.97 with a fade, from their trigger. Modals scale from 0.96 and stay anchored near the top.
 - Use CSS transitions, not keyframes, for anything that can be triggered rapidly, so it can be interrupted.
 - Hover effects are gated behind `@media (hover: hover) and (pointer: fine)`.
-- Keyboard-initiated actions do not animate. A drawer opened with Enter or Space appears instantly, and Escape closes it instantly.
+- Keyboard-initiated actions do not animate. A drawer opened with Enter or Space appears instantly, and Escape closes it instantly. Keyboard mode zeroes the animation duration (`animation-duration: 0s`), never `animation: none`: removing the name and restoring it on the next pointer event replays the entrance of every open dialog, which looked like the modal jumping while the user typed and ticked.
 
 By element:
 
@@ -144,7 +155,7 @@ By element:
 | Map-pick | The modal collapses to the pick bar with a 120ms fade. The crosshair appears instantly. |
 | Overflow menu | Scales from 0.97 with a fade at its trigger, 125ms. Exit instant. |
 | Stop row and options expand | Content fades in over 120ms. Height is not animated. |
-| Fade others on select | Opacity of other routes and markers goes to 20% over `--dur-fast`. Stroke width changes instantly. |
+| Fade others on select | Opacity of other routes and markers goes to 45% over `--dur-fast`. Stroke width changes instantly. |
 | "Find a slot" preview | Dashed lines appear instantly on hover or focus and stay until another option is hovered, so moving between options does not flicker. |
 | Linked highlight | The marker or row pulses once (scale 1.35, 600ms `--ease-out`) when its pair is clicked. |
 | In-progress ring | Opacity pulse 1.6s `--ease-in-out`, a state indicator. Static under reduced motion. |
@@ -182,7 +193,7 @@ Standard: WCAG 2.1 AA, plus the 2.2 target-size rule.
 - Keyboard order follows the DOM and the visual order in both directions: top bar, left panel, map, drawer. The left-panel switch is a tab list: arrow keys move between the two tabs (mirrored in RTL), and the active tab controls the list below it.
 - Focus management:
   - Opening the drawer moves focus to its heading, and closing it returns focus to the technician row that opened it.
-  - The modal is `role="dialog"` with `aria-modal`, traps focus, starts on the Title field and returns focus to "Add job".
+  - The modal is `role="dialog"` with `aria-modal`, traps focus (the × is first in tab order), starts on the Title field and returns focus to "Add job".
   - Map-pick collapses the modal to a bar and moves focus to it. Escape returns to the modal with focus on "Set location on map".
   - Escape closes only the topmost layer.
 - Map parity: everything on the map has a list equivalent (technician rows, drawer stops, the unassigned queue), so the map is never the only way in. The map container is labeled "Map", with keyboard panning and zoom on. Choosing a job location works by click, and also by a fixed center crosshair with a "Use this point" button, so keyboard-only and touch users can pan and confirm.

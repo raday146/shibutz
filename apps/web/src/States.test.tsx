@@ -167,6 +167,11 @@ describe('motion rules in the stylesheet', () => {
       for (const [, prop] of (body ?? '').matchAll(/([\w-]+)\s*:/g)) expect(['transform', 'opacity']).toContain(prop);
     }
   });
+  it('silences keyboard-mode animations by duration, so a pointer event never replays an open dialog', () => {
+    const rule = css.split('\n').find((l) => l.startsWith('[data-input=keyboard] :is(.overlay, .dialog')) ?? '';
+    expect(rule).toContain('animation-duration: 0s');
+    expect(rule).not.toMatch(/animation:\s*none/);
+  });
   it('gates hover behind a fine pointer and has a reduced-motion block', () => {
     expect(css).toContain('(hover: hover) and (pointer: fine)');
     expect(css).toContain('prefers-reduced-motion: reduce');

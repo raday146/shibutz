@@ -23,8 +23,8 @@ export function TechnicianList({ technicians, days, skills, selected, onSelect }
         const done = day?.doneCount ?? 0;
         const progress = t('tech.progress', { done, total });
         return (
-          <li key={tech.id} className={total === 0 ? 'row idle' : 'row'}>
-            <button className={tech.id === selected ? 'on' : ''} aria-pressed={tech.id === selected} dir="auto" onClick={(e) => onSelect(tech.id === selected ? null : tech.id, e.currentTarget, e.detail === 0)}>
+          <li key={tech.id} className={['row', total === 0 && 'idle', tech.id === selected && 'on'].filter(Boolean).join(' ')} style={{ '--c': routeVar(tech.color) } as React.CSSProperties}>
+            <button aria-pressed={tech.id === selected} dir="auto" onClick={(e) => onSelect(tech.id === selected ? null : tech.id, e.currentTarget, e.detail === 0)}>
               <span className="swatch" style={{ background: routeVar(tech.color) }} aria-hidden="true" />
               <b>{tech.name}</b>{' '}
               <span className="muted"><Ltr>{shiftLabel(tech.shiftStart, tech.shiftEnd)}</Ltr></span>

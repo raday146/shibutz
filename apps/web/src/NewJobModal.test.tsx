@@ -79,9 +79,28 @@ describe('new-job modal', () => {
     const close = screen.getByRole('button', { name: 'Close' });
     close.focus();
     await userEvent.tab();
-    expect(document.activeElement).toBe(screen.getByLabelText('Title'));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close dialog' })); // the × is first in order
     await userEvent.tab({ shift: true });
     expect(document.activeElement).toBe(close);
+  });
+
+  it('closes from the × in the corner as well as from the bottom button', async () => {
+    open();
+    await openModal();
+    await userEvent.click(screen.getByRole('button', { name: 'Close dialog' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('reserves a line under every field so a message appearing moves nothing', async () => {
+    open();
+    await openModal();
+    const dialog = screen.getByRole('dialog');
+    const slots = (): number => dialog.querySelectorAll('.slot').length;
+    const before = slots();
+    expect(before).toBe(6); // title, address, skills, duration, window, location
+    await create();
+    expect(slots()).toBe(before);
+    expect(dialog.querySelectorAll('.slot > .error').length).toBeGreaterThan(0);
   });
 
   it('shows every validation message inline and creates nothing', async () => {

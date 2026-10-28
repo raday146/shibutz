@@ -123,6 +123,36 @@ describe('job note in the drawer', () => {
     await waitFor(() => expect(within(row()).getByLabelText('Has a note')).toBeTruthy());
   });
 
+  it('keeps a saved note when the drawer switches to another technician and back', async () => {
+    const amy = { ...bob, id: 2, name: 'Amy', color: 2 };
+    const amyStop = { ...stop(4, false), title: 'Amy job' };
+    localStorage.setItem('shibutz.date', DAY);
+    localStorage.setItem('shibutz.lang', 'en');
+    fakeApi({
+      ...api,
+      '/technicians': [bob, amy],
+      [`/days/${DAY}/summary`]: daySummary(DAY, { total: 3, assigned: 3 }, [
+        { technicianId: 1, stopCount: 2, doneCount: 0, driveS: 0, expectedFinish: null, openIncidents: 0, stops: [] },
+        { technicianId: 2, stopCount: 1, doneCount: 0, driveS: 0, expectedFinish: null, openIncidents: 0, stops: [] },
+      ]),
+      [`/routes/2/${DAY}`]: { technicianId: 2, date: DAY, geometry: null, stops: [amyStop], summary: { doneCount: 0, driveS: 0, expectedFinish: null } },
+    });
+    renderConsole();
+    const pick = async (name: string): Promise<void> => {
+      await userEvent.click(within((await screen.findByText(name)).closest('li') as HTMLElement).getByRole('button'));
+    };
+    await pick('Bob');
+    await userEvent.click(await screen.findByRole('button', { name: /Fix 2/ }));
+    await userEvent.type(await screen.findByRole('textbox', { name: 'Note' }), 'now noted');
+    await userEvent.tab();
+    await waitFor(() => expect(within(screen.getByRole('button', { name: /Fix 2/ })).getByLabelText('Has a note')).toBeTruthy());
+
+    await pick('Amy');
+    await screen.findByRole('button', { name: /Amy job/ });
+    await pick('Bob');
+    expect(within(await screen.findByRole('button', { name: /Fix 2/ })).getByLabelText('Has a note')).toBeTruthy();
+  });
+
   it('labels the field and speaks Hebrew', async () => {
     localStorage.setItem('shibutz.date', DAY);
     localStorage.setItem('shibutz.lang', 'he');

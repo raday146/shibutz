@@ -8,6 +8,8 @@ import { fromLatLng, routeVar, skillLabel, toLatLng, toLatLngs } from '../map';
 
 export type Point = [number, number];
 const CENTER: Point = [32.05, 34.85];
+/** Opacity of routes and markers that do not belong to the selected technician. */
+const FADED = 0.45;
 
 /** Fits the map to `points` when `fitKey` changes or the points first appear, never closer than zoom 13; later reloads keep the user's view. */
 /** Names the map container (DESIGN.md: labeled "Map"); Leaflet already makes it focusable with keyboard pan and zoom. */
@@ -108,7 +110,7 @@ function Pin({ at, cls, color = 1, text = '', label, faded, onClick, children }:
   const ref = useRef<LeafletMarker>(null);
   useEffect(() => ref.current?.getElement()?.setAttribute('aria-label', label));
   return (
-    <Marker ref={ref} position={toLatLng(at)} icon={pinIcon(cls, color, text)} opacity={faded ? 0.2 : 1} eventHandlers={{ click: () => onClick?.() }}>
+    <Marker ref={ref} position={toLatLng(at)} icon={pinIcon(cls, color, text)} opacity={faded ? FADED : 1} eventHandlers={{ click: () => onClick?.() }}>
       <Tooltip>{children ?? label}</Tooltip>
     </Marker>
   );
@@ -142,7 +144,7 @@ export function MapView({ date, technicians, dayJobs, skills, routes, selected, 
         if (!r.geometry) return null;
         const line = toLatLngs(r.geometry.coordinates);
         const thick = r.technicianId === selected;
-        const opacity = fades(r.technicianId) ? 0.2 : 1;
+        const opacity = fades(r.technicianId) ? FADED : 1;
         return (
           <Fragment key={`r${r.technicianId}`}>
             <Polyline positions={line} pathOptions={{ color: '#fff', weight: thick ? 7 : 5, opacity }} interactive={false} />

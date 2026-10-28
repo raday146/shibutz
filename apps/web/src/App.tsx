@@ -253,6 +253,9 @@ export function App(): React.JSX.Element {
   const why = (p: Problem): string => (p.key === 'error.network' ? t(p.key) : String(p.vars?.message ?? ''));
   // First load: nothing to show yet. A reload keeps the content and shows the progress line instead.
   const first = loading && !summary;
+  // A saved note changes no route on the server, so patch the loaded view instead of reloading.
+  const noteSaved = (jobId: number, hasNote: boolean): void =>
+    setRoutes((rs) => rs.map((r) => ({ ...r, stops: r.stops.map((s) => (s.jobId === jobId ? { ...s, hasNote } : s)) })));
   const dayJobs = jobs.filter((j) => j.day === date);
   const jobById = new Map(jobs.map((j) => [j.id, j]));
   const route = routes.find((r) => r.technicianId === selected);
@@ -379,6 +382,7 @@ export function App(): React.JSX.Element {
           onRetry={() => void reload()}
           onLink={setHighlighted}
           onStatus={changeStatus}
+          onNoted={noteSaved}
           stamp={summary}
           onClose={closeDrawer}
           onDayChanged={() => void reload()}
