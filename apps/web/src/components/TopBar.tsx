@@ -14,9 +14,10 @@ interface Props {
   onRefresh: () => void;
   onOptimize: () => void;
   onUnassigned: () => void;
+  onAdd: () => void;
 }
 
-export function TopBar({ date, summary, busy, loading, onDate, onRefresh, onOptimize, onUnassigned }: Props): React.JSX.Element {
+export function TopBar({ date, summary, busy, loading, onDate, onRefresh, onOptimize, onUnassigned, onAdd }: Props): React.JSX.Element {
   const { lang, t, toggle } = useLang();
   const [confirming, setConfirming] = useState(false);
   const planRef = useRef<HTMLButtonElement>(null);
@@ -68,6 +69,7 @@ export function TopBar({ date, summary, busy, loading, onDate, onRefresh, onOpti
       )}
       <div className="actions">
         {loading && <span className="muted" role="status">{t('loading')}</span>}
+        <button onClick={onAdd}>{t('job.add')}</button>
         <button onClick={onRefresh} disabled={loading}>{t('refresh')}</button>
         {started && <span id="plan-why" className="muted">{t('plan.disabled')}</span>}
         <button
