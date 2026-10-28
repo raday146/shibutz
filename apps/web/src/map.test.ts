@@ -1,11 +1,15 @@
 import type { Job } from '@shibutz/contracts';
 import { describe, expect, it } from 'vitest';
-import { JOB_STATUSES, jerusalemToIso, shiftLabel, skillLabel, statusColor, toLatLng, toLatLngs, unassignedJobs } from './map';
+import { JOB_STATUSES, formatLatLon, jerusalemToIso, shiftLabel, skillLabel, statusColor, toLatLng, toLatLngs, unassignedJobs } from './map';
 
 describe('map helpers', () => {
   it('flips [lon, lat] to Leaflet [lat, lng]', () => {
     expect(toLatLng([34.78, 32.08])).toEqual([32.08, 34.78]);
     expect(toLatLngs([[34, 31], [35, 32]])).toEqual([[31, 34], [32, 35]]);
+  });
+
+  it('shows a [lon, lat] point as "lat, lon"', () => {
+    expect(formatLatLon([34.9, 32.2])).toBe('32.2000, 34.9000');
   });
 
   it('gives every job status a distinct colour', () => {

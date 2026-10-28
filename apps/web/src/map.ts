@@ -6,6 +6,8 @@ export const toLatLng = ([lon, lat]: LonLat): [number, number] => [lat, lon];
 /** The inverse of `toLatLng`, for a Leaflet point. */
 export const fromLatLng = ({ lat, lng }: { lat: number; lng: number }): LonLat => [lng, lat];
 export const toLatLngs = (points: LonLat[]): [number, number][] => points.map(toLatLng);
+/** What users read: "lat, lon". The `[lon, lat]` order stays internal. */
+export const formatLatLon = ([lon, lat]: LonLat): string => `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
 
 const COLORS: Record<JobStatus, string> = {
   unassigned: '#d97706',

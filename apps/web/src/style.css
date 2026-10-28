@@ -293,3 +293,4 @@ button:active:not(:disabled):not(.primary):not(:is(.tabs button, .side li > butt
   .timeline li > button { min-block-size: 44px; }
   .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; }
 }
+.pin.picked { width: 16px; height: 16px; background: transparent; border: 2px dashed var(--attention); cursor: grab; }

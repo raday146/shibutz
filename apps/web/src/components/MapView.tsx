@@ -1,9 +1,10 @@
 import { Fragment, useEffect, useRef } from 'react';
 import { divIcon, latLngBounds } from 'leaflet';
 import type { DivIcon, Marker as LeafletMarker } from 'leaflet';
-import { CircleMarker, MapContainer, Marker, Polyline, TileLayer, Tooltip, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, Marker, Polyline, TileLayer, Tooltip, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
 import type { Job, LonLat, RouteView, Skill, Technician } from '@shibutz/contracts';
 import { useLang } from '../lang';
+import { MapPick } from './MapPick';
 import { fromLatLng, routeVar, skillLabel, toLatLng, toLatLngs } from '../map';
 
 export type Point = [number, number];
@@ -40,12 +41,6 @@ function FlyTo({ target }: { target: Point | null }): null {
   useEffect(() => {
     if (target) map.flyTo(target, 14);
   }, [map, target]);
-  return null;
-}
-
-/** Reports map clicks while the new-job form is waiting for a location. */
-function PickLocation({ active, onPick }: { active: boolean; onPick: (at: LonLat) => void }): null {
-  useMapEvents({ click: (e) => active && onPick(fromLatLng(e.latlng)) });
   return null;
 }
 
@@ -137,9 +132,8 @@ export function MapView({ date, technicians, dayJobs, skills, routes, selected, 
       <MapLabel />
       <FitTo points={selected !== null ? selectedPoints : allPoints} fitKey={selected !== null ? `route${selected}|${date}|${selectedPoints.length > 0}` : 'all'} />
       <FlyTo target={focus} />
-      <PickLocation active={picking} onPick={onPick} />
+      <MapPick picking={picking} at={at} onPick={onPick} />
       <ReportCenter onCenter={onCenter} />
-      {at && <CircleMarker center={toLatLng(at)} radius={8} pathOptions={{ color: '#dc2626', dashArray: '3' }} />}
       {drawn.map((r) => {
         if (!r.geometry) return null;
         const line = toLatLngs(r.geometry.coordinates);
