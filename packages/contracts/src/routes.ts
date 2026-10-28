@@ -35,3 +35,16 @@ export const routeViewSchema = z.object({
   geometry: z.object({ type: z.literal('LineString'), coordinates: z.array(lonLatSchema) }).nullable(),
 });
 export type RouteView = z.infer<typeof routeViewSchema>;
+
+/** `GET /routes/:technicianId/:date/cancellations`: jobs cancelled from that technician's day, oldest first. */
+export const cancellationSchema = z.object({
+  jobId: z.number().int().positive(),
+  title: z.string(),
+  previousStatus: jobStatusSchema,
+  actualArrival: z.iso.datetime().nullable(),
+  /** Set only for a job that was in progress: the moment it was cancelled. */
+  actualDeparture: z.iso.datetime().nullable(),
+  cancelledAt: z.iso.datetime(),
+  reason: z.string().nullable(),
+});
+export type Cancellation = z.infer<typeof cancellationSchema>;
