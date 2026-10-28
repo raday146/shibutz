@@ -22,6 +22,30 @@ const body: Record<string, unknown> = {
   [`/technicians/1/days/${DAY}/incidents`]: [],
 };
 
+/**
+ * Simulates an engine that has neither the popover API nor CSS anchor positioning (Safari before 26): the first attempt at these
+ * overlays used both and rendered the menu as a full-height box there. Playwright's WebKit is new enough to have both, so the
+ * features are hidden from the page instead.
+ */
+async function withoutModernPositioning(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    delete (HTMLElement.prototype as Partial<HTMLElement>).showPopover;
+    delete (HTMLElement.prototype as Partial<HTMLElement>).hidePopover;
+    const supports = CSS.supports.bind(CSS);
+    CSS.supports = ((...args: string[]) => (/anchor|position-area|position-try|popover/.test(args.join(' ')) ? false : supports(...(args as [string])))) as typeof CSS.supports;
+  });
+}
+
+/** Nothing the app ships may depend on anchor positioning: no stylesheet rule and no inline style mentions it. */
+async function expectNoAnchorPositioning(page: Page): Promise<void> {
+  const used = await page.evaluate(() => {
+    const css = [...document.styleSheets].flatMap((s) => { try { return [...s.cssRules].map((r) => r.cssText); } catch { return []; } });
+    const inline = [...document.querySelectorAll('[style]')].map((e) => e.getAttribute('style') ?? '');
+    return [...css, ...inline].filter((c) => /anchor-name|position-anchor|position-area|position-try|anchor\(|\[popover\]/.test(c));
+  });
+  expect(used).toEqual([]);
+}
+
 async function open(page: Page, lang: 'he' | 'en'): Promise<void> {
   await page.addInitScript(({ day, l }) => { localStorage.setItem('shibutz.date', day); localStorage.setItem('shibutz.lang', l); }, { day: DAY, l: lang });
   await page.route('**/*.tile.openstreetmap.org/**', (r) => r.abort());
@@ -86,3 +110,22 @@ for (const lang of ['he', 'en'] as const) {
     });
   });
 }
+
+test.describe('without the popover API or anchor positioning', () => {
+  for (const lang of ['he', 'en'] as const) {
+    test(`overlays still work (${lang})`, async ({ page }) => {
+      await withoutModernPositioning(page);
+      await open(page, lang);
+      await page.locator('aside.drawer').getByRole('button', { name: /Fix 2/ }).click();
+      const more = page.locator('[aria-haspopup=menu]');
+      await more.click();
+      await expectNextTo(page, page.getByRole('menu'), more);
+      await expectNoAnchorPositioning(page);
+      await page.keyboard.press('Escape');
+      const incidents = page.locator('[aria-controls=incidents-panel]');
+      await incidents.click();
+      await expectNextTo(page, page.locator('#incidents-panel'), incidents);
+      await expectNoAnchorPositioning(page);
+    });
+  }
+});

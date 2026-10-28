@@ -41,4 +41,5 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      - run: pnpm --filter web exec playwright install --with-deps chromium webkit firefox # web e2e runs on all three engines
       - run: pnpm test:e2e
