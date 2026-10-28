@@ -51,7 +51,11 @@
   --shadow-overlay: 0 0 0 1px var(--hairline), 0 12px 32px rgb(28 25 23 / 0.1);
 
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-press: 120ms;
+  --dur-fast: 150ms;
+  --dur-pop: 180ms;
   --dur-panel: 220ms;
 
   --z-map: 0;
@@ -69,7 +73,7 @@ body { background: var(--bg); color: var(--ink); font: 400 var(--text-md)/var(--
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 button, input, textarea { font: inherit; color: inherit; }
-button { min-height: 28px; padding-inline: var(--space-2); background: transparent; border: 1px solid var(--control-border); border-radius: var(--radius-control); cursor: pointer; }
+button { transition: background-color var(--dur-press) var(--ease-out), border-color var(--dur-press) var(--ease-out), transform var(--dur-press) var(--ease-out); min-height: 28px; padding-inline: var(--space-2); background: transparent; border: 1px solid var(--control-border); border-radius: var(--radius-control); cursor: pointer; }
 button:disabled { color: var(--ink-3); cursor: not-allowed; }
 button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
 button.primary:disabled { background: var(--ink-3); border-color: var(--ink-3); }
@@ -137,8 +141,8 @@ button.plain { min-height: 0; padding: 0; border: 0; font: inherit; font-weight:
 .route-1 { stroke: var(--route-1); } .route-2 { stroke: var(--route-2); } .route-3 { stroke: var(--route-3); } .route-4 { stroke: var(--route-4); }
 .route-5 { stroke: var(--route-5); } .route-6 { stroke: var(--route-6); } .route-7 { stroke: var(--route-7); } .route-8 { stroke: var(--route-8); }
 /* Map markers: a 24px transparent hit area (.hit) around a small visible pin. Status is a ring or glyph, never color alone. */
-.leaflet-marker-icon.hit { display: grid; place-items: center; background: none; border: 0; transition: opacity 150ms; }
-.leaflet-overlay-pane path { transition: opacity 150ms; }
+.leaflet-marker-icon.hit { display: grid; place-items: center; background: none; border: 0; transition: opacity var(--dur-fast) var(--ease-out); }
+.leaflet-overlay-pane path { transition: opacity var(--dur-fast) var(--ease-out); }
 .pin { display: inline-grid; place-items: center; box-sizing: border-box; width: 12px; height: 12px; border-radius: 50%; background: var(--c, var(--ink)); border: 2px solid #fff; color: #fff; font: 600 10px/1 var(--font); }
 .pin.num { width: 20px; height: 20px; font-size: var(--text-xs); }
 .pin.assigned { background: #fff; border: 3px solid var(--c, var(--ink)); color: var(--ink); }
@@ -177,8 +181,8 @@ button.plain { min-height: 0; padding: 0; border: 0; font: inherit; font-weight:
 .stop-actions button[aria-busy=true] { cursor: progress; }
 .stop-actions .error { margin: 0; }
 .stop-actions .menu { position: relative; }
-.stop-actions [role=menu] { position: absolute; inset-inline-start: 0; inset-block-start: 100%; z-index: var(--z-drawer); display: grid; min-inline-size: 140px; padding: var(--space-1); background: var(--surface); border: 1px solid var(--control-border); border-radius: var(--radius-surface); box-shadow: var(--shadow-overlay); animation: fade 125ms var(--ease-out); }
-[dir=rtl] .stop-actions [role=menu] { inset-inline-start: auto; inset-inline-end: 0; }
+.stop-actions [role=menu] { position: absolute; inset-inline-start: 0; inset-block-start: 100%; z-index: var(--z-drawer); display: grid; min-inline-size: 140px; padding: var(--space-1); background: var(--surface); border: 1px solid var(--control-border); border-radius: var(--radius-surface); box-shadow: var(--shadow-overlay); transform-origin: top left; animation: menu-in 125ms var(--ease-out); }
+[dir=rtl] .stop-actions [role=menu] { inset-inline-start: auto; inset-inline-end: 0; transform-origin: top right; }
 .stop-actions [role=menuitem] { border: 0; text-align: start; }
 .dayend { margin-block-start: var(--space-3); }
 .dayend h3, .dayend h4 { margin: 0; font-size: var(--text-md); line-height: var(--lh-md); font-weight: 600; }
@@ -195,11 +199,50 @@ button.plain { min-height: 0; padding: 0; border: 0; font: inherit; font-weight:
 [dir=rtl] .drawer.animate { animation-name: drawer-in-rtl; }
 @keyframes drawer-in-rtl { from { opacity: 0; transform: translateX(-24px); } }
 @keyframes fade { from { opacity: 0; } }
+@keyframes menu-in { from { opacity: 0; transform: scale(0.97); } }
+@keyframes pop-in { from { opacity: 0; transform: scale(0.96); } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+@keyframes grow { from { transform: scaleX(0); } }
+@keyframes ring { 50% { opacity: 0.55; } }
+
+/* Loading, errors and toasts (DESIGN.md Motion). */
+.skeleton { list-style: none; margin: 0; padding: 0; }
+.skeleton li { block-size: 56px; margin-block-end: var(--space-2); background: var(--surface-2); border-radius: var(--radius-surface); }
+.progress { position: fixed; inset-block-start: 0; inset-inline: 0; block-size: 2px; background: var(--ink); z-index: var(--z-toast); pointer-events: none; transform-origin: left; animation: grow 1s var(--ease-out) forwards; }
+[dir=rtl] .progress { transform-origin: right; }
+.map-error { position: absolute; inset-block-start: var(--space-3); inset-inline: var(--space-8); z-index: var(--z-map-controls); padding: var(--space-2) var(--space-3); background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--radius-surface); }
+.map-error .error { margin: 0; }
+.topbar .actions .error { flex-basis: auto; }
+.toasts { position: fixed; inset-block-end: var(--space-4); inset-inline: 0; display: grid; justify-items: center; pointer-events: none; z-index: var(--z-toast); }
+.toast { margin: 0; padding: var(--space-2) var(--space-4); background: var(--ink); color: #fff; border-radius: var(--radius-surface); box-shadow: var(--shadow-overlay); pointer-events: auto; animation: toast-in var(--dur-panel) var(--ease-out); transition: opacity 140ms var(--ease-out); }
+.toast.leaving { opacity: 0; }
+.overlay { animation: fade var(--dur-fast) var(--ease-out); transition: opacity 120ms var(--ease-out); }
+.dialog { animation: pop-in var(--dur-pop) var(--ease-out); transition: transform 120ms var(--ease-out); }
+.overlay.leaving { opacity: 0; }
+.overlay.leaving .dialog { transform: scale(0.96); }
+.pickbar { animation: fade 120ms var(--ease-out); }
+.options { animation: fade 120ms var(--ease-out); }
+.pin.in_progress { animation: ring 1.6s var(--ease-in-out) infinite; }
+.drawer.leaving { opacity: 0; transform: translateX(24px); pointer-events: none; transition: opacity 140ms var(--ease-out), transform 140ms var(--ease-out); }
+[dir=rtl] .drawer.leaving { transform: translateX(-24px); }
+button:active:not(:disabled) { transform: scale(0.97); }
+@media (hover: hover) and (pointer: fine) {
+  button:hover:not(:disabled):not(.primary):not(.plain) { background: var(--surface-2); }
+  button.primary:hover:not(:disabled) { background: #44403c; }
+  .side li.row:hover { background: var(--surface-2); }
+}
+/* Keyboard-initiated actions never animate. */
+@media (max-width: 760px) { .drawer.leaving, [dir=rtl] .drawer.leaving { transform: translateY(24px); } } /* bottom sheet */
+[data-input=keyboard] :is(.overlay, .dialog, .pickbar, .options, [role=menu], .detail, .toast) { animation: none; }
+[data-input=keyboard] :is(.overlay.leaving, .overlay.leaving .dialog) { transition: none; }
 .pin.hl { animation: pulse 600ms var(--ease-out); }
 @keyframes pulse { 50% { transform: scale(1.35); } }
 @media (prefers-reduced-motion: reduce) {
-  .drawer.animate { animation-name: fade; }
-  .pin.hl { animation: none; }
+  .drawer.animate, .dialog, .toast, [role=menu] { animation-name: fade; }
+  .progress { animation-name: fade; }
+  .pin.hl, .pin.in_progress { animation: none; }
+  button:active:not(:disabled), .overlay.leaving .dialog { transform: none; }
+  .drawer.leaving { transform: none; }
 }
 /* Stack breakpoint (DESIGN.md): panels stack, drawer is a bottom sheet over the viewport, modal is full-screen. */
 @media (max-width: 760px) {

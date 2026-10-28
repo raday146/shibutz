@@ -11,13 +11,15 @@ interface Props {
   skills: Skill[];
   highlighted: number | null;
   busy: boolean;
+  /** A failed slot search or assignment, shown at that job's row. */
+  failure: { jobId: number; message: string } | null;
   onFocus: (at: Point) => void;
   onFind: (jobId: number) => void;
   /** The open options (for one job) with their handlers. */
   slot: Omit<SlotProps, 'busy'> | null;
 }
 
-export function UnassignedList({ jobs, skills, highlighted, busy, onFocus, onFind, slot }: Props): React.JSX.Element {
+export function UnassignedList({ jobs, skills, highlighted, busy, failure, onFocus, onFind, slot }: Props): React.JSX.Element {
   const { lang, t } = useLang();
   const [open, setOpen] = useState<number | null>(null);
   useEffect(() => {
@@ -50,6 +52,7 @@ export function UnassignedList({ jobs, skills, highlighted, busy, onFocus, onFin
           ) : (
             <button disabled={busy} onClick={() => onFind(j.id)}>{t('slot.action')}</button>
           )}
+          {failure?.jobId === j.id && <p role="alert" className="error">{failure.message}</p>}
         </li>
       ))}
     </ul>

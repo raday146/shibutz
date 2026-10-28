@@ -5,6 +5,7 @@ import { jerusalemToIso, today, unassignedJobs } from './map';
 import type { Key, Vars } from './i18n';
 import { useLang } from './lang';
 import { Drawer } from './components/Drawer';
+import { RegionError, Skeleton, Toasts } from './components/Feedback';
 import { Legend } from './components/Legend';
 import { MapView } from './components/MapView';
 import type { Point } from './components/MapView';
@@ -60,7 +61,12 @@ export function App(): React.JSX.Element {
   const [link, setLink] = useState<{ jobId: number } | null>(null);
   const [highlighted, setHighlighted] = useState<number | null>(null);
   const [routes, setRoutes] = useState<RouteView[]>([]);
-  const [error, setError] = useState<Problem | null>(null);
+  // One error per region, shown where it happened: the left panel, the map data (also the drawer's), the Plan day button, a job's slot search.
+  const [panelError, setPanelError] = useState<Problem | null>(null);
+  const [mapError, setMapError] = useState<Problem | null>(null);
+  const [planError, setPlanError] = useState<Problem | null>(null);
+  const [slotError, setSlotError] = useState<{ jobId: number; problem: Problem } | null>(null);
+  const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [focus, setFocus] = useState<Point | null>(null);
@@ -80,20 +86,28 @@ export function App(): React.JSX.Element {
   // One reload for everything the map shows; also called after a batch run.
   const reload = useCallback(async (): Promise<void> => {
     setLoading(true);
+    setPanelError(null);
+    setMapError(null);
     try {
       const [t, j, sk, sum] = await Promise.all([fetchTechnicians(), fetchJobs(), fetchSkills(), fetchDaySummary(date)]);
       // Every route is drawn in its owner's color, so fetch one per technician that has stops.
-      const r = await Promise.all(sum.technicians.filter((x) => x.stopCount > 0).map((x) => fetchRoute(x.technicianId, date)));
+      let r: RouteView[] = [];
+      let routeProblem: Problem | null = null;
+      try {
+        r = await Promise.all(sum.technicians.filter((x) => x.stopCount > 0).map((x) => fetchRoute(x.technicianId, date)));
+      } catch (e) {
+        routeProblem = problem(e); // the left panel still has its data
+      }
       setSummary(sum);
       setSkills(sk);
       setTechnicians(t);
       setJobs(j);
       setRoutes(r);
-      setError(null);
+      setMapError(routeProblem);
     } catch (e) {
       setSummary(null);
       setRoutes([]); // never leave routes on screen next to this error
-      setError(problem(e));
+      setPanelError(problem(e));
     } finally {
       setLoading(false);
     }
@@ -102,14 +116,27 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     void reload();
   }, [reload]);
+  // CSS skips entrance animations for keyboard-initiated actions (DESIGN.md), keyed on the last input device.
+  useEffect(() => {
+    const mark = (input: string) => (): void => { document.documentElement.dataset.input = input; };
+    const [key, pointer] = [mark('keyboard'), mark('pointer')];
+    document.addEventListener('keydown', key, true);
+    document.addEventListener('pointerdown', pointer, true);
+    return () => {
+      document.removeEventListener('keydown', key, true);
+      document.removeEventListener('pointerdown', pointer, true);
+    };
+  }, []);
 
   async function optimize(): Promise<void> {
     setBusy(true);
+    setPlanError(null);
     try {
-      await runOptimization(date);
+      const plan = await runOptimization(date);
+      setToast({ id: Date.now(), text: t('plan.done', { assigned: plan.routes.reduce((n, r) => n + r.jobCount, 0), unassigned: plan.unassigned.length }) });
       await reload();
     } catch (e) {
-      setError(problem(e));
+      setPlanError(problem(e));
     } finally {
       setBusy(false);
     }
@@ -167,12 +194,13 @@ export function App(): React.JSX.Element {
 
   async function find(jobId: number): Promise<void> {
     setBusy(true);
+    setSlotError(null);
     try {
       setPreviewed(null);
       setSuggestions(await fetchSuggestions(jobId));
       setStale(false);
     } catch (e) {
-      setError(problem(e));
+      setSlotError({ jobId, problem: problem(e) });
     } finally {
       setBusy(false);
     }
@@ -181,6 +209,7 @@ export function App(): React.JSX.Element {
   async function choose(option: InsertionOption): Promise<void> {
     if (!suggestions) return;
     setBusy(true);
+    setSlotError(null);
     try {
       await insertJob(suggestions.jobId, { technicianId: option.technicianId, position: option.position, routeVersion: option.routeVersion });
       setSuggestions(null);
@@ -196,15 +225,18 @@ export function App(): React.JSX.Element {
           setSuggestions(await fetchSuggestions(suggestions.jobId));
         } catch (again) {
           setSuggestions(null); // e.g. the job is no longer unassigned
-          setError(problem(again));
+          setSlotError({ jobId: suggestions.jobId, problem: problem(again) });
         }
         await reload();
-      } else setError(problem(e));
+      } else setSlotError({ jobId: suggestions.jobId, problem: problem(e) });
     } finally {
       setBusy(false);
     }
   }
 
+  const why = (p: Problem): string => (p.key === 'error.network' ? t(p.key) : String(p.vars?.message ?? ''));
+  // First load: nothing to show yet. A reload keeps the content and shows the progress line instead.
+  const first = loading && !summary;
   const dayJobs = jobs.filter((j) => j.day === date);
   const jobById = new Map(jobs.map((j) => [j.id, j]));
   const route = routes.find((r) => r.technicianId === selected);
@@ -249,10 +281,10 @@ export function App(): React.JSX.Element {
 
   return (
     <div className="app">
-      <TopBar date={date} summary={summary} busy={busy} loading={loading} onDate={setDate} onRefresh={() => void reload()} onOptimize={() => void optimize()} onUnassigned={() => setTab('unassigned')} onAdd={openModal} technicians={technicians} onIncident={goToIncident} onIncidentReviewed={() => void reload()} />
+      {loading && !first && <div className="progress" role="progressbar" aria-label={t('loading')} />}
+      <TopBar planError={planError && why(planError)} date={date} summary={summary} busy={busy} loading={loading} onDate={setDate} onRefresh={() => void reload()} onOptimize={() => void optimize()} onUnassigned={() => setTab('unassigned')} onAdd={openModal} technicians={technicians} onIncident={goToIncident} onIncidentReviewed={() => void reload()} />
       <div className="body">
       <aside className="side">
-        {error && <p className="error" role="alert">{t(error.key, error.vars)}</p>}
         {summary?.totals.total === 0 && (
           <section className="empty">
             <h2>{t('empty.day.title')}</h2>
@@ -262,8 +294,12 @@ export function App(): React.JSX.Element {
         )}
 
         <PanelTabs tab={current} unassignedCount={unassigned.length} onTab={setTab} />
-        <div role="tabpanel" id="tabpanel" aria-labelledby={`tab-${current}`}>
-          {current === 'technicians' ? (
+        <div role="tabpanel" id="tabpanel" aria-labelledby={`tab-${current}`} aria-busy={first}>
+          {panelError ? (
+            <RegionError message={why(panelError)} onRetry={() => void reload()} />
+          ) : first ? (
+            <Skeleton />
+          ) : current === 'technicians' ? (
             <TechnicianList technicians={technicians} days={summary?.technicians ?? []} skills={skills} selected={selected} onSelect={selectTech} />
           ) : (
             <>
@@ -272,6 +308,7 @@ export function App(): React.JSX.Element {
                 skills={skills}
                 highlighted={pinned}
                 busy={busy}
+                failure={slotError && { jobId: slotError.jobId, message: t('error.action', { message: why(slotError.problem) }) }}
                 onFocus={setFocus}
                 onFind={(id) => void find(id)}
                 slot={suggestions && {
@@ -307,6 +344,7 @@ export function App(): React.JSX.Element {
           onSelectStop={(id, jobId) => { selectTech(id); setHighlighted(jobId); setLink({ jobId }); }}
           onSelectJob={(id) => { setTab('unassigned'); setPinned(id); }}
         />
+        {mapError && <div className="map-error"><RegionError message={why(mapError)} onRetry={() => void reload()} /></div>}
         {picking && <div className="crosshair" aria-hidden="true" />}
         <Legend />
       </main>
@@ -319,6 +357,9 @@ export function App(): React.JSX.Element {
           skills={skills}
           link={link}
           instant={instant}
+          pending={loading && summary?.date !== date}
+          error={mapError && why(mapError)}
+          onRetry={() => void reload()}
           onLink={setHighlighted}
           onStatus={changeStatus}
           stamp={summary}
@@ -334,13 +375,14 @@ export function App(): React.JSX.Element {
           busy={busy}
           at={at}
           picking={picking}
-          failure={createError && t('create.failed', { message: createError.key === 'error.network' ? t(createError.key) : String(createError.vars?.message ?? '') })}
+          failure={createError && t('create.failed', { message: why(createError) })}
           onPicking={setPicking}
           onUsePoint={() => { if (center.current) { setAt(center.current); setPicking(false); } }}
           onSubmit={(d) => void submitJob(d)}
           onClose={closeModal}
         />
       )}
+      <Toasts toast={toast} onGone={() => setToast(null)} />
     </div>
   );
 }

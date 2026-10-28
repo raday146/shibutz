@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { daySummary, fakeApi, renderConsole } from './test/render';
@@ -86,6 +86,7 @@ describe('work-day drawer', () => {
     expect(document.activeElement).toBe(opener);
     await userEvent.click(opener);
     await userEvent.click(within(drawer()).getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(screen.queryByRole('complementary', { name: 'Bob' })).toBeNull()); // fades out first
     expect(document.activeElement).toBe(opener);
   });
 
