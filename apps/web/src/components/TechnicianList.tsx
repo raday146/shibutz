@@ -28,7 +28,7 @@ export function TechnicianList({ technicians, days, skills, selected, onSelect }
               <span className="swatch" style={{ background: routeVar(tech.color) }} aria-hidden="true" />
               <b>{tech.name}</b>{' '}
               <span className="muted"><Ltr>{shiftLabel(tech.shiftStart, tech.shiftEnd)}</Ltr></span>
-              {/* Slot for the open-incident badge; incidents arrive with #50, so the day summary reports 0 until then. */}
+              {/* Open incidents that day, from the day summary. */}
               {day && day.openIncidents > 0 && <span className="badge">{t('tech.openIncidents', { n: day.openIncidents })}</span>}
               <span className="muted skills">{skillLabel(tech.skillIds, skills, lang) || t('tech.noSkills')}</span>
               {total === 0 ? (

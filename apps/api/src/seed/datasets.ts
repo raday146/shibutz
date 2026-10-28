@@ -10,6 +10,10 @@ export interface Dataset {
   jobs: CreateJob[];
   /** Jobs (by position, 1-based) that were cancelled, with who they belonged to; their status is `cancelled`. */
   cancellations?: { jobId: number; technicianId: number | null; previousStatus: JobStatus; cancelledAt: string; reason: string | null }[];
+  /** Notes by positional job id. */
+  notes?: { jobId: number; body: string }[];
+  /** A day report and an incident for technician 1 on SEED_DAY; the incident links job 1. */
+  workDay?: { report: string; incident: string };
 }
 
 /** Fixed planning day, so re-runs are identical. Israel is on winter time (+02:00) then. */
@@ -121,7 +125,15 @@ export function buildSeed(seed = 20261102): Dataset {
   const owner = technicians.findIndex((t) => t.skillIds.includes(cancelledJob?.skillIds[0] ?? 0)) + 1;
   const cancellations = [{ jobId: 60, technicianId: owner || null, previousStatus: 'assigned' as const, cancelledAt: at('09:20'), reason: 'הלקוח ביטל את הביקור' }];
 
-  return { skills: SKILLS, technicians, jobs, cancellations };
+  const notes = [
+    { jobId: 1, body: 'הלקוח מבקש להתקשר חצי שעה לפני ההגעה.' },
+    { jobId: 5, body: 'קוד כניסה לבניין: 1948. חניה ברחוב הצדדי.' },
+    { jobId: 12, body: 'להביא סולם גבוה. הציוד הוחלף בביקור הקודם.' },
+    { jobId: 20, body: 'Customer works from home, bring shoe covers.' },
+  ];
+  const workDay = { report: 'יום רגוע, כל העבודות הסתיימו בזמן.', incident: 'הלקוח לא היה בבית בהגעה, נדרשת בדיקה.' };
+
+  return { skills: SKILLS, technicians, jobs, cancellations, notes, workDay };
 }
 
 /**

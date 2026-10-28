@@ -75,6 +75,9 @@ button.primary { background: var(--ink); color: #fff; border-color: var(--ink); 
 button.primary:disabled { background: var(--ink-3); border-color: var(--ink-3); }
 input, textarea { min-height: 28px; border: 1px solid var(--control-border); border-radius: var(--radius-control); background: var(--surface); }
 @media (pointer: coarse) { button, input { min-height: 44px; } }
+.note { margin-block: var(--space-2) 0; }
+.note label { display: block; font-size: var(--text-sm); color: var(--ink-2); }
+.note textarea { box-sizing: border-box; inline-size: 100%; padding: var(--space-1) 6px; resize: vertical; }
 
 .app { display: flex; flex-direction: column; height: 100%; }
 .body { position: relative; display: flex; flex: 1; min-height: 0; }
@@ -168,6 +171,16 @@ button.plain { min-height: 0; padding: 0; border: 0; font: inherit; font-weight:
 .stop-actions [role=menu] { position: absolute; inset-inline-start: 0; inset-block-start: 100%; z-index: var(--z-drawer); display: grid; min-inline-size: 140px; padding: var(--space-1); background: var(--surface); border: 1px solid var(--control-border); border-radius: var(--radius-surface); box-shadow: var(--shadow-overlay); animation: fade 125ms var(--ease-out); }
 [dir=rtl] .stop-actions [role=menu] { inset-inline-start: auto; inset-inline-end: 0; }
 .stop-actions [role=menuitem] { border: 0; text-align: start; }
+.dayend { margin-block-start: var(--space-3); }
+.dayend h3, .dayend h4 { margin: 0; font-size: var(--text-md); line-height: var(--lh-md); font-weight: 600; }
+.dayend h3 > button { inline-size: 100%; text-align: start; min-block-size: 36px; border: 0; padding-inline: var(--space-2); }
+.dayend textarea { display: block; box-sizing: border-box; inline-size: 100%; max-inline-size: 70ch; font: inherit; }
+.dayend .incidents { list-style: none; margin: 0; padding: 0; }
+.dayend .incidents li { padding-block: var(--space-2); border-bottom: 1px solid var(--hairline); }
+.dayend .incidents p { margin: 0; }
+.incident-form { display: flex; flex-direction: column; gap: var(--space-1); margin-block-start: var(--space-2); }
+.incident-form button, .incident-form select { inline-size: 100%; box-sizing: border-box; }
+.incident-form label { display: flex; flex-direction: column; gap: 2px; }
 .drawer.animate { animation: drawer-in var(--dur-panel) var(--ease-drawer); }
 @keyframes drawer-in { from { opacity: 0; transform: translateX(24px); } }
 [dir=rtl] .drawer.animate { animation-name: drawer-in-rtl; }
@@ -179,6 +192,21 @@ button.plain { min-height: 0; padding: 0; border: 0; font: inherit; font-weight:
   .drawer.animate { animation-name: fade; }
   .pin.hl { animation: none; }
 }
+/* Stack breakpoint (DESIGN.md): panels stack, drawer is a bottom sheet over the viewport, modal is full-screen. */
 @media (max-width: 760px) {
-  .drawer { inset-block-start: auto; inline-size: 100%; max-block-size: 60%; }
+  .body { flex-direction: column; }
+  .side { width: auto; flex: 0 1 40%; min-height: 120px; border-inline-end: 0; border-block-end: 1px solid var(--hairline); }
+  .main { flex: 1 1 0; min-height: 160px; z-index: auto; }
+  .topbar, .kpis { gap: var(--space-2) var(--space-4); }
+  .kpis { flex-wrap: wrap; }
+  .drawer { position: fixed; inset-block: auto 0; inset-inline: 0; inline-size: auto; max-block-size: 60dvh; border-end-start-radius: 0; border-end-end-radius: 0; }
+  .drawer.animate { animation-name: fade; }
+  .overlay { place-items: stretch; }
+  .dialog, .dialog.form { width: 100%; max-width: none; height: 100%; max-height: none; box-sizing: border-box; border-radius: 0; }
+  .pickbar { inset-block: auto var(--space-4); flex-wrap: wrap; width: auto; margin-inline: var(--space-4); }
+}
+@media (pointer: coarse) {
+  .tabs button, .side li > button:first-child, .timeline li > button, .mapkey summary { min-height: 44px; }
+  .timeline li > button { min-block-size: 44px; }
+  .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; }
 }

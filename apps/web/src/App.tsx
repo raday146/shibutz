@@ -317,6 +317,7 @@ export function App(): React.JSX.Element {
           onStatus={changeStatus}
           stamp={summary}
           onClose={closeDrawer}
+          onDayChanged={() => void reload()}
         />
       )}
       </div>
