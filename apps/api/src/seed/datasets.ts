@@ -1,4 +1,4 @@
-import type { CreateJob, CreateSkill, CreateTechnician, LonLat } from '@shibutz/contracts';
+import type { CreateJob, JobStatus, CreateSkill, CreateTechnician, LonLat } from '@shibutz/contracts';
 
 /**
  * Data loaded into empty tables with identity restarted, so ids are positional:
@@ -8,6 +8,8 @@ export interface Dataset {
   skills: CreateSkill[];
   technicians: CreateTechnician[];
   jobs: CreateJob[];
+  /** Jobs (by position, 1-based) that were cancelled, with who they belonged to; their status is `cancelled`. */
+  cancellations?: { jobId: number; technicianId: number | null; previousStatus: JobStatus; cancelledAt: string; reason: string | null }[];
   /** Notes by positional job id. */
   notes?: { jobId: number; body: string }[];
   /** A day report and an incident for technician 1 on SEED_DAY; the incident links job 1. */
@@ -118,6 +120,11 @@ export function buildSeed(seed = 20261102): Dataset {
     };
   });
 
+  // One cancelled job on a technician who has its skill, so the drawer's "Cancelled today" has something to show.
+  const cancelledJob = jobs[59];
+  const owner = technicians.findIndex((t) => t.skillIds.includes(cancelledJob?.skillIds[0] ?? 0)) + 1;
+  const cancellations = [{ jobId: 60, technicianId: owner || null, previousStatus: 'assigned' as const, cancelledAt: at('09:20'), reason: 'הלקוח ביטל את הביקור' }];
+
   const notes = [
     { jobId: 1, body: 'הלקוח מבקש להתקשר חצי שעה לפני ההגעה.' },
     { jobId: 5, body: 'קוד כניסה לבניין: 1948. חניה ברחוב הצדדי.' },
@@ -126,7 +133,7 @@ export function buildSeed(seed = 20261102): Dataset {
   ];
   const workDay = { report: 'יום רגוע, כל העבודות הסתיימו בזמן.', incident: 'הלקוח לא היה בבית בהגעה, נדרשת בדיקה.' };
 
-  return { skills: SKILLS, technicians, jobs, notes, workDay };
+  return { skills: SKILLS, technicians, jobs, cancellations, notes, workDay };
 }
 
 /**
