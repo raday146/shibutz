@@ -169,6 +169,21 @@ button.plain { min-height: 0; padding: 0; border: 0; font: inherit; font-weight:
   .drawer.animate { animation-name: fade; }
   .pin.hl { animation: none; }
 }
+/* Stack breakpoint (DESIGN.md): panels stack, drawer is a bottom sheet over the viewport, modal is full-screen. */
 @media (max-width: 760px) {
-  .drawer { inset-block-start: auto; inline-size: 100%; max-block-size: 60%; }
+  .body { flex-direction: column; }
+  .side { width: auto; flex: 0 1 40%; min-height: 120px; border-inline-end: 0; border-block-end: 1px solid var(--hairline); }
+  .main { flex: 1 1 0; min-height: 160px; z-index: auto; }
+  .topbar, .kpis { gap: var(--space-2) var(--space-4); }
+  .kpis { flex-wrap: wrap; }
+  .drawer { position: fixed; inset-block: auto 0; inset-inline: 0; inline-size: auto; max-block-size: 60dvh; border-end-start-radius: 0; border-end-end-radius: 0; }
+  .drawer.animate { animation-name: fade; }
+  .overlay { place-items: stretch; }
+  .dialog, .dialog.form { width: 100%; max-width: none; height: 100%; max-height: none; box-sizing: border-box; border-radius: 0; }
+  .pickbar { inset-block: auto var(--space-4); flex-wrap: wrap; width: auto; margin-inline: var(--space-4); }
+}
+@media (pointer: coarse) {
+  .tabs button, .side li > button:first-child, .timeline li > button, .mapkey summary { min-height: 44px; }
+  .timeline li > button { min-block-size: 44px; }
+  .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; }
 }
