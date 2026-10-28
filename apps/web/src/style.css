@@ -106,9 +106,9 @@ input, textarea { min-height: 28px; border: 1px solid var(--control-border); bor
 .topbar .date, .topbar .actions { display: flex; align-items: center; gap: var(--space-2); }
 .topbar .actions { margin-inline-start: auto; }
 .incidents-menu { position: relative; }
-/* Menus and popovers live in the top layer (Anchored.tsx), so no ancestor's overflow clips them and no z-index is needed.
-   Placement is logical: below the anchor, starting at its inline-start edge, flipping to the other side or above when it does not fit. */
-.anchored { position: fixed; inset: auto; margin: var(--space-1) 0; position-area: block-end span-inline-end; position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline; }
+/* Menus and popovers are portaled to <body> and placed by Floating UI (Anchored.tsx): no ancestor's overflow clips them.
+   The position comes from inline styles; this layer only has to sit above the drawer. */
+.anchored { z-index: var(--z-modal); }
 .incidents-menu button.attention { color: var(--attention-ink); }
 .popover { box-sizing: border-box; width: 360px; max-width: calc(100vw - 32px); max-height: 60vh; overflow: auto; padding: var(--space-3); background: var(--surface); border: 0; color: inherit; border-radius: var(--radius-surface); box-shadow: var(--shadow-overlay); }
 .popover h3 { margin: var(--space-2) 0 var(--space-1); font-size: var(--text-sm); }
@@ -208,8 +208,8 @@ button.plain { min-height: 0; padding: 0; border: 0; font: inherit; font-weight:
 .stop-actions button[aria-disabled=true] { color: var(--ink-3); cursor: not-allowed; }
 .stop-actions button[aria-busy=true] { cursor: progress; }
 .stop-actions .error { margin: 0; }
-.stop-actions [role=menu] { display: grid; inline-size: max-content; min-inline-size: 140px; max-inline-size: calc(100vw - 16px); padding: var(--space-1); background: var(--surface); color: inherit; border: 1px solid var(--control-border); border-radius: var(--radius-surface); box-shadow: var(--shadow-overlay); animation: menu-in 125ms var(--ease-out); }
-.stop-actions [role=menuitem] { border: 0; text-align: start; }
+.anchored[role=menu] { display: grid; inline-size: max-content; min-inline-size: 140px; max-inline-size: calc(100vw - 16px); padding: var(--space-1); background: var(--surface); color: inherit; border: 1px solid var(--control-border); border-radius: var(--radius-surface); box-shadow: var(--shadow-overlay); animation: menu-in 125ms var(--ease-out); }
+[role=menuitem] { border: 0; text-align: start; }
 .dayend { margin-block-start: var(--space-3); }
 .dayend h3, .dayend h4 { margin: 0; font-size: var(--text-md); line-height: var(--lh-md); font-weight: 600; }
 .dayend h3 > button { inline-size: 100%; text-align: start; min-block-size: 36px; border: 0; padding-inline: var(--space-2); }

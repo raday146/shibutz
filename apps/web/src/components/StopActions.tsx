@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import type { JobStatus, RouteView } from '@shibutz/contracts';
 import type { Key } from '../i18n';
 import { useLang } from '../lang';
-import { Anchored, useAnchorName } from './Anchored';
+import { Anchored } from './Anchored';
 
 type Stop = RouteView['stops'][number];
 
@@ -30,7 +30,6 @@ export function StopActions({ stop, earlier, onStatus }: Props): React.JSX.Eleme
   const [busy, setBusy] = useState<JobStatus | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [menu, setMenu] = useState(false);
-  const anchor = useAnchorName();
   const [confirming, setConfirming] = useState<'unassigned' | 'cancelled' | null>(null);
   const [reason, setReason] = useState('');
   const dialog = useRef<HTMLDivElement>(null);
@@ -65,10 +64,6 @@ export function StopActions({ stop, earlier, onStatus }: Props): React.JSX.Eleme
       setBusy(null);
     }
   };
-  const closeMenu = (): void => {
-    setMenu(false);
-    more.current?.focus();
-  };
   const closeConfirm = (): void => {
     setConfirming(null);
     more.current?.focus();
@@ -98,26 +93,23 @@ export function StopActions({ stop, earlier, onStatus }: Props): React.JSX.Eleme
       </button>
       {blocked && <span id={whyId} className="muted">{t(blocked)}</span>}
       {(
-        <span
-          className="menu"
-          onKeyDown={(e) => {
-            if (e.key === 'Escape' && menu) {
-              e.stopPropagation();
-              closeMenu();
-            }
-            if (menu && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
-              e.preventDefault();
-              const items = [...e.currentTarget.querySelectorAll<HTMLElement>('[role=menuitem]')];
-              const to = items.indexOf(document.activeElement as HTMLElement) + (e.key === 'ArrowDown' ? 1 : -1);
-              items[(to + items.length) % items.length]?.focus();
-            }
-          }}
-        >
-          <button ref={more} style={{ anchorName: anchor }} aria-haspopup="menu" aria-expanded={menu} aria-busy={busy === 'unassigned' || undefined} aria-label={t('action.more')} onClick={() => setMenu(!menu)}>
+        <span className="menu">
+          <button ref={more} aria-haspopup="menu" aria-expanded={menu} aria-busy={busy === 'unassigned' || undefined} aria-label={t('action.more')} onClick={() => setMenu(!menu)}>
             <span aria-hidden="true">⋯</span>
           </button>
           {menu && (
-            <Anchored anchor={anchor} role="menu">
+            <Anchored
+              trigger={more}
+              role="menu"
+              onClose={() => setMenu(false)}
+              onKeyDown={(e) => {
+                if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+                e.preventDefault();
+                const items = [...e.currentTarget.querySelectorAll<HTMLElement>('[role=menuitem]')];
+                const to = items.indexOf(document.activeElement as HTMLElement) + (e.key === 'ArrowDown' ? 1 : -1);
+                items[(to + items.length) % items.length]?.focus();
+              }}
+            >
               {stop.status === 'assigned' && (
                 <button ref={item} role="menuitem" onClick={() => { setMenu(false); setConfirming('unassigned'); }}>{t('action.unassign')}</button>
               )}
