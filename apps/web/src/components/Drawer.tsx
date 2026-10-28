@@ -48,6 +48,11 @@ export function Drawer({ technician, route, date, skills, link, instant, pending
   const summary = route?.summary;
 
   useEffect(() => heading.current?.focus(), []);
+  // A stop that leaves the route sends focus to the heading; Finish unmounts its own button, so focus stays on the stop's row.
+  const refocus = (id: number, to: JobStatus): void => {
+    if (to === 'unassigned' || to === 'cancelled') heading.current?.focus();
+    if (to === 'done') document.querySelector<HTMLElement>(`#stop-${id} > button`)?.focus();
+  };
   useEffect(() => {
     if (!link) return;
     setOpen((o) => new Set(o).add(link.jobId));
@@ -117,7 +122,7 @@ export function Drawer({ technician, route, date, skills, link, instant, pending
                       <p dir="auto">{s.address || t('job.noAddress')}</p>
                       <p>{skillLabel(s.skillIds, skills, lang)}</p>
                       <p className="muted"><Ltr>{t('stop.duration', { n: minutes(s.serviceDurationS) })}</Ltr>{' · '}<Ltr>{t('stop.drive', { n: minutes(s.driveS) })}</Ltr></p>
-                      <StopActions stop={s} earlier={stops.slice(0, i)} onStatus={async (id, to, reason) => { await onStatus(id, to, reason); if (to === 'unassigned' || to === 'cancelled') heading.current?.focus(); }} />
+                      <StopActions stop={s} earlier={stops.slice(0, i)} onStatus={async (id, to, reason) => { await onStatus(id, to, reason); refocus(id, to); }} />
                       <NoteField jobId={s.jobId} hasNote={noted[s.jobId] ?? s.hasNote} date={date} onSaved={(id, has) => setNoted((n) => ({ ...n, [id]: has }))} />
                     </div>
                   )}

@@ -119,6 +119,19 @@ describe('new-job modal', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('map-pick: Tab loops between the pick bar and the map so the keyboard can pan and come back', async () => {
+    open();
+    await openModal();
+    await userEvent.click(screen.getByRole('button', { name: 'Set location on map' }));
+    screen.getByRole('button', { name: 'Back' }).focus();
+    await userEvent.tab();
+    expect(document.activeElement).toBe(screen.getByLabelText('Map'));
+    await userEvent.tab();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Use this point' }));
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(screen.getByLabelText('Map'));
+  });
+
   it('map-pick by the center crosshair and Use this point', async () => {
     open();
     await openModal();

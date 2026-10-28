@@ -70,6 +70,18 @@ export function NewJobModal({ date, skills, busy, at, picking, failure, onPickin
   // Escape closes only the topmost layer: map-pick, then the modal.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
+      if (picking && e.key === 'Tab') {
+        // The bar and the map form a two-stop loop, so a keyboard user can pan the map (arrow keys) and come back to "Use this point"
+        // without tabbing through every marker.
+        const map = document.querySelector<HTMLElement>('.leaflet-container');
+        const buttons = [...(bar.current?.querySelectorAll('button') ?? [])];
+        const at = document.activeElement;
+        if (at === map && !e.shiftKey) buttons[0]?.focus();
+        else if (e.shiftKey ? at === buttons[0] || at === bar.current : at === buttons[buttons.length - 1]) map?.focus();
+        else return;
+        e.preventDefault();
+        return;
+      }
       if (e.key !== 'Escape') return;
       if (picking) onPicking(false);
       else onClose();
