@@ -43,6 +43,8 @@ export function Drawer({ technician, route, date, skills, link, instant, pending
   const [open, setOpen] = useState<Set<number>>(new Set());
   // A pointer close fades out first; the keyboard (Escape, Enter on Close) closes at once.
   const [leaving, setLeaving] = useState(false);
+  const closing = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(closing.current), []);
   const [noted, setNoted] = useState<Record<number, boolean>>({}); // notes saved here, ahead of the route view
   const stops = route?.stops ?? [];
   const summary = route?.summary;
@@ -82,7 +84,7 @@ export function Drawer({ technician, route, date, skills, link, instant, pending
     <aside className={[instant ? 'drawer' : 'drawer animate', leaving && 'leaving'].filter(Boolean).join(' ')} aria-label={technician.name}>
       <header>
         <h2 ref={heading} tabIndex={-1} dir="auto">{technician.name}</h2>
-        <button onClick={(e) => { if (e.detail === 0) onClose(); else { setLeaving(true); setTimeout(onClose, 140); } }}>{t('drawer.close')}</button>
+        <button onClick={(e) => { if (e.detail === 0) onClose(); else { setLeaving(true); closing.current = setTimeout(onClose, 140); } }}>{t('drawer.close')}</button>
       </header>
       <p className="muted">
         {withLtrTimes(t('drawer.shift', { start: technician.shiftStart.slice(0, 5), end: technician.shiftEnd.slice(0, 5) }))}

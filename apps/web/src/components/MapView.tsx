@@ -4,7 +4,7 @@ import type { DivIcon, Marker as LeafletMarker } from 'leaflet';
 import { CircleMarker, MapContainer, Marker, Polyline, TileLayer, Tooltip, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
 import type { Job, LonLat, RouteView, Skill, Technician } from '@shibutz/contracts';
 import { useLang } from '../lang';
-import { routeVar, skillLabel, toLatLng, toLatLngs } from '../map';
+import { fromLatLng, routeVar, skillLabel, toLatLng, toLatLngs } from '../map';
 
 export type Point = [number, number];
 const CENTER: Point = [32.05, 34.85];
@@ -43,18 +43,19 @@ function FlyTo({ target }: { target: Point | null }): null {
 
 /** Reports map clicks while the new-job form is waiting for a location. */
 function PickLocation({ active, onPick }: { active: boolean; onPick: (at: LonLat) => void }): null {
-  useMapEvents({ click: (e) => active && onPick([e.latlng.lng, e.latlng.lat]) });
+  useMapEvents({ click: (e) => active && onPick(fromLatLng(e.latlng)) });
   return null;
 }
 
 /** Reports the map's center, for the crosshair's "Use this point". */
 function ReportCenter({ onCenter }: { onCenter: (at: LonLat) => void }): null {
-  const map = useMapEvents({ moveend: () => onCenter([map.getCenter().lng, map.getCenter().lat]) });
-  useEffect(() => onCenter([map.getCenter().lng, map.getCenter().lat]), [map, onCenter]);
+  const map = useMapEvents({ moveend: () => onCenter(fromLatLng(map.getCenter())) });
+  useEffect(() => onCenter(fromLatLng(map.getCenter())), [map, onCenter]);
   return null;
 }
 
 export interface Props {
+  date: string;
   technicians: Technician[];
   dayJobs: Job[];
   skills: Skill[];
@@ -113,7 +114,7 @@ function Pin({ at, cls, color = 1, text = '', label, faded, onClick, children }:
   );
 }
 
-export function MapView({ technicians, dayJobs, skills, routes, selected, highlighted, focus, picking, at, preview, onPick, onCenter, onSelect, onSelectStop, onSelectJob }: Props): React.JSX.Element {
+export function MapView({ date, technicians, dayJobs, skills, routes, selected, highlighted, focus, picking, at, preview, onPick, onCenter, onSelect, onSelectStop, onSelectJob }: Props): React.JSX.Element {
   const { lang, t } = useLang();
   const jobById = new Map(dayJobs.map((j) => [j.id, j]));
   const colorOf = (id: number): number => technicians.find((tech) => tech.id === id)?.color ?? 1;
@@ -132,7 +133,7 @@ export function MapView({ technicians, dayJobs, skills, routes, selected, highli
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       />
       <MapLabel />
-      <FitTo points={selected !== null ? selectedPoints : allPoints} fitKey={selected !== null ? `route${selected}` : 'all'} />
+      <FitTo points={selected !== null ? selectedPoints : allPoints} fitKey={selected !== null ? `route${selected}|${date}|${selectedPoints.length > 0}` : 'all'} />
       <FlyTo target={focus} />
       <PickLocation active={picking} onPick={onPick} />
       <ReportCenter onCenter={onCenter} />

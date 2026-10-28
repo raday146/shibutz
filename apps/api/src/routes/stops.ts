@@ -1,6 +1,7 @@
 import { asc, eq, type SQL } from 'drizzle-orm';
 import type { JobStatus, LonLat } from '@shibutz/contracts';
 import type { Db } from '../db/db.module';
+import type { RoutingGateway } from '../gateways/ports';
 import { jobs, routeStops, routes } from '../db/schema';
 
 export interface StopRow {
@@ -44,4 +45,12 @@ export function loadStops(db: Db, where: SQL | undefined): Promise<StopRow[]> {
     .innerJoin(jobs, eq(jobs.id, routeStops.jobId))
     .where(where)
     .orderBy(asc(routes.technicianId), asc(routeStops.sequence));
+}
+
+/** Seconds of each leg of home, stops, home (one OSRM matrix; none when there are no stops). */
+export async function driveLegs(routing: RoutingGateway, home: LonLat, stops: LonLat[]): Promise<number[]> {
+  const points = [home, ...stops, home];
+  const matrix = stops.length ? await routing.durationMatrix(points) : [];
+  // ponytail: a leg with no road counts as 0 s; the plan already refuses unreachable jobs.
+  return points.slice(1).map((_, i) => matrix[i]?.[i + 1] ?? 0);
 }

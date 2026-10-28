@@ -96,3 +96,22 @@ describe('unassigned reasons', () => {
     expect(screen.getByText('Not placed yet.')).toBeTruthy();
   });
 });
+
+describe('reload ordering', () => {
+  it('a slow answer for an earlier date never overwrites the date now shown', async () => {
+    const DAY = '2026-11-02';
+    localStorage.setItem('shibutz.date', DAY);
+    localStorage.setItem('shibutz.lang', 'en');
+    const fetch = fakeApi({ ...emptyDay, [`/days/${DAY}/summary`]: daySummary(DAY, { total: 3 }), '/days/2026-11-03/summary': daySummary('2026-11-03') });
+    const fast = fetch.getMockImplementation() as (path: string) => Promise<unknown>;
+    let release: () => void = () => undefined;
+    const slow = new Promise<void>((r) => { release = r; });
+    fetch.mockImplementation((path: string) => (path === `/days/${DAY}/summary` ? slow.then(() => fast(path)) : fast(path)));
+    renderConsole();
+    await userEvent.click(screen.getByRole('button', { name: 'Next day' }));
+    expect(await screen.findByText('No jobs on this date')).toBeTruthy();
+    release();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.getByText('No jobs on this date')).toBeTruthy();
+  });
+});
