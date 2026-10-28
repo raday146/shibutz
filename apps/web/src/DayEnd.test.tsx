@@ -186,3 +186,22 @@ describe('end-of-day summary', () => {
     expect(within(d).getByText('פתוח')).toBeTruthy();
   });
 });
+
+describe('end-of-day summary when loading fails', () => {
+  it('locks the field and never overwrites the stored report on retry or close', async () => {
+    const backend = open('en', []);
+    backend.reports.set(2, 'Stored report');
+    const real = fetch as unknown as (path: string, init?: RequestInit) => Promise<unknown>;
+    let down = true;
+    vi.stubGlobal('fetch', vi.fn((path: string, init?: RequestInit) =>
+      down && path.endsWith('/incidents') ? Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({ message: 'boom' }) }) : real(path, init)));
+    const d = await openDrawer('Alice');
+    const box = await within(d).findByRole('textbox', { name: 'End-of-day summary' });
+    await within(d).findByRole('alert');
+    expect((box as HTMLTextAreaElement).disabled).toBe(true);
+    down = false;
+    await userEvent.click(within(d).getByRole('button', { name: 'Try again' }));
+    expect(await within(d).findByDisplayValue('Stored report')).toBeTruthy();
+    expect(backend.calls.filter((c) => c.method === 'PUT')).toHaveLength(0);
+  });
+});

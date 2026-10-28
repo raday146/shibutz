@@ -166,6 +166,21 @@ describe('new-job modal', () => {
     expect(within(row).getByRole('button', { name: /Close, the job stays unassigned/ })).toBeTruthy();
   });
 
+  it('keeps the new job visible and shows the slot failure at its row when the suggestions fail', async () => {
+    const fetch = open();
+    await openModal();
+    await fill();
+    await pickByClick();
+    const base = fetch.getMockImplementation() as Impl;
+    fetch.mockImplementation((path: string, init?: RequestInit) =>
+      path.startsWith('/jobs/7/insertion-suggestions') ? Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({ message: 'osrm down' }) }) : base(path, init));
+    await create();
+    const row = (await screen.findAllByRole('listitem')).find((r) => r.id === 'job-7')!;
+    expect(await within(row).findByText(/osrm down/)).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(fetch.mock.calls.filter(([p, i]) => p === '/jobs' && i?.method === 'POST')).toHaveLength(1);
+  });
+
   it('keeps the dialog and shows the failure when the create is refused', async () => {
     const fetch = open();
     await openModal();
