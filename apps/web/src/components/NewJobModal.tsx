@@ -58,7 +58,7 @@ export function NewJobModal({ date, skills, busy, at, picking, failure, onPickin
     'aria-describedby': shown(k) ? `job-${k}-error` : undefined,
   });
   const error = (k: Field): React.JSX.Element | null =>
-    shown(k) ? <span id={`job-${k}-error`} role="alert" className="error">{errors[k]}</span> : null;
+    <span className="slot">{shown(k) && <span id={`job-${k}-error`} role="alert" className="error">{errors[k]}</span>}</span>;
 
   useEffect(() => titleRef.current?.focus(), []);
   // Into the bar when map-pick starts, back to "Set location on map" when it ends.
@@ -97,6 +97,8 @@ export function NewJobModal({ date, skills, busy, at, picking, failure, onPickin
     if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
   };
+  // A pointer close fades out first; the keyboard closes at once.
+  const dismiss = (e: React.MouseEvent): void => { if (e.detail === 0) onClose(); else { setLeaving(true); setTimeout(onClose, 120); } };
   const create = (): void => {
     setTried(true);
     if (Object.values(errors).every((m) => !m)) onSubmit(draft);
@@ -107,7 +109,10 @@ export function NewJobModal({ date, skills, busy, at, picking, failure, onPickin
     <>
       <div className={leaving ? 'overlay leaving' : 'overlay'} hidden={picking}>
         <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby="job-modal-title" className="dialog form" onKeyDown={trap}>
-          <h2 id="job-modal-title">{t('job.new')} (<bdi dir="ltr">{date}</bdi>)</h2>
+          <div className="dialog-head">
+            <h2 id="job-modal-title">{t('job.new')} (<bdi dir="ltr">{date}</bdi>)</h2>
+            <button type="button" className="icon" aria-label={t('modal.x')} onClick={dismiss}><span aria-hidden="true">×</span></button>
+          </div>
           <div className="field">
             <label htmlFor="job-title">{t('field.title')}</label>
             <input id="job-title" ref={titleRef} dir="auto" value={title} onChange={(e) => set({ title: e.target.value })} {...aria('title')} />
@@ -159,7 +164,7 @@ export function NewJobModal({ date, skills, busy, at, picking, failure, onPickin
           {failure && <p className="error" role="alert">{failure}</p>}
           <div>
             <button onClick={create} disabled={busy}>{t('modal.create')}</button>{' '}
-            <button onClick={(e) => { if (e.detail === 0) onClose(); else { setLeaving(true); setTimeout(onClose, 120); } }}>{t('modal.close')}</button>
+            <button onClick={dismiss}>{t('modal.close')}</button>
           </div>
         </div>
       </div>

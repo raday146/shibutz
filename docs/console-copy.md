@@ -182,6 +182,7 @@ Every string in the dispatch console, in Hebrew and English. The keys here becom
 | `field.window.to` | סיום החלון | Window end |
 | `modal.create` | יצירה וחיפוש חלון | Create and find a slot |
 | `modal.close` | סגירה | Close |
+| `modal.x` | סגירת החלון | Close dialog |
 | `validation.title` | יש להזין כותרת. | Enter a title. |
 | `validation.address` | יש להזין כתובת. | Enter an address. |
 | `validation.location` | יש להגדיר מיקום במפה. | Set a location on the map. |
