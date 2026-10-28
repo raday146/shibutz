@@ -162,3 +162,14 @@ describe('find a slot in place', () => {
     expect(screen.getAllByRole('button', { name: /שיבוץ כאן/ })).toHaveLength(3);
   });
 });
+
+describe('changing the date', () => {
+  it("drops the previous day's slot options", async () => {
+    await open(api({ '/days/2026-11-03/summary': daySummary('2026-11-03') }));
+    expect(screen.getByRole('list', { name: 'Best options' })).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'Next day' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Previous day' }));
+    await userEvent.click(await screen.findByRole('tab', { name: /Unassigned/ }));
+    expect(screen.queryByRole('list', { name: 'Best options' })).toBeNull();
+  });
+});

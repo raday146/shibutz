@@ -66,6 +66,25 @@ describe('GET /days/:date/summary', () => {
     expect(res.technicians.find((t) => t.technicianId === dana)).toMatchObject({ stopCount: 0, driveS: 0, expectedFinish: null });
   });
 
+  it('keeps the counts and reports 0 drive time when routing is down', async () => {
+    const tech = await technician('Avi');
+    const a = await job(34.01);
+    const db = app().get<Db>(DB);
+    const [route] = await db.insert(routes).values({ technicianId: tech, date: DATE, version: 1 }).returning({ id: routes.id });
+    const at = new Date(`${DATE}T05:00:00Z`);
+    await db.insert(routeStops).values({ routeId: route?.id ?? 0, jobId: a, sequence: 1, eta: at, etd: at });
+    fakeRouting.durationMatrix = async () => {
+      throw new Error('osrm down');
+    };
+    try {
+      const res = await summary();
+      expect(res.totals).toMatchObject({ total: 1, driveS: 0 });
+      expect(res.technicians[0]).toMatchObject({ stopCount: 1, driveS: 0 });
+    } finally {
+      fakeRouting.durationMatrix = async (points) => points.map(() => points.map(() => 100));
+    }
+  });
+
   it('400s for a bad date', async () => {
     await http().get('/days/2026-13-01/summary').expect(400);
   });

@@ -30,8 +30,8 @@ export function DayEnd({ technicianId, date, stops, onChanged }: Props): React.J
   const [attempt, setAttempt] = useState(0);
   const draftRef = useRef<HTMLTextAreaElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
-  const latest = useRef({ text, saved });
-  latest.current = { text, saved };
+  const latest = useRef({ text, saved, loadFailed });
+  latest.current = { text, saved, loadFailed };
 
   useEffect(() => {
     let stale = false;
@@ -54,9 +54,9 @@ export function DayEnd({ technicianId, date, stops, onChanged }: Props): React.J
     );
     return () => {
       stale = true;
-      // Leaving (drawer closed, other day or technician) must not lose typed text.
-      const { text: now, saved: before } = latest.current;
-      if (now.trim() && now !== before) void saveReport(technicianId, date, now).catch(() => undefined);
+      // Leaving (drawer closed, other day or technician) must not lose typed text; after a failed load the box is locked, so nothing is flushed.
+      const { text: now, saved: before, loadFailed: locked } = latest.current;
+      if (!locked && now.trim() && now !== before) void saveReport(technicianId, date, now).catch(() => undefined);
     };
   }, [technicianId, date, attempt]);
 
@@ -119,7 +119,7 @@ export function DayEnd({ technicianId, date, stops, onChanged }: Props): React.J
               {t('error.network')} <button onClick={() => setAttempt((n) => n + 1)}>{t('error.retry')}</button>
             </p>
           )}
-          <textarea dir="auto" rows={3} aria-label={t('report.title')} placeholder={t('report.placeholder')} value={text} onChange={(e) => setText(e.target.value)} onBlur={() => void autosave()} />
+          <textarea dir="auto" rows={3} aria-label={t('report.title')} placeholder={t('report.placeholder')} value={text} disabled={loadFailed} onChange={(e) => setText(e.target.value)} onBlur={() => void autosave()} />
           <p className="muted">
             {save === 'saving' && <span role="status">{t('note.saving')}</span>}
             {save === 'saved' && <span role="status">{t('note.saved')}</span>}
