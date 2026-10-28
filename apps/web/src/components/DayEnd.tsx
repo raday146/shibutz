@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Incident, RouteView } from '@shibutz/contracts';
 import { addIncident, fetchIncidents, fetchReport, reviewIncident, saveReport } from '../api';
-import { Ltr, useLang } from '../lang';
+import { useLang, withLtrNumbers } from '../lang';
 import { time } from '../map';
 
 interface Props {
@@ -16,7 +16,7 @@ type Save = 'idle' | 'saving' | 'saved' | 'error';
 
 /** The drawer's end-of-day summary (autosaves on blur, flushes when it goes away) and the day's incidents. */
 export function DayEnd({ technicianId, date, stops, onChanged }: Props): React.JSX.Element {
-  const { t } = useLang();
+  const { lang, t } = useLang();
   const [text, setText] = useState('');
   const [saved, setSaved] = useState(''); // what the server has
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
@@ -109,7 +109,7 @@ export function DayEnd({ technicianId, date, stops, onChanged }: Props): React.J
     <section className="dayend">
       <h3>
         <button aria-expanded={open} aria-controls="dayend-body" onClick={() => setExpanded(!open)}>
-          <span aria-hidden="true" className="mirror">{open ? '▾' : '▸'} </span>{t('report.title')}
+          <span aria-hidden="true">{open ? '▾' : lang === 'he' ? '◂' : '▸'} </span>{t('report.title')}
         </button>
       </h3>
       {open && (
@@ -123,7 +123,7 @@ export function DayEnd({ technicianId, date, stops, onChanged }: Props): React.J
           <p className="muted">
             {save === 'saving' && <span role="status">{t('note.saving')}</span>}
             {save === 'saved' && <span role="status">{t('note.saved')}</span>}
-            {updatedAt && save !== 'saving' && save !== 'saved' && <Ltr>{t('note.updated', { time: time(updatedAt) })}</Ltr>}
+            {updatedAt && save !== 'saving' && save !== 'saved' && <>{withLtrNumbers(t('note.updated', { time: time(updatedAt) }))}</>}
           </p>
           {save === 'error' && (
             <p role="alert" className="error">

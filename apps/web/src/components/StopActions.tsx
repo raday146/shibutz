@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { JobStatus, RouteView } from '@shibutz/contracts';
 import type { Key } from '../i18n';
 import { useLang } from '../lang';
+import { Anchored, useAnchorName } from './Anchored';
 
 type Stop = RouteView['stops'][number];
 
@@ -29,6 +30,7 @@ export function StopActions({ stop, earlier, onStatus }: Props): React.JSX.Eleme
   const [busy, setBusy] = useState<JobStatus | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [menu, setMenu] = useState(false);
+  const anchor = useAnchorName();
   const [confirming, setConfirming] = useState<'unassigned' | 'cancelled' | null>(null);
   const [reason, setReason] = useState('');
   const dialog = useRef<HTMLDivElement>(null);
@@ -111,16 +113,16 @@ export function StopActions({ stop, earlier, onStatus }: Props): React.JSX.Eleme
             }
           }}
         >
-          <button ref={more} aria-haspopup="menu" aria-expanded={menu} aria-busy={busy === 'unassigned' || undefined} aria-label={t('action.more')} onClick={() => setMenu(!menu)}>
+          <button ref={more} style={{ anchorName: anchor }} aria-haspopup="menu" aria-expanded={menu} aria-busy={busy === 'unassigned' || undefined} aria-label={t('action.more')} onClick={() => setMenu(!menu)}>
             <span aria-hidden="true">⋯</span>
           </button>
           {menu && (
-            <div role="menu">
+            <Anchored anchor={anchor} role="menu">
               {stop.status === 'assigned' && (
                 <button ref={item} role="menuitem" onClick={() => { setMenu(false); setConfirming('unassigned'); }}>{t('action.unassign')}</button>
               )}
               <button ref={stop.status === 'assigned' ? undefined : item} role="menuitem" onClick={() => { setMenu(false); setReason(''); setConfirming('cancelled'); }}>{t('action.cancelJob')}</button>
-            </div>
+            </Anchored>
           )}
         </span>
       )}

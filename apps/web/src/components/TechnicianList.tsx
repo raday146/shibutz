@@ -1,6 +1,6 @@
 import type { DaySummary, Skill, Technician } from '@shibutz/contracts';
 import { sortByName } from '../i18n';
-import { Ltr, useLang } from '../lang';
+import { Ltr, useLang, withLtrNumbers } from '../lang';
 import { routeVar, shiftLabel, skillLabel } from '../map';
 
 interface Props {
@@ -35,7 +35,7 @@ export function TechnicianList({ technicians, days, skills, selected, onSelect }
                 <span className="muted">{t('tech.noStops')}</span>
               ) : (
                 <>
-                  <span className="muted"><Ltr>{progress}</Ltr></span>
+                  <span className="muted">{withLtrNumbers(progress)}</span>
                   <span className="bar" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} aria-valuetext={progress}>
                     <span style={{ inlineSize: `${(100 * done) / total}%` }} />
                   </span>

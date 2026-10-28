@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Cancellation } from '@shibutz/contracts';
 import { fetchCancellations } from '../api';
-import { useLang, withLtrTimes } from '../lang';
+import { useLang, withLtrNumbers } from '../lang';
 import { time } from '../map';
 
 interface Props {
@@ -31,8 +31,8 @@ export function CancelledToday({ technicianId, date, stamp }: Props): React.JSX.
           <li key={c.jobId}>
             <b dir="auto">{c.title}</b>
             <span className="muted">
-              {' · '}{withLtrTimes(t('cancelled.at', { time: time(c.cancelledAt) }))}
-              {c.actualArrival && <>{' · '}{withLtrTimes(t('cancelled.arrived', { time: time(c.actualArrival) }))}</>}
+              {' · '}{withLtrNumbers(t('cancelled.at', { time: time(c.cancelledAt) }))}
+              {c.actualArrival && <>{' · '}{withLtrNumbers(t('cancelled.arrived', { time: time(c.actualArrival) }))}</>}
             </span>
             {c.reason && <div className="muted" dir="auto">{t('cancelled.reason', { reason: c.reason })}</div>}
           </li>

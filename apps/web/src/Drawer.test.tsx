@@ -43,6 +43,27 @@ describe('work-day drawer', () => {
     for (const text of ['Shift 08:00–16:00', 'HVAC', '1/2 done', 'Drive time 40 min', 'Expected finish 18:30', 'Running 150 min late']) expect(d.textContent).toContain(text);
   });
 
+  it.each(['he', 'en'] as const)('isolates only the numbers, never their unit (%s)', async (lang) => {
+    open(lang);
+    await userEvent.click(await techButton('Bob'));
+    const d = drawer();
+    await userEvent.click(within(d).getByRole('button', { name: /Fix 2/ }));
+    const isolates = [...d.querySelectorAll('bdi[dir=ltr]')].map((b) => b.textContent ?? '');
+    expect(isolates.length).toBeGreaterThan(0);
+    for (const text of isolates) expect(text).toMatch(/^[\d:/–.]+$/); // digits, never a unit or a word
+    const unit = lang === 'he' ? 'דק׳' : 'min';
+    // The unit stays in the sentence's own run, after the number.
+    expect(d.textContent).toContain(`40 ${unit}`);
+    expect(d.textContent).toContain(`30 ${unit}`);
+  });
+
+  it.each([['he', '◂'], ['en', '▸']] as const)('points the closed day-summary arrow toward the reading direction (%s)', async (lang, glyph) => {
+    open(lang);
+    await userEvent.click(await techButton('Bob'));
+    const toggle = within(drawer()).getByRole('button', { expanded: false, name: new RegExp(lang === 'he' ? 'סיכום יום' : 'End-of-day summary') });
+    expect(toggle.textContent?.trim().startsWith(glyph)).toBe(true);
+  });
+
   it('lists collapsed rows with time, title, status and a note indicator, and expands for detail', async () => {
     open();
     await userEvent.click(await techButton('Bob'));
@@ -56,7 +77,9 @@ describe('work-day drawer', () => {
     expect(within(items[1] as HTMLElement).queryByLabelText('Has a note')).toBeNull();
     expect(within(first).queryByText('Addr 1')).toBeNull();
     await userEvent.click(within(first).getByRole('button', { name: /Fix 1/ }));
-    for (const text of ['Addr 1', 'HVAC', '30 min', '10 min drive']) expect(within(first).getByText(text)).toBeTruthy();
+    for (const text of ['Addr 1', 'HVAC']) expect(within(first).getByText(text)).toBeTruthy();
+    // The numbers sit in their own isolates, so match the line as a whole.
+    expect(within(first).getByText((_, el) => el?.tagName === 'P' && el.textContent === '30 min · 10 min drive')).toBeTruthy();
   });
 
   it('links rows and markers both ways', async () => {

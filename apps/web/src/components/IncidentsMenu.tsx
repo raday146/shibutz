@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { DaySummary, Incident, Technician } from '@shibutz/contracts';
 import { fetchOpenIncidents, reviewIncident } from '../api';
 import { Ltr, useLang } from '../lang';
+import { Anchored, useAnchorName } from './Anchored';
 
 interface Props {
   /** A new day summary means incidents may have changed (added or reviewed in a drawer): refetch. */
@@ -18,6 +19,7 @@ export function IncidentsMenu({ summary, technicians, onGo, onReviewed }: Props)
   const [list, setList] = useState<Incident[] | null>(null);
   const [open, setOpen] = useState(false);
   const [failure, setFailure] = useState(false);
+  const anchor = useAnchorName();
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -56,11 +58,12 @@ export function IncidentsMenu({ summary, technicians, onGo, onReviewed }: Props)
       className="incidents-menu"
       onBlur={(e) => { if (open && !root.current?.contains(e.relatedTarget as Node | null)) setOpen(false); }}
     >
-      <button ref={trigger} aria-expanded={open} aria-controls="incidents-panel" className={list.length ? 'attention' : undefined} onClick={() => setOpen(!open)}>
+      <button ref={trigger} style={{ anchorName: anchor }} aria-expanded={open} aria-controls="incidents-panel" className={list.length ? 'attention' : undefined} onClick={() => setOpen(!open)}>
         {t('incidents.indicator')} <Ltr>{list.length > 0 && <span aria-hidden="true">▲ </span>}{list.length}</Ltr>
       </button>
       {open && (
-        <div
+        <Anchored
+          anchor={anchor}
           ref={panel}
           id="incidents-panel"
           role="dialog"
@@ -90,7 +93,7 @@ export function IncidentsMenu({ summary, technicians, onGo, onReviewed }: Props)
             </section>
           ))}
           {failure && <p role="alert" className="error">{t('error.network')}</p>}
-        </div>
+        </Anchored>
       )}
     </div>
   );

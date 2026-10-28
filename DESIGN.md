@@ -73,6 +73,7 @@ OpenStreetMap tiles stay, muted with a CSS filter on `.leaflet-tile-pane` only: 
 - Weights: 400 body, 500 controls and labels, 600 headings and names. Never 700 or heavier.
 - Tracking: about -0.011em on body text. No tracking on Hebrew-only runs.
 - Numbers: `font-variant-numeric: tabular-nums` on every time, count and duration.
+- Numbers go first and their unit follows, in both languages ("45 דק׳", "45 min"): the copy keys put `{n}` before the unit. Only the number sits in an LTR isolate, through `withLtrNumbers` (times, ranges, fractions like 3/7, durations). Never wrap a whole translated string in `<Ltr>`: that flips the unit in front of the number in Hebrew. `i18n.test.ts` and `Drawer.test.tsx` enforce both.
 - Times, ranges and ids sit in an LTR isolate (`<bdi dir="ltr">` or `unicode-bidi: isolate; direction: ltr`) so "08:00–16:00" reads left to right inside Hebrew text. Without it, a range reverses and a trailing comma moves to the line start.
 - No all-caps labels. Sentence case everywhere.
 - Scale (size / line height, weight, tracking). Body is 14px because the console is dense. Hebrew keeps zero tracking (`:lang(he)`).
@@ -110,6 +111,8 @@ OpenStreetMap tiles stay, muted with a CSS filter on `.leaflet-tile-pane` only: 
 ## Components
 
 - Buttons: filled (`--ink` on white text, one per view), standard (`--control-bg` fill with a `--control-border` border), icon button (28px square with the same fill and border, e.g. the modal ×). Height is 28px everywhere (32px in forms), with no smaller size. Hover moves the fill to `--control-bg-hover`, pressed to `--control-bg-active` with the 0.97 scale. A disabled button drops to `--bg` with a hairline. Row-like buttons (tabs, list rows, timeline rows, section toggles, menu items) have no fill or border: the row is the affordance, and hover uses `--surface-2`. Focus shows a 2px `--focus` ring. The drawer heading takes focus programmatically and shows no ring; the drawer is announced by its label.
+- Menus and popovers (stop overflow menu, incidents list) render in the browser's top layer through `Anchored`, so no drawer or panel overflow clips them, and they need no z-index. They are anchored with CSS anchor positioning in logical terms: below the trigger, starting at its inline-start edge, and flipped to the other side or above when they do not fit. Without the popover API they simply render in place.
+- Disclosure arrows follow the reading direction, chosen by language rather than by mirroring: closed is ▸ in English and ◂ in Hebrew, open is ▾.
 - Stop rows keep a fixed order: time and title, then the note icon, then the status. "Add incident" is a full-width button under its input.
 - Rows: white surface, 1px hairline, 8px radius, 9-12px padding. The selected technician row, while their drawer is open, has a 4px inline-start stripe in the technician's color and a tint of 14% of that color over white. Every row reserves the 4px transparent stripe, so selecting moves nothing. Muted text inside the tinted row uses `--ink-2` (4.5:1 or more on every tint).
 - Drawer header: a full-width band in the technician's color with the name and the Close button in white (the button is a translucent white fill with a white border).
