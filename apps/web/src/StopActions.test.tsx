@@ -167,11 +167,13 @@ describe('start, finish and unassign from the drawer', () => {
     const more = within(r2).getByRole('button', { name: 'More actions' });
     more.focus();
     await userEvent.keyboard('{Enter}');
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Edit job' }));
+    await userEvent.keyboard('{ArrowDown}');
     expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Unassign' }));
     await userEvent.keyboard('{ArrowDown}');
     expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Cancel job' }));
     await userEvent.keyboard('{ArrowDown}');
-    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Unassign' }));
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Edit job' }));
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('menu')).toBeNull();
     expect(document.activeElement).toBe(more);
