@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, eq, sql } from 'drizzle-orm';
-import type { RouteView } from '@shibutz/contracts';
+import type { Cancellation, RouteView } from '@shibutz/contracts';
 import { DB, type Db } from '../db/db.module';
-import { jobNotes, jobSkills, jobs, routeStops, routes } from '../db/schema';
+import { jobCancellations, jobNotes, jobSkills, jobs, routeStops, routes } from '../db/schema';
 import { ROUTING_GATEWAY } from '../gateways/ports';
 import type { RoutingGateway } from '../gateways/ports';
 import { TechniciansService } from '../technicians/technicians.service';
@@ -16,6 +16,26 @@ export class RoutesService {
     private readonly technicians: TechniciansService,
     @Inject(ROUTING_GATEWAY) private readonly routing: RoutingGateway,
   ) {}
+
+  /** Jobs cancelled from this technician's day, oldest first. */
+  async cancellations(technicianId: number, date: string): Promise<Cancellation[]> {
+    await this.technicians.get(technicianId);
+    const rows = await this.db
+      .select({
+        jobId: jobCancellations.jobId,
+        title: jobs.title,
+        previousStatus: jobCancellations.previousStatus,
+        actualArrival: jobCancellations.actualArrival,
+        actualDeparture: jobCancellations.actualDeparture,
+        cancelledAt: jobCancellations.cancelledAt,
+        reason: jobCancellations.reason,
+      })
+      .from(jobCancellations)
+      .innerJoin(jobs, eq(jobs.id, jobCancellations.jobId))
+      .where(and(eq(jobCancellations.technicianId, technicianId), eq(jobCancellations.date, date)))
+      .orderBy(asc(jobCancellations.cancelledAt), asc(jobCancellations.id));
+    return rows.map((r) => ({ ...r, actualArrival: iso(r.actualArrival), actualDeparture: iso(r.actualDeparture), cancelledAt: r.cancelledAt.toISOString() }));
+  }
 
   /** Stored stops plus geometry computed now from OSRM (home, stops, home); nothing is persisted. */
   async view(technicianId: number, date: string): Promise<RouteView> {

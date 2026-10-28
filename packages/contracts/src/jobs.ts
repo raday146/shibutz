@@ -43,5 +43,11 @@ export const jobSchema = createJobSchema.extend({
 export type Job = z.infer<typeof jobSchema>;
 
 /** `PATCH /jobs/:id/status`; the API allows only the day-operation transitions. */
-export const updateJobStatusSchema = z.object({ status: jobStatusSchema }).strict();
+export const updateJobStatusSchema = z
+  .object({
+    status: jobStatusSchema,
+    /** Why the job was cancelled; only recorded when `status` is `cancelled`, blank counts as none. */
+    reason: z.string().max(500).optional(),
+  })
+  .strict();
 export type UpdateJobStatus = z.infer<typeof updateJobStatusSchema>;
