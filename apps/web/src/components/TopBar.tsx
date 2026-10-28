@@ -9,6 +9,8 @@ import { IncidentsMenu } from './IncidentsMenu';
 interface Props {
   date: string;
   summary: DaySummary | null;
+  /** A failed Plan day, shown beside its button. */
+  planError: string | null;
   busy: boolean;
   loading: boolean;
   onDate: (date: string) => void;
@@ -21,7 +23,7 @@ interface Props {
   onIncidentReviewed: () => void;
 }
 
-export function TopBar({ date, summary, busy, loading, onDate, onRefresh, onOptimize, onUnassigned, onAdd, technicians, onIncident, onIncidentReviewed }: Props): React.JSX.Element {
+export function TopBar({ planError, date, summary, busy, loading, onDate, onRefresh, onOptimize, onUnassigned, onAdd, technicians, onIncident, onIncidentReviewed }: Props): React.JSX.Element {
   const { lang, t, toggle } = useLang();
   const [confirming, setConfirming] = useState(false);
   const planRef = useRef<HTMLButtonElement>(null);
@@ -76,6 +78,7 @@ export function TopBar({ date, summary, busy, loading, onDate, onRefresh, onOpti
         <IncidentsMenu summary={summary} technicians={technicians} onGo={onIncident} onReviewed={onIncidentReviewed} />
         <button onClick={onAdd}>{t('job.add')}</button>
         <button onClick={onRefresh} disabled={loading}>{t('refresh')}</button>
+        {planError && <p role="alert" className="error">{t('error.action', { message: planError })}</p>}
         {started && <span id="plan-why" className="muted">{t('plan.disabled')}</span>}
         <button
           ref={planRef}
