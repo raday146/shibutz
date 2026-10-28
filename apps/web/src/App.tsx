@@ -116,9 +116,9 @@ export function App(): React.JSX.Element {
   }
 
   // Not optimistic: wait for the server, then reload (also after a refusal, which means the screen was stale).
-  async function changeStatus(jobId: number, status: JobStatus): Promise<void> {
+  async function changeStatus(jobId: number, status: JobStatus, reason?: string): Promise<void> {
     try {
-      await setJobStatus(jobId, status);
+      await setJobStatus(jobId, status, reason);
     } finally {
       await reload();
     }
@@ -315,6 +315,7 @@ export function App(): React.JSX.Element {
           instant={instant}
           onLink={setHighlighted}
           onStatus={changeStatus}
+          stamp={summary}
           onClose={closeDrawer}
         />
       )}
