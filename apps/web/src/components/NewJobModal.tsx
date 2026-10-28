@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { LonLat, Skill } from '@shibutz/contracts';
 import { Ltr, useLang } from '../lang';
-import { skillName } from '../map';
+import { formatLatLon, skillName } from '../map';
+import { PickBar } from './PickBar';
 
 export interface JobDraft {
   title: string;
@@ -38,7 +39,6 @@ export function NewJobModal({ date, skills, busy, at, picking, failure, onPickin
   const dialog = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const locationRef = useRef<HTMLButtonElement>(null);
-  const bar = useRef<HTMLDivElement>(null);
   const wasPicking = useRef(false);
   const [leaving, setLeaving] = useState(false); // a pointer Cancel fades out first; the keyboard closes at once
   const { title, address, skillIds, minutes, from, to } = draft;
@@ -61,34 +61,21 @@ export function NewJobModal({ date, skills, busy, at, picking, failure, onPickin
     <span className="slot">{shown(k) && <span id={`job-${k}-error`} role="alert" className="error">{errors[k]}</span>}</span>;
 
   useEffect(() => titleRef.current?.focus(), []);
-  // Into the bar when map-pick starts, back to "Set location on map" when it ends.
+  // Back to "Set location on map" when it ends.
   useEffect(() => {
-    if (picking) bar.current?.focus();
-    else if (wasPicking.current) locationRef.current?.focus();
+    if (!picking && wasPicking.current) locationRef.current?.focus();
     wasPicking.current = picking;
   }, [picking]);
-  // Escape closes only the topmost layer: map-pick, then the modal.
+  // Escape closes only the topmost layer: map-pick (PickBar), then the modal.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (picking && e.key === 'Tab') {
-        // The bar and the map form a two-stop loop, so a keyboard user can pan the map (arrow keys) and come back to "Use this point"
-        // without tabbing through every marker.
-        const map = document.querySelector<HTMLElement>('.leaflet-container');
-        const buttons = [...(bar.current?.querySelectorAll('button') ?? [])];
-        const at = document.activeElement;
-        if (at === map && !e.shiftKey) buttons[0]?.focus();
-        else if (e.shiftKey ? at === buttons[0] || at === bar.current : at === buttons[buttons.length - 1]) map?.focus();
-        else return;
-        e.preventDefault();
-        return;
-      }
+      if (picking) return; // the pick bar owns Escape and Tab while it is up
       if (e.key !== 'Escape') return;
-      if (picking) onPicking(false);
-      else onClose();
+      onClose();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [picking, onPicking, onClose]);
+  }, [picking, onClose]);
 
   const trap = (e: React.KeyboardEvent): void => {
     if (e.key !== 'Tab') return;
@@ -157,7 +144,7 @@ export function NewJobModal({ date, skills, busy, at, picking, failure, onPickin
               <button ref={locationRef} type="button" onClick={() => onPicking(true)} {...aria('location')}>
                 {at ? t('location.change') : t('location.pick')}
               </button>{' '}
-              {at && <span className="muted">{t('location.set')}: <Ltr>{at[1].toFixed(4)}, {at[0].toFixed(4)}</Ltr></span>}
+              {at && <span className="muted">{t('location.set')}: <Ltr>{formatLatLon(at)}</Ltr></span>}
             </span>
             {error('location')}
           </div>
@@ -168,13 +155,7 @@ export function NewJobModal({ date, skills, busy, at, picking, failure, onPickin
           </div>
         </div>
       </div>
-      {picking && (
-        <div ref={bar} tabIndex={-1} role="group" aria-label={t('location.label')} className="pickbar">
-          <span>{t('location.picking')}</span>
-          <button onClick={onUsePoint}>{t('location.use')}</button>
-          <button onClick={() => onPicking(false)}>{t('location.back')}</button>
-        </div>
-      )}
+      {picking && <PickBar onUsePoint={onUsePoint} onBack={() => onPicking(false)} />}
     </>
   );
 }
