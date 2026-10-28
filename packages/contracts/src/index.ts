@@ -7,3 +7,4 @@ export * from './routes';
 export * from './insertion';
 export * from './day';
 export * from './notes';
+export * from './incidents';

@@ -10,6 +10,8 @@ export interface Dataset {
   jobs: CreateJob[];
   /** Notes by positional job id. */
   notes?: { jobId: number; body: string }[];
+  /** A day report and an incident for technician 1 on SEED_DAY; the incident links job 1. */
+  workDay?: { report: string; incident: string };
 }
 
 /** Fixed planning day, so re-runs are identical. Israel is on winter time (+02:00) then. */
@@ -122,8 +124,9 @@ export function buildSeed(seed = 20261102): Dataset {
     { jobId: 12, body: 'להביא סולם גבוה. הציוד הוחלף בביקור הקודם.' },
     { jobId: 20, body: 'Customer works from home, bring shoe covers.' },
   ];
+  const workDay = { report: 'יום רגוע, כל העבודות הסתיימו בזמן.', incident: 'הלקוח לא היה בבית בהגעה, נדרשת בדיקה.' };
 
-  return { skills: SKILLS, technicians, jobs, notes };
+  return { skills: SKILLS, technicians, jobs, notes, workDay };
 }
 
 /**
