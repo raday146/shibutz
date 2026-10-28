@@ -5,6 +5,7 @@ import { DB, type Db } from '../db/db.module';
 import { jobs, routes } from '../db/schema';
 import { ROUTING_GATEWAY } from '../gateways/ports';
 import type { RoutingGateway } from '../gateways/ports';
+import { IncidentsService } from '../incidents/incidents.service';
 import { loadStops } from '../routes/stops';
 import { TechniciansService } from '../technicians/technicians.service';
 
@@ -13,13 +14,15 @@ export class DaysService {
   constructor(
     @Inject(DB) private readonly db: Db,
     private readonly technicians: TechniciansService,
+    private readonly incidents: IncidentsService,
     @Inject(ROUTING_GATEWAY) private readonly routing: RoutingGateway,
   ) {}
 
   /** Read-only: counts from stored rows, drive time from one OSRM matrix per technician with stops. */
   async summary(date: string): Promise<DaySummary> {
-    const [technicians, stops, dayJobs] = await Promise.all([
+    const [technicians, openIncidents, stops, dayJobs] = await Promise.all([
       this.technicians.list(),
+      this.incidents.openCounts(date),
       loadStops(this.db, eq(routes.date, date)),
       this.db.select({ status: jobs.status }).from(jobs).where(and(eq(jobs.day, date), ne(jobs.status, 'cancelled'))),
     ]);
@@ -36,8 +39,7 @@ export class DaysService {
           doneCount: mine.filter((s) => s.status === 'done').length,
           driveS,
           expectedFinish: mine.at(-1)?.etd.toISOString() ?? null,
-          // ponytail: incidents arrive with their own ticket; until then none are open.
-          openIncidents: 0,
+          openIncidents: openIncidents.get(t.id) ?? 0,
           stops: mine.map((s) => ({ jobId: s.jobId, status: s.status, location: s.location })),
         };
       }),

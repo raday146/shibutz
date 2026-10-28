@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { DB, type Db } from '../src/db/db.module';
-import { buildSeed, comparisonScenario } from '../src/seed/datasets';
+import { buildSeed, comparisonScenario, SEED_DAY } from '../src/seed/datasets';
 import { loadDataset, snapCheck } from '../src/seed/load';
 import { setupTestApp } from './app';
 import { describeIfUp, OSRM_URL } from './stack';
@@ -36,6 +36,16 @@ describe('seed', () => {
     await loadDataset(app().get<Db>(DB), buildSeed());
     const { body } = await request(app().getHttpServer()).get('/jobs/1/note').expect(200);
     expect(body.body.length).toBeGreaterThan(0);
+  });
+
+  it('seeds one day report and one open incident', async () => {
+    await loadDataset(app().get<Db>(DB), buildSeed());
+    const http = request(app().getHttpServer());
+    const day = `/technicians/1/days/${SEED_DAY}`;
+    expect((await http.get(`${day}/report`).expect(200)).body.body).toContain('יום');
+    const open = (await http.get('/incidents/open').expect(200)).body as { technicianId: number; date: string; jobId: number }[];
+    expect(open).toHaveLength(1);
+    expect(open[0]).toMatchObject({ technicianId: 1, date: SEED_DAY, jobId: 1 });
   });
 
   it('loads the comparison scenario with routed jobs assigned and the new job unassigned', async () => {
