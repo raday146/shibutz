@@ -11,8 +11,8 @@ export class JobStatusController {
   @Patch(':id/status')
   change(
     @Param('id', ParseIntPipe) id: number,
-    @Body(new ZodValidationPipe(updateJobStatusSchema)) { status }: UpdateJobStatus,
+    @Body(new ZodValidationPipe(updateJobStatusSchema)) { status, reason }: UpdateJobStatus,
   ): Promise<Job> {
-    return this.statuses.change(id, status);
+    return this.statuses.change(id, status, reason);
   }
 }

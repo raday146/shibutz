@@ -5,7 +5,7 @@ import { CLOCK } from '../src/clock/clock';
 import { DB, type Db } from '../src/db/db.module';
 import { ROUTING_GATEWAY } from '../src/gateways/ports';
 import type { DurationMatrix, LineString, RoutingGateway } from '../src/gateways/ports';
-import { jobs as jobsTable, routeStops, routes } from '../src/db/schema';
+import { jobCancellations, jobs as jobsTable, routeStops, routes } from '../src/db/schema';
 import { setupTestApp } from './app';
 
 // Hand-built travel times: 100 s per 0.01 degree of longitude, every point on lat 32.
@@ -279,6 +279,56 @@ describe('PATCH /jobs/:id/status (fake routing, fake clock)', () => {
       await patch(unrouted.id, 'cancelled').expect(200);
 
       expect(await statusOf(unrouted.id)).toBe('cancelled');
+    });
+  });
+
+  describe('cancellation records', () => {
+    type Row = { jobId: number; title: string; previousStatus: string; actualArrival: string | null; actualDeparture: string | null; cancelledAt: string; reason: string | null };
+    const cancelled = async (techId: number, date = DATE): Promise<Row[]> =>
+      (await http().get(`/routes/${techId}/${date}/cancellations`).expect(200)).body as Row[];
+    const records = (): Promise<{ jobId: number; technicianId: number | null; date: string; reason: string | null }[]> =>
+      db().select().from(jobCancellations).orderBy(asc(jobCancellations.id));
+
+    it('records an assigned stop with its technician, date and reason in the cancel transaction', async () => {
+      const { jobs, techId } = await day();
+      now = new Date(local('07:30:00'));
+
+      await http().patch(`/jobs/${jobs[1]?.id}/status`).send({ status: 'cancelled', reason: ' Customer moved ' }).expect(200);
+
+      expect(await cancelled(techId)).toEqual([
+        { jobId: jobs[1]?.id, title: 'Test job', previousStatus: 'assigned', actualArrival: null, actualDeparture: null, cancelledAt: local('07:30:00'), reason: 'Customer moved' },
+      ]);
+      expect((await records())[0]).toMatchObject({ technicianId: techId, date: DATE });
+      expect((await stopRows()).map((r) => r.sequence)).toEqual([1, 2]);
+      expect(await cancelled(techId, '2026-07-02')).toEqual([]);
+    });
+
+    it('records an in_progress stop with its actual arrival and the cancel moment as departure; no reason is null', async () => {
+      const { jobs, techId } = await day(['in_progress', 'assigned', 'assigned'], [{ actualArrival: local('08:02:00') }]);
+      now = new Date(local('08:05:00'));
+
+      await patch(jobs[0]?.id, 'cancelled').expect(200);
+
+      expect(await cancelled(techId)).toMatchObject([
+        { previousStatus: 'in_progress', actualArrival: local('08:02:00'), actualDeparture: local('08:05:00'), reason: null },
+      ]);
+    });
+
+    it('records an unassigned job with no technician, and a blank reason as none', async () => {
+      const unrouted = await job(34.05);
+
+      await http().patch(`/jobs/${unrouted.id}/status`).send({ status: 'cancelled', reason: '  ' }).expect(200);
+
+      expect(await records()).toMatchObject([{ jobId: unrouted.id, technicianId: null, date: DATE, reason: null }]);
+    });
+
+    it('writes nothing for unassign or a refused change', async () => {
+      const { jobs } = await day(['assigned', 'done', 'assigned']);
+
+      await http().patch(`/jobs/${jobs[0]?.id}/status`).send({ status: 'unassigned', reason: 'x' }).expect(200);
+      await patch(jobs[1]?.id, 'cancelled').expect(409);
+
+      expect(await records()).toEqual([]);
     });
   });
 
