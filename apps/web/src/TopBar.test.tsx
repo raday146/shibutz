@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { daySummary, emptyDay, fakeApi, renderConsole } from './test/render';
@@ -29,6 +29,17 @@ describe('date controls', () => {
     expect(fetch).toHaveBeenCalledWith('/days/2026-11-03/summary', undefined);
     await userEvent.click(screen.getByRole('button', { name: 'היום' }));
     expect(screen.getByLabelText('תאריך')).not.toHaveProperty('value', '2026-11-01');
+  });
+
+  it('ignores a half-typed year, so keyboard typing never fetches or shows an invalid day', async () => {
+    localStorage.setItem('shibutz.date', DAY);
+    const fetch = fakeApi({ ...emptyDay, [`/days/${DAY}/summary`]: daySummary(DAY) });
+    renderConsole();
+    await screen.findByLabelText('תאריך');
+    fireEvent.change(screen.getByLabelText('תאריך'), { target: { value: '0002-11-02' } });
+    fireEvent.change(screen.getByLabelText('תאריך'), { target: { value: '262026-11-02' } });
+    expect(fetch.mock.calls.some(([p]) => /\/days\/(0002|262026)/.test(p))).toBe(false);
+    expect(localStorage.getItem('shibutz.date')).toBe(DAY);
   });
 });
 

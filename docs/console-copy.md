@@ -207,6 +207,7 @@ Every string in the dispatch console, in Hebrew and English. The keys here becom
 
 | Key | Hebrew | English |
 |---|---|---|
+| `map.label` | מפה | Map |
 | `map.key` | מקרא | Map key |
 | `map.key.color` | הצבע מציין את הטכנאי | Color shows the technician |
 | `map.key.ring` | הסימן על הנקודה מציין מצב | The mark on a dot shows status |

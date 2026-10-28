@@ -10,6 +10,18 @@ export type Point = [number, number];
 const CENTER: Point = [32.05, 34.85];
 
 /** Fits the map to `points` when `fitKey` changes or the points first appear, never closer than zoom 13; later reloads keep the user's view. */
+/** Names the map container (DESIGN.md: labeled "Map"); Leaflet already makes it focusable with keyboard pan and zoom. */
+function MapLabel(): null {
+  const map = useMap();
+  const { t } = useLang();
+  useEffect(() => {
+    const el = map.getContainer();
+    el.setAttribute('role', 'region');
+    el.setAttribute('aria-label', t('map.label'));
+  });
+  return null;
+}
+
 function FitTo({ points, fitKey }: { points: Point[]; fitKey: string }): null {
   const map = useMap();
   const hasPoints = points.length > 0;
@@ -119,6 +131,7 @@ export function MapView({ technicians, dayJobs, skills, routes, selected, highli
         maxZoom={19}
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       />
+      <MapLabel />
       <FitTo points={selected !== null ? selectedPoints : allPoints} fitKey={selected !== null ? `route${selected}` : 'all'} />
       <FlyTo target={focus} />
       <PickLocation active={picking} onPick={onPick} />
