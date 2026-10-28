@@ -10,7 +10,7 @@ describe('technicians', () => {
   const http = (): ReturnType<typeof request> => request(app().getHttpServer());
 
   async function skill(code: string): Promise<number> {
-    const res = await http().post('/skills').send({ code, name: code }).expect(201);
+    const res = await http().post('/skills').send({ code, nameEn: code, nameHe: code }).expect(201);
     return res.body.id;
   }
 
@@ -30,6 +30,7 @@ describe('technicians', () => {
       shiftStart: '08:00:00',
       shiftEnd: '17:00:00',
       skillIds: [elec, plmb],
+      color: 1,
     });
     await http().get(`/technicians/${created.body.id}`).expect(200, created.body);
     await http().get('/technicians').expect(200, [created.body]);
@@ -111,5 +112,40 @@ describe('technicians', () => {
     await http().post('/technicians').send(dana([elec])).expect(201);
 
     await http().delete(`/skills/${elec}`).expect(409);
+  });
+
+  describe('color slot', () => {
+    const create = async (): Promise<{ id: number; color: number }> => (await http().post('/technicians').send(dana([])).expect(201)).body;
+
+    it('gives a new technician the lowest unused slot, and keeps colors stable when others are deleted', async () => {
+      const [a, b, c] = [await create(), await create(), await create()];
+      expect([a.color, b.color, c.color]).toEqual([1, 2, 3]);
+
+      await http().delete(`/technicians/${b.id}`).expect(204);
+
+      expect((await create()).color).toBe(2);
+      await http().get(`/technicians/${c.id}`).expect((r) => expect(r.body.color).toBe(3));
+    });
+
+    it('reuses the least-used slot, lowest first on ties, once all eight are taken', async () => {
+      const first = [];
+      for (let i = 0; i < 8; i++) first.push(await create());
+      expect(first.map((t) => t.color)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+
+      expect((await create()).color).toBe(1);
+      expect((await create()).color).toBe(2);
+      await http().delete(`/technicians/${first[2]!.id}`).expect(204);
+      expect((await create()).color).toBe(3);
+    });
+
+    it.each([0, 9, 1.5, '2'])('rejects color %p', async (color) => {
+      const { body } = await http().post('/technicians').send(dana([])).expect(201);
+
+      await http().patch(`/technicians/${body.id}`).send({ color }).expect(400);
+    });
+
+    it('does not accept a color on create', async () => {
+      await http().post('/technicians').send({ ...dana([]), color: 4 }).expect(400);
+    });
   });
 });

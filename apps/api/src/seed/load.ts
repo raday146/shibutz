@@ -4,31 +4,41 @@ import type { CreateJob, JobStatus, LonLat } from '@shibutz/contracts';
 import { DEFAULT_DATABASE_URL, type Db } from '../db/db.module';
 import { runMigrations } from '../db/migrate';
 import * as schema from '../db/schema';
-import { buildSeed, comparisonScenario, type Dataset, type Scenario } from './datasets';
+import { buildSeed, comparisonScenario, SEED_DAY, type Dataset, type Scenario } from './datasets';
 
-const { jobSkills, jobs, skills, technicianSkills, technicians } = schema;
+const { dayReports, incidents, jobCancellations, jobNotes, jobSkills, jobs, skills, technicianSkills, technicians } = schema;
 
 /** Wipes the domain tables (identities restarted, so ids are positional) and inserts the dataset. */
 export async function loadDataset(db: Db, data: Dataset | Scenario): Promise<void> {
   const routed = new Set('routes' in data ? data.routes.flatMap((r) => r.jobIds) : []);
+  const cancelled = new Set(data.cancellations?.map((c) => c.jobId));
   const allJobs = 'newJob' in data ? [...data.jobs, data.newJob] : data.jobs;
 
   await db.transaction(async (tx) => {
     await tx.execute(sql`TRUNCATE ${skills}, ${technicians}, ${jobs} RESTART IDENTITY CASCADE`);
     await tx.insert(skills).values(data.skills);
-    for (const { skillIds, ...t } of data.technicians) {
-      const [row] = await tx.insert(technicians).values(t).returning({ id: technicians.id });
+    for (const [i, { skillIds, ...t }] of data.technicians.entries()) {
+      const [row] = await tx.insert(technicians).values({ ...t, color: (i % 8) + 1 }).returning({ id: technicians.id });
       if (!row) throw new Error('Insert returned no row');
       await tx.insert(technicianSkills).values(skillIds.map((skillId) => ({ technicianId: row.id, skillId })));
     }
     for (const [i, { skillIds, windowStart, windowEnd, ...j }] of allJobs.entries()) {
-      const status: JobStatus = routed.has(i + 1) ? 'assigned' : 'unassigned';
+      const status: JobStatus = cancelled.has(i + 1) ? 'cancelled' : routed.has(i + 1) ? 'assigned' : 'unassigned';
       const [row] = await tx
         .insert(jobs)
         .values({ ...j, status, windowStart: new Date(windowStart), windowEnd: new Date(windowEnd) })
         .returning({ id: jobs.id });
       if (!row) throw new Error('Insert returned no row');
       await tx.insert(jobSkills).values(skillIds.map((skillId) => ({ jobId: row.id, skillId })));
+    }
+    for (const { cancelledAt, ...c } of data.cancellations ?? []) {
+      await tx.insert(jobCancellations).values({ ...c, date: SEED_DAY, cancelledAt: new Date(cancelledAt) });
+    }
+    const at = new Date();
+    if (data.notes?.length) await tx.insert(jobNotes).values(data.notes.map((n) => ({ ...n, createdAt: at, updatedAt: at })));
+    if (data.workDay) {
+      await tx.insert(dayReports).values({ technicianId: 1, date: SEED_DAY, body: data.workDay.report });
+      await tx.insert(incidents).values({ technicianId: 1, date: SEED_DAY, jobId: 1, body: data.workDay.incident });
     }
   });
 }

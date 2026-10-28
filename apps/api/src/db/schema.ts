@@ -6,7 +6,8 @@ import { geographyPoint } from './geography';
 export const skills = pgTable('skills', {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   code: text().notNull().unique(),
-  name: text().notNull(),
+  nameEn: text('name_en').notNull(),
+  nameHe: text('name_he').notNull(),
 });
 
 // Shift: daily local (Asia/Jerusalem) wall-clock times, never crossing midnight.
@@ -18,8 +19,13 @@ export const technicians = pgTable(
     home: geographyPoint('home').notNull(),
     shiftStart: time('shift_start').notNull(),
     shiftEnd: time('shift_end').notNull(),
+    // Route color slot (DESIGN.md palette), stable for the technician's life.
+    color: integer('color').notNull(),
   },
-  (t) => [check('technicians_shift_order', sql`${t.shiftEnd} > ${t.shiftStart}`)],
+  (t) => [
+    check('technicians_shift_order', sql`${t.shiftEnd} > ${t.shiftStart}`),
+    check('technicians_color_range', sql`${t.color} BETWEEN 1 AND 8`),
+  ],
 );
 
 const skillFk = (name: string) =>
@@ -38,6 +44,13 @@ export const technicianSkills = pgTable(
   (t) => [primaryKey({ columns: [t.technicianId, t.skillId] })],
 );
 
+export const unassignedReason = pgEnum('unassigned_reason', [
+  'NO_SKILLED_TECHNICIAN',
+  'WINDOW_OUTSIDE_ALL_SHIFTS',
+  'UNREACHABLE',
+  'NOT_FEASIBLE_IN_PLAN',
+]);
+
 export const jobStatus = pgEnum('job_status', ['unassigned', 'assigned', 'in_progress', 'done', 'cancelled']);
 
 const localDate = (column: string): SQL =>
@@ -47,6 +60,8 @@ export const jobs = pgTable(
   'jobs',
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    title: text('title').notNull(),
+    address: text('address').notNull(),
     location: geographyPoint('location').notNull(),
     serviceDurationS: integer('service_duration_s').notNull(),
     windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
@@ -57,6 +72,8 @@ export const jobs = pgTable(
       .generatedAlwaysAs(localDate('window_start')),
     priority: integer('priority').notNull(),
     status: jobStatus('status').notNull().default('unassigned'),
+    unassignedReason: unassignedReason('unassigned_reason'),
+    unassignedAt: timestamp('unassigned_at', { withTimezone: true }),
   },
   (t) => [
     check('jobs_window_order', sql`${t.windowEnd} > ${t.windowStart}`),
@@ -107,4 +124,64 @@ export const routeStops = pgTable('route_stops', {
   etd: timestamp('etd', { withTimezone: true }).notNull(),
   actualArrival: timestamp('actual_arrival', { withTimezone: true }),
   actualDeparture: timestamp('actual_departure', { withTimezone: true }),
+});
+
+// Who a cancelled job belonged to and its actual times (ADR 0001); the stop itself is deleted.
+export const jobCancellations = pgTable('job_cancellations', {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  jobId: integer('job_id')
+    .notNull()
+    .unique()
+    .references(() => jobs.id, { onDelete: 'cascade' }),
+  // Null when the job was never assigned.
+  technicianId: integer('technician_id').references(() => technicians.id, { onDelete: 'set null' }),
+  date: date('date', { mode: 'string' }).notNull(),
+  previousStatus: jobStatus('previous_status').notNull(),
+  actualArrival: timestamp('actual_arrival', { withTimezone: true }),
+  actualDeparture: timestamp('actual_departure', { withTimezone: true }),
+  cancelledAt: timestamp('cancelled_at', { withTimezone: true }).notNull(),
+  reason: text('reason'),
+});
+
+// At most one note per job; it belongs to the job, so unassign, re-plan and reassignment leave it alone.
+export const jobNotes = pgTable('job_notes', {
+  jobId: integer('job_id')
+    .primaryKey()
+    .references(() => jobs.id, { onDelete: 'cascade' }),
+  body: text('body').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
+});
+
+// One optional end-of-day summary per technician and day. No cascade: a technician with a report cannot be deleted.
+export const dayReports = pgTable(
+  'day_reports',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    technicianId: integer('technician_id')
+      .notNull()
+      .references(() => technicians.id),
+    date: date('date', { mode: 'string' }).notNull(),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique('day_reports_technician_date').on(t.technicianId, t.date)],
+);
+
+export const incidentStatus = pgEnum('incident_status', ['open', 'reviewed']);
+
+// Belongs to the work day (technician and date), not to the report. Deleting the job only drops the link.
+export const incidents = pgTable('incidents', {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  technicianId: integer('technician_id')
+    .notNull()
+    .references(() => technicians.id),
+  date: date('date', { mode: 'string' }).notNull(),
+  jobId: integer('job_id').references(() => jobs.id, { onDelete: 'set null' }),
+  body: text('body').notNull(),
+  status: incidentStatus('status').notNull().default('open'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
 });

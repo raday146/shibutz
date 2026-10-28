@@ -1,5 +1,6 @@
+import type { Job } from '@shibutz/contracts';
 import { describe, expect, it } from 'vitest';
-import { JOB_STATUSES, jerusalemToIso, positionLabel, shiftLabel, skillLabel, statusColor, toLatLng, toLatLngs, unassignedRows } from './map';
+import { JOB_STATUSES, jerusalemToIso, shiftLabel, skillLabel, statusColor, toLatLng, toLatLngs, unassignedJobs } from './map';
 
 describe('map helpers', () => {
   it('flips [lon, lat] to Leaflet [lat, lng]', () => {
@@ -16,14 +17,10 @@ describe('map helpers', () => {
     expect(JOB_STATUSES).toEqual(['unassigned', 'assigned', 'in_progress', 'done', 'cancelled']);
   });
 
-  it('lists the unassigned jobs of the day by id, with the reason from the last batch when known', () => {
-    const job = (id: number, status: 'unassigned' | 'assigned', day: string) => ({ id, status, day, location: [34.8, 32.1] as [number, number] });
+  it('lists the unassigned jobs of the day by id', () => {
+    const job = (id: number, status: 'unassigned' | 'assigned', day: string) => ({ id, status, day }) as Job;
     const jobs = [job(9, 'unassigned', '2026-11-02'), job(3, 'unassigned', '2026-11-02'), job(5, 'assigned', '2026-11-02'), job(7, 'unassigned', '2026-11-03')];
-
-    expect(unassignedRows(jobs, '2026-11-02', new Map([[3, 'NO_SKILLED_TECHNICIAN']]))).toEqual([
-      { jobId: 3, location: [34.8, 32.1], reason: 'NO_SKILLED_TECHNICIAN' },
-      { jobId: 9, location: [34.8, 32.1], reason: undefined },
-    ]);
+    expect(unassignedJobs(jobs, '2026-11-02').map((j) => j.id)).toEqual([3, 9]);
   });
 
   it('converts Israel wall-clock time to UTC across winter and summer time', () => {
@@ -32,10 +29,10 @@ describe('map helpers', () => {
     expect(jerusalemToIso('2026-03-27', '03:30')).toBe('2026-03-27T00:30:00.000Z'); // DST starts the same morning at 02:00
   });
 
-  it('labels skills, shifts and insertion positions', () => {
-    const skills = [{ id: 2, code: 'plumbing', name: 'Plumbing' }];
-    expect(skillLabel([2, 9], skills)).toBe('Plumbing, #9');
+  it('labels skills and shifts', () => {
+    const skills = [{ id: 2, code: 'plumbing', nameEn: 'Plumbing', nameHe: 'אינסטלציה' }];
+    expect(skillLabel([2, 9], skills, 'en')).toBe('Plumbing, #9');
+    expect(skillLabel([2], skills, 'he')).toBe('אינסטלציה');
     expect(shiftLabel('08:00:00', '16:00:00')).toBe('08:00-16:00');
-    expect(positionLabel({ afterJobId: null, beforeJobId: 4 })).toBe('after home, before Job 4');
   });
 });

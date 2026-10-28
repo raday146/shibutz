@@ -47,6 +47,7 @@ Every string in the dispatch console, in Hebrew and English. The keys here becom
 | `incidents.indicator` | אירועים לבדיקה | Incidents to review |
 | `incidents.list.title` | אירועים לבדיקה | Incidents to review |
 | `incidents.list.empty` | אין אירועים לבדיקה. | Nothing to review. |
+| `incidents.list.mark` | סימון כנבדק: {text} | Mark reviewed: {text} |
 | `lang.toggle` | EN | עב |
 
 ## Left panel
@@ -102,6 +103,8 @@ Every string in the dispatch console, in Hebrew and English. The keys here becom
 | `drawer.finish` | סיום צפוי {time} | Expected finish {time} |
 | `drawer.late` | צפוי איחור של {n} דק׳ | Running {n} min late |
 | `drawer.empty` | אין עצירות ביום הזה. אפשר לתכנן את היום או לשבץ עבודה מהרשימה. | No stops this day. Plan the day or assign a job from the list. |
+| `drawer.stops` | עצירות | Stops |
+| `note.has` | יש הערה | Has a note |
 | `stop.drive` | {n} דק׳ נסיעה | {n} min drive |
 | `stop.duration` | {n} דק׳ | {n} min |
 | `stop.details` | פרטים | Details |
@@ -125,6 +128,8 @@ Every string in the dispatch console, in Hebrew and English. The keys here becom
 | `status.cancelled` | בוטלה | Cancelled |
 | `cancelled.title` | בוטלו היום | Cancelled today |
 | `cancelled.reason` | סיבה: {reason} | Reason: {reason} |
+| `cancelled.at` | בוטלה ב־{time} | Cancelled at {time} |
+| `cancelled.arrived` | הגעה {time} | Arrived {time} |
 
 ## Confirmations
 
@@ -171,8 +176,13 @@ Every string in the dispatch console, in Hebrew and English. The keys here becom
 | `location.picking` | יש ללחוץ על המפה כדי להגדיר מיקום. Esc לחזרה. | Click the map to set the location. Esc to go back. |
 | `location.set` | המיקום נקבע | Location set |
 | `location.change` | שינוי מיקום | Change location |
+| `location.use` | שימוש בנקודה הזו | Use this point |
+| `location.back` | חזרה | Back |
+| `field.window.from` | תחילת החלון | Window start |
+| `field.window.to` | סיום החלון | Window end |
 | `modal.create` | יצירה וחיפוש חלון | Create and find a slot |
 | `modal.close` | סגירה | Close |
+| `modal.x` | סגירת החלון | Close dialog |
 | `validation.title` | יש להזין כותרת. | Enter a title. |
 | `validation.address` | יש להזין כתובת. | Enter an address. |
 | `validation.location` | יש להגדיר מיקום במפה. | Set a location on the map. |
@@ -198,6 +208,7 @@ Every string in the dispatch console, in Hebrew and English. The keys here becom
 
 | Key | Hebrew | English |
 |---|---|---|
+| `map.label` | מפה | Map |
 | `map.key` | מקרא | Map key |
 | `map.key.color` | הצבע מציין את הטכנאי | Color shows the technician |
 | `map.key.ring` | הסימן על הנקודה מציין מצב | The mark on a dot shows status |
@@ -207,3 +218,7 @@ Every string in the dispatch console, in Hebrew and English. The keys here becom
 ## Server messages
 
 The API's own messages are English only. Known ones map to keys: "Only the first not-done stop of a route can be started" is `blocked.order`, "Technician already has a stop in progress" is `blocked.busy`, "Route changed concurrently; retry" and "Route changed since the suggestion" are `error.stale`, and "A stop that day has already started" is `plan.disabled`. Any other message is shown as received, after the localized lead sentence.
+
+## Keys added by the foundation ticket
+
+Strings of the existing screen that the deck above did not cover: `date.label`, `lang.toggle.label` (accessible name of the toggle, written in the language it switches to), `tech.noSkills`, `job.ref` (a job shown as "Job {id}" until jobs have titles), `slot.close`, `map.legend.home`, `map.needs`, `duration.min`, `stops.one`/`stops.two`/`stops.other`. Source of truth is `apps/web/src/i18n.ts`.

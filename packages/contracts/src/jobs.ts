@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { lonLatSchema, nonEmpty, skillIdsSchema } from './common';
+import { unassignedReasonSchema } from './optimization';
 
 export const jobStatusSchema = z.enum(['unassigned', 'assigned', 'in_progress', 'done', 'cancelled']);
 export type JobStatus = z.infer<typeof jobStatusSchema>;
@@ -13,6 +14,8 @@ const instant = z.iso.datetime({ offset: true });
  */
 export const createJobSchema = z
   .object({
+    title: z.string('Title is required').trim().min(1, 'Title is required'),
+    address: z.string('Address is required').trim().min(1, 'Address is required'),
     location: lonLatSchema,
     skillIds: skillIdsSchema,
     serviceDurationS: z.number().int().positive(),
@@ -28,12 +31,23 @@ export type UpdateJob = z.infer<typeof updateJobSchema>;
 
 export const jobSchema = createJobSchema.extend({
   id: z.number().int().positive(),
+  /** Backfilled jobs have an empty address; only new ones must have one. */
+  address: z.string(),
   status: jobStatusSchema,
   /** Local date (YYYY-MM-DD) of the window start; derived, read-only. */
   day: z.iso.date(),
+  /** Last Plan day reason this job was left unplaced, and when that run happened; both null otherwise. */
+  unassignedReason: unassignedReasonSchema.nullable(),
+  unassignedAt: instant.nullable(),
 });
 export type Job = z.infer<typeof jobSchema>;
 
 /** `PATCH /jobs/:id/status`; the API allows only the day-operation transitions. */
-export const updateJobStatusSchema = z.object({ status: jobStatusSchema }).strict();
+export const updateJobStatusSchema = z
+  .object({
+    status: jobStatusSchema,
+    /** Why the job was cancelled; only recorded when `status` is `cancelled`, blank counts as none. */
+    reason: z.string().max(500).optional(),
+  })
+  .strict();
 export type UpdateJobStatus = z.infer<typeof updateJobStatusSchema>;
