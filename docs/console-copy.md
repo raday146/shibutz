@@ -47,6 +47,7 @@ Every string in the dispatch console, in Hebrew and English. The keys here becom
 | `incidents.indicator` | אירועים לבדיקה | Incidents to review |
 | `incidents.list.title` | אירועים לבדיקה | Incidents to review |
 | `incidents.list.empty` | אין אירועים לבדיקה. | Nothing to review. |
+| `incidents.list.mark` | סימון כנבדק: {text} | Mark reviewed: {text} |
 | `lang.toggle` | EN | עב |
 
 ## Left panel
