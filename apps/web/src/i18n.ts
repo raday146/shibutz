@@ -100,6 +100,17 @@ export const he = {
   'stop.drive': '{n} דק׳ נסיעה',
   'stop.duration': '{n} דק׳',
   'note.has': 'יש הערה',
+  'action.start': 'התחלה',
+  'action.finish': 'סיום',
+  'action.more': 'פעולות נוספות',
+  'action.unassign': 'הסרת שיבוץ',
+  'blocked.order': 'אפשר להתחיל רק את העצירה הראשונה שלא הושלמה.',
+  'blocked.busy': 'לטכנאי יש כבר עצירה בביצוע.',
+  'unassign.title': 'להסיר את השיבוץ של "{title}"?',
+  'unassign.body': 'העבודה תחזור לרשימת הלא משובצות ואפשר יהיה לשבץ אותה מחדש.',
+  'unassign.ok': 'הסרת שיבוץ',
+  'unassign.keep': 'השארת השיבוץ',
+  'error.stale': 'המסלול עודכן במקום אחר. הנתונים רועננו, יש לנסות שוב.',
 } as const;
 
 export type Key = keyof typeof he;
@@ -203,6 +214,17 @@ export const en: Record<Key, string> = {
   'stop.drive': '{n} min drive',
   'stop.duration': '{n} min',
   'note.has': 'Has a note',
+  'action.start': 'Start',
+  'action.finish': 'Finish',
+  'action.more': 'More actions',
+  'action.unassign': 'Unassign',
+  'blocked.order': 'Only the first unfinished stop can be started.',
+  'blocked.busy': 'This technician already has a stop in progress.',
+  'unassign.title': 'Unassign "{title}"?',
+  'unassign.body': 'The job goes back to the unassigned list and can be placed again.',
+  'unassign.ok': 'Unassign',
+  'unassign.keep': 'Keep assignment',
+  'error.stale': 'The route was changed elsewhere. Data is refreshed, try again.',
 };
 
 export const dictionaries: Record<Lang, Record<Key, string>> = { he, en };

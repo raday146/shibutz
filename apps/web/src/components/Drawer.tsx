@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { JobStatus, RouteView, Skill, Technician } from '@shibutz/contracts';
 import { Ltr, useLang, withLtrTimes } from '../lang';
 import { jerusalemToIso, skillLabel, time } from '../map';
+import { StopActions } from './StopActions';
 
 interface Props {
   technician: Technician;
@@ -14,6 +15,8 @@ interface Props {
   /** Opened from the keyboard: no animation. */
   instant: boolean;
   onLink: (jobId: number) => void;
+  /** Records day progress; resolves once the data is reloaded, rejects with the server's refusal. */
+  onStatus: (jobId: number, status: JobStatus) => Promise<void>;
   onClose: () => void;
 }
 
@@ -21,7 +24,7 @@ const GLYPH: Record<JobStatus, string> = { unassigned: '', assigned: '○', in_p
 const minutes = (s: number): number => Math.round(s / 60);
 
 /** The work-day drawer: summary header and a timeline of stops that expand for detail. */
-export function Drawer({ technician, route, date, skills, link, instant, onLink, onClose }: Props): React.JSX.Element {
+export function Drawer({ technician, route, date, skills, link, instant, onLink, onStatus, onClose }: Props): React.JSX.Element {
   const { lang, t } = useLang();
   const heading = useRef<HTMLHeadingElement>(null);
   const [open, setOpen] = useState<Set<number>>(new Set());
@@ -37,7 +40,7 @@ export function Drawer({ technician, route, date, skills, link, instant, onLink,
   // Escape closes the drawer unless a dialog is above it.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape' && !document.querySelector('[role=dialog]')) onClose();
+      if (e.key === 'Escape' && !document.querySelector('[role=dialog],[role=alertdialog]')) onClose();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
@@ -79,7 +82,7 @@ export function Drawer({ technician, route, date, skills, link, instant, onLink,
             </p>
           )}
           <ol aria-label={t('drawer.stops')} className="timeline">
-            {stops.map((s) => {
+            {stops.map((s, i) => {
               const expanded = open.has(s.jobId);
               return (
                 <li key={s.jobId} id={`stop-${s.jobId}`}>
@@ -94,6 +97,7 @@ export function Drawer({ technician, route, date, skills, link, instant, onLink,
                       <p dir="auto">{s.address || t('job.noAddress')}</p>
                       <p>{skillLabel(s.skillIds, skills, lang)}</p>
                       <p className="muted"><Ltr>{t('stop.duration', { n: minutes(s.serviceDurationS) })}</Ltr>{' · '}<Ltr>{t('stop.drive', { n: minutes(s.driveS) })}</Ltr></p>
+                      <StopActions stop={s} earlier={stops.slice(0, i)} onStatus={async (id, to) => { await onStatus(id, to); if (to === 'unassigned') heading.current?.focus(); }} />
                     </div>
                   )}
                 </li>
