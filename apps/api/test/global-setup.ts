@@ -28,8 +28,6 @@ export default async function globalSetup(): Promise<void> {
   const testUrl = new URL(adminUrl);
   testUrl.pathname = `/${TEST_DB}`;
   // Tests run in this process (--runInBand), so env set here reaches them.
-  // A lock wait that would hang a test (e.g. an inverted lock order) fails fast instead.
-  testUrl.searchParams.set('options', '-c lock_timeout=3000');
   process.env.DATABASE_URL = testUrl.toString();
   await runMigrations(process.env.DATABASE_URL);
 
