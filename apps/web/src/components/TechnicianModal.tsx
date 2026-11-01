@@ -4,6 +4,7 @@ import { Ltr, useLang, withLtrNumbers } from '../lang';
 import { formatLatLon, routeVar, shiftLabel, skillLabel, skillName } from '../map';
 import { MiniMap } from './MiniMap';
 import { PickBar } from './PickBar';
+import { technicianWarnings } from '../techWarnings';
 
 /** What differs from the saved technician; the edit's request body (without the version) and the review's list of changes. */
 export function techPatch(was: Technician, now: CreateTechnician): Omit<UpdateTechnician, 'version'> {
@@ -21,6 +22,8 @@ interface Props {
   /** Set to edit this technician: the same form, pre-filled, with a review of what changes. */
   technician?: Technician;
   skills: Skill[];
+  /** The loaded roster, active and inactive, for the review warnings. */
+  technicians: Technician[];
   /** The route color shown in the review: the one the new technician will get (lowest free among active), or the current one. */
   color: number;
   busy: boolean;
@@ -40,7 +43,7 @@ interface Props {
 const FOCUSABLE = 'input:not(:disabled), button:not(:disabled)';
 
 /** Add a technician in two steps in one dialog: the form, then a read-only review. The form state survives going back. */
-export function TechnicianModal({ technician, skills, color, busy, at, picking, failure, onPicking, onUsePoint, onSubmit, onClose }: Props): React.JSX.Element {
+export function TechnicianModal({ technician, skills, technicians, color, busy, at, picking, failure, onPicking, onUsePoint, onSubmit, onClose }: Props): React.JSX.Element {
   const { lang, t } = useLang();
   const [name, setName] = useState(technician?.name ?? '');
   const [skillIds, setSkillIds] = useState<number[]>(technician?.skillIds ?? []);
@@ -110,6 +113,8 @@ export function TechnicianModal({ technician, skills, color, busy, at, picking, 
   useEffect(() => {
     if (reviewing && technician && technician.version !== reviewed.current) setReviewing(false);
   }, [reviewing, technician]);
+  // An edit is compared with the others, not with itself.
+  const warnings = reviewing && at ? technicianWarnings({ name, home: at, from, to, skillIds }, technicians.filter((x) => x.id !== technician?.id)) : [];
   const swatch = <span className="swatch" style={{ background: routeVar(color) }} aria-hidden="true" />;
 
   return (
@@ -149,6 +154,12 @@ export function TechnicianModal({ technician, skills, color, busy, at, picking, 
                   </dl>
                   {at && <MiniMap at={at} label={t('tech.field.home')} />}
                 </>
+              )}
+              {warnings.length > 0 && (
+                <div className="warnings">
+                  <h3>{t('review.warnings')}</h3>
+                  <ul>{warnings.map((w) => <li key={w.key}>{t(w.key, w.params)}</li>)}</ul>
+                </div>
               )}
               {failure && <p className="error" role="alert">{failure}</p>}
               <div>
