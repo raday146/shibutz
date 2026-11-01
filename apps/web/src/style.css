@@ -124,7 +124,7 @@ input, textarea { min-height: 28px; border: 1px solid var(--control-border); bor
 .overlay { position: fixed; inset: 0; display: grid; place-items: start center; padding: var(--space-8) var(--space-4) var(--space-4); box-sizing: border-box; background: rgb(28 25 23 / 0.3); z-index: var(--z-modal); }
 .dialog { width: 420px; max-width: calc(100vw - 32px); padding: var(--space-5); background: var(--surface); border-radius: var(--radius-surface); box-shadow: var(--shadow-overlay); }
 .overlay[hidden] { display: none; }
-.dialog.form { width: 480px; gap: var(--space-2); max-height: calc(100vh - 64px); overflow: auto; }
+.dialog.form { width: 480px; gap: var(--space-2); box-sizing: border-box; max-height: calc(100vh - 48px); overflow: auto; }
 .dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
 /* Reserved line for a validation message, so one appearing never moves the fields below it. */
 .slot { display: block; min-block-size: 1.5em; font-size: var(--text-sm); line-height: 1.5; }

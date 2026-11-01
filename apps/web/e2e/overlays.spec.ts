@@ -9,7 +9,10 @@ const stop = (jobId: number) => ({
 });
 const body: Record<string, unknown> = {
   '/technicians': [{ id: 1, name: 'Bob', home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', active: true, version: 0, skillIds: [], color: 1 }],
-  '/jobs': [],
+  '/jobs': [1, 2].map((id) => ({
+    id, title: `Fix ${id}`, address: `Addr ${id}`, location: [34.8, 32.1], skillIds: [], serviceDurationS: 1800, windowStart: iso('05:00'), windowEnd: iso('12:00'),
+    priority: 50, status: 'assigned', day: DAY, unassignedReason: null, unassignedAt: null,
+  })),
   '/skills': [],
   [`/days/${DAY}/summary`]: {
     date: DAY,
@@ -91,10 +94,31 @@ for (const lang of ['he', 'en'] as const) {
       const [first, second] = [await page.getByRole('menuitem').nth(0).boundingBox(), await page.getByRole('menuitem').nth(1).boundingBox()];
       expect(first && second && second.y > first.y + first.height - 1).toBe(true);
       await expect(page.getByRole('menu')).toHaveCSS('border-top-width', '1px');
-      await expect(page.getByRole('menuitem')).toHaveCount(2);
+      await expect(page.getByRole('menuitem')).toHaveCount(3); // Edit job, Unassign, Cancel job
       await page.keyboard.press('Escape');
       await expect(page.getByRole('menu')).toHaveCount(0);
       await expect(trigger).toBeFocused();
+    });
+
+    test('Edit job in the stop menu opens the edit modal on screen, with the routed fields disabled, and Escape closes it', async ({ page }) => {
+      await open(page, lang);
+      await page.locator('aside.drawer').getByRole('button', { name: /Fix 2/ }).click();
+      const trigger = page.locator('[aria-haspopup=menu]');
+      await trigger.click();
+      await page.getByRole('menuitem').first().click(); // Edit job is the first entry
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toBeVisible();
+      const [box, view] = [await dialog.boundingBox(), page.viewportSize()];
+      if (!box || !view) throw new Error('nothing to measure');
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(view.width);
+      expect(box.y + box.height).toBeLessThanOrEqual(view.height);
+      await expect(dialog.locator('input[type=number]')).toBeDisabled();
+      await expect(dialog.locator('input[type=time]').first()).toBeDisabled();
+      await expect(dialog.locator('#job-title')).toBeEnabled();
+      await page.keyboard.press('Escape');
+      await expect(dialog).toHaveCount(0);
     });
 
     test('incidents popover is visible, on screen and next to its button', async ({ page }) => {

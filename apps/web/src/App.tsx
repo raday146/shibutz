@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ACTIVE_CAP_MESSAGE, MAX_ACTIVE_TECHNICIANS } from '@shibutz/contracts';
-import type { CreateTechnician, DaySummary, Incident, JobStatus, InsertionOption, InsertionSuggestions, Job, LonLat, RouteView, Skill, Technician } from '@shibutz/contracts';
-import { ApiError, createJob, createTechnician, fetchDaySummary, fetchJobs, fetchRoute, fetchSkills, fetchSuggestions, fetchTechnicians, insertJob, runOptimization, setJobStatus } from './api';
+import type { CreateTechnician, DaySummary, Incident, JobStatus, InsertionOption, InsertionSuggestions, Job, LonLat, RouteView, Skill, Technician, UpdateJob } from '@shibutz/contracts';
+import { ApiError, createJob, createTechnician, fetchDaySummary, fetchJobs, fetchRoute, fetchSkills, fetchSuggestions, fetchTechnicians, insertJob, runOptimization, setJobStatus, updateJob } from './api';
 import { jerusalemToIso, today, unassignedJobs } from './map';
 import type { Key, Vars } from './i18n';
 import { useLang } from './lang';
@@ -12,7 +12,7 @@ import { MapView } from './components/MapView';
 import type { Point } from './components/MapView';
 import { PanelTabs } from './components/PanelTabs';
 import type { Tab } from './components/PanelTabs';
-import { NewJobModal } from './components/NewJobModal';
+import { NewJobModal, draftOf } from './components/NewJobModal';
 import type { JobDraft } from './components/NewJobModal';
 import { TechnicianModal } from './components/TechnicianModal';
 import { TechnicianList } from './components/TechnicianList';
@@ -31,8 +31,26 @@ function openingDate(): string {
   return today();
 }
 
+/** What differs from the saved job. Scheduling fields count only while the job has no route stop; the server refuses them otherwise. */
+function jobPatch(job: Job, draft: JobDraft, at: LonLat): UpdateJob {
+  const was = draftOf(job);
+  const sorted = (ids: number[]): string => [...ids].sort().join();
+  const scheduling = job.status === 'unassigned';
+  return {
+    ...(draft.title !== was.title && { title: draft.title }),
+    ...(draft.address !== was.address && { address: draft.address }),
+    ...(scheduling && sorted(draft.skillIds) !== sorted(was.skillIds) && { skillIds: draft.skillIds }),
+    ...(scheduling && draft.minutes !== was.minutes && { serviceDurationS: Math.round(draft.minutes * 60) }),
+    ...(scheduling && draft.from !== was.from && { windowStart: jerusalemToIso(job.day, draft.from) }),
+    ...(scheduling && draft.to !== was.to && { windowEnd: jerusalemToIso(job.day, draft.to) }),
+    ...(scheduling && (at[0] !== job.location[0] || at[1] !== job.location[1]) && { location: at }),
+  };
+}
+
 /** A message to show, kept untranslated until render so a language change does not reload data. */
 interface Problem { key: Key; vars?: Vars }
+/** The job guard's English refusals that have a localized text (docs/console-copy.md, Server messages). */
+const EDIT_REFUSALS: Record<string, Key> = { 'Job is on a route': 'job.edit.conflict', 'Job is done or cancelled': 'job.edit.locked' };
 const problem = (e: unknown): Problem =>
   e instanceof TypeError ? { key: 'error.network' } : { key: 'error.action', vars: { message: e instanceof Error ? e.message : String(e) } };
 
@@ -81,6 +99,7 @@ export function App(): React.JSX.Element {
   // New-job modal: `picking` waits for a map click or the center crosshair; `suggestions` is the panel shown after the job was created.
   const [adding, setAdding] = useState(false);
   const [addingTech, setAddingTech] = useState(false);
+  const [editing, setEditing] = useState<number | null>(null); // the same modal, pre-filled with this job
   const [picking, setPicking] = useState(false);
   const [at, setAt] = useState<LonLat | null>(null);
   const [createError, setCreateError] = useState<Problem | null>(null);
@@ -172,6 +191,7 @@ export function App(): React.JSX.Element {
   const closeModal = useCallback((): void => {
     setAdding(false);
     setAddingTech(false);
+    setEditing(null);
     setPicking(false);
     setAt(null);
     (trigger.current as HTMLElement | null)?.focus?.();
@@ -189,6 +209,38 @@ export function App(): React.JSX.Element {
       const cap = e instanceof ApiError && e.status === 409 && e.message === ACTIVE_CAP_MESSAGE;
       setCreateError(cap ? { key: 'error.action', vars: { message: t('error.activeCap') } } : problem(e));
       if (cap) await reload(); // the roster on screen was stale
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const openEdit = (jobId: number): void => {
+    const job = jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    trigger.current = document.activeElement;
+    setCreateError(null);
+    setAt(job.location);
+    setEditing(jobId);
+  };
+
+  async function submitEdit(job: Job, draft: JobDraft): Promise<void> {
+    if (!at) return;
+    setBusy(true);
+    setCreateError(null);
+    try {
+      const patch = jobPatch(job, draft, at);
+      const saved = Object.keys(patch).length ? await updateJob(job.id, patch) : job;
+      closeModal();
+      setToast({ id: Date.now(), text: t(saved.status === 'unassigned' ? 'job.edit.saved.unassigned' : 'job.edit.saved') });
+      if (saved.status === 'unassigned') {
+        setTab('unassigned');
+        setPinned(saved.id);
+      }
+      await reload();
+    } catch (e) {
+      const known = e instanceof ApiError && e.status === 409 ? EDIT_REFUSALS[e.message] : undefined;
+      setCreateError(known ? { key: known } : problem(e));
+      if (known) await reload(); // the job changed under the form: the next render shows its fields as they are now
     } finally {
       setBusy(false);
     }
@@ -277,6 +329,7 @@ export function App(): React.JSX.Element {
   // A saved note changes no route on the server, so patch the loaded view instead of reloading.
   const noteSaved = (jobId: number, hasNote: boolean): void =>
     setRoutes((rs) => rs.map((r) => ({ ...r, stops: r.stops.map((s) => (s.jobId === jobId ? { ...s, hasNote } : s)) })));
+  const editingJob = jobs.find((j) => j.id === editing);
   const dayJobs = jobs.filter((j) => j.day === date);
   const jobById = new Map(jobs.map((j) => [j.id, j]));
   const route = routes.find((r) => r.technicianId === selected);
@@ -351,6 +404,7 @@ export function App(): React.JSX.Element {
                 failure={slotError && { jobId: slotError.jobId, message: t('error.action', { message: why(slotError.problem) }) }}
                 onFocus={setFocus}
                 onFind={(id) => void find(id)}
+                onEdit={openEdit}
                 slot={suggestions && {
                   suggestions,
                   notice: stale ? t('slot.stale') : '',
@@ -403,6 +457,7 @@ export function App(): React.JSX.Element {
           onRetry={() => void reload()}
           onLink={setHighlighted}
           onStatus={changeStatus}
+          onEdit={openEdit}
           onNoted={noteSaved}
           stamp={summary}
           onClose={closeDrawer}
@@ -410,17 +465,19 @@ export function App(): React.JSX.Element {
         />
       )}
       </div>
-      {adding && (
+      {(adding || editingJob) && (
         <NewJobModal
+          key={editingJob?.id ?? 'new'}
+          job={editingJob}
           date={date}
           skills={skills}
           busy={busy}
           at={at}
           picking={picking}
-          failure={createError && t('create.failed', { message: why(createError) })}
+          failure={createError && (editingJob ? t(createError.key, createError.vars) : t('create.failed', { message: why(createError) }))}
           onPicking={setPicking}
           onUsePoint={() => { if (center.current) { setAt(center.current); setPicking(false); } }}
-          onSubmit={(d) => void submitJob(d)}
+          onSubmit={(d) => void (editingJob ? submitEdit(editingJob, d) : submitJob(d))}
           onClose={closeModal}
         />
       )}

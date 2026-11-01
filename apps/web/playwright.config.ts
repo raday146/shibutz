@@ -1,8 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 // The console must work in current Chrome, Safari and Firefox (DESIGN.md, Web platform support), so every check runs on all three engines.
-// E2E_PORT lets a worktree run beside another dev server on 5173 (an existing server is reused, so it would test the wrong code).
-const port = process.env.E2E_PORT ?? '5173';
+// PORT lets parallel worktrees run their own dev server instead of reusing someone else's on 5173.
+const port = process.env.PORT ?? '5173';
 
 export default defineConfig({
   testDir: 'e2e',
