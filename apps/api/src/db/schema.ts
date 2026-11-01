@@ -175,14 +175,14 @@ export const dayReports = pgTable(
   (t) => [unique('day_reports_technician_date').on(t.technicianId, t.date)],
 );
 
-export const technicianChangeAction = pgEnum('technician_change_action', ['created', 'updated', 'deactivated', 'reactivated']);
+export const technicianChangeAction = pgEnum('technician_change_action', ['created', 'updated', 'deactivated', 'reactivated', 'deleted']);
 
-// Permanent, append-only: rows are only ever inserted, in the same transaction as the change. No FK to technicians, so
-// deleting a technician cannot erase its history. `name` is the name at that time; before/after hold only changed fields.
+// Permanent, append-only: rows are only ever inserted, in the same transaction as the change. Deleting a technician
+// sets technician_id to NULL instead of erasing history. `name` is the name at that time; before/after hold only changed fields.
 export const technicianChanges = pgTable('technician_changes', {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   at: timestamp({ withTimezone: true }).notNull().defaultNow(),
-  technicianId: integer('technician_id').notNull(),
+  technicianId: integer('technician_id').references(() => technicians.id, { onDelete: 'set null' }),
   action: technicianChangeAction().notNull(),
   name: text().notNull(),
   before: jsonb().$type<TechnicianChangeFields>(),

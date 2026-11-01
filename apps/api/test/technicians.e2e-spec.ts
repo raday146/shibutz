@@ -297,11 +297,16 @@ describe('technicians', () => {
       await http().get(`/technicians/${a.id}`).expect(200);
     });
 
-    it('keeps the log when the technician is deleted', async () => {
+    it('keeps the log when the technician is deleted, detached, with a "deleted" entry', async () => {
       const { body } = await http().post('/technicians').send(dana([])).expect(201);
+      await http().patch(`/technicians/${body.id}`).send({ name: 'Dani', version: 0 }).expect(200);
       await http().delete(`/technicians/${body.id}`).expect(204);
 
-      expect((await changes()).body).toHaveLength(1);
+      expect((await changes()).body.map((c) => [c.action, c.name, c.technicianId])).toEqual([
+        ['deleted', 'Dani', null],
+        ['updated', 'Dani', null],
+        ['created', 'Dana', null],
+      ]);
     });
   });
 });

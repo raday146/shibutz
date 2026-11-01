@@ -367,6 +367,16 @@ describeIfUp('vroom')('POST /optimization/day/:date and inactive technicians (re
     expect(await countPlanRows(app().get<Db>(DB))).toBe(0);
   });
 
+  it('still plans when a technician is only renamed after planning started (name-only edits bump the version, not the scheduling fields)', async () => {
+    const { avi } = await twoTechniciansAndAJob();
+    beforeSolve = async () => void (await http().patch(`/technicians/${avi}`).send({ name: 'Avi Cohen', version: 0 }).expect(200));
+
+    const plan: DayPlan = (await http().post(`/optimization/day/${DATE}`).expect(201)).body;
+
+    expect(plan.routes.length).toBeGreaterThan(0);
+    expect(((await http().get(`/technicians/${avi}`)).body as { name: string }).name).toBe('Avi Cohen');
+  });
+
   it('takes technician locks before any job lock (the order job-status start uses), so the two cannot deadlock', async () => {
     await twoTechniciansAndAJob();
     // Stands in for a status start: holds the technician rows FOR UPDATE while the batch reaches its write transaction.

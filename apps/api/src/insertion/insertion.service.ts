@@ -12,7 +12,7 @@ import { loadStops, type StopRow } from '../routes/stops';
 import { suggestInsertions, type InsertionCandidate } from '../planning/insertion';
 import { currentPosition, toPositionStop } from '../planning/position';
 import { fromDaySeconds, toDaySeconds, wallClockDaySeconds } from '../planning/time';
-import { TechniciansService } from '../technicians/technicians.service';
+import { schedulingKey, TechniciansService } from '../technicians/technicians.service';
 
 const DEFAULT_RADIUS_M = 10_000;
 
@@ -74,7 +74,7 @@ export class InsertionService {
 
     await this.db.transaction(async (tx) => {
       // The candidate was active, at this version, when selected; a deactivation or edit may have committed since. Locked before any job or route row.
-      await this.techniciansService.assertActive(tx, new Map([[technicianId, tech.version]]));
+      await this.techniciansService.assertActive(tx, new Map([[technicianId, schedulingKey(tech)]]));
       // ponytail: the expected version 0 case: make sure the row exists, then the same guarded bump as every other case.
       if (routeVersion === 0) await tx.insert(routes).values({ technicianId, date: job.day }).onConflictDoNothing({ target: [routes.technicianId, routes.date] });
       const [bumped] = await tx
