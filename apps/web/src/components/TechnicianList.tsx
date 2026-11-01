@@ -1,8 +1,10 @@
+import { useEffect, useRef, useState } from 'react';
 import type { DaySummary, Skill, Technician } from '@shibutz/contracts';
 import { MAX_ACTIVE_TECHNICIANS } from '@shibutz/contracts';
 import { sortByName } from '../i18n';
 import { Ltr, useLang, withLtrNumbers } from '../lang';
 import { routeVar, shiftLabel, skillLabel } from '../map';
+import { Anchored } from './Anchored';
 
 interface Props {
   technicians: Technician[];
@@ -12,9 +14,33 @@ interface Props {
   /** `opener` is the clicked row and `keyboard` tells whether it was activated from the keyboard (no animation then). */
   onSelect: (technicianId: number | null, opener?: HTMLElement, keyboard?: boolean) => void;
   onAdd: () => void;
+  onEdit: (technicianId: number) => void;
 }
 
-export function TechnicianList({ technicians, days, skills, selected, onSelect, onAdd }: Props): React.JSX.Element {
+/** The row's overflow menu. */
+function RowMenu({ onEdit }: { onEdit: () => void }): React.JSX.Element {
+  const { t } = useLang();
+  const [open, setOpen] = useState(false);
+  const more = useRef<HTMLButtonElement>(null);
+  const item = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (open) item.current?.focus();
+  }, [open]);
+  return (
+    <span className="row-menu">
+      <button ref={more} aria-haspopup="menu" aria-expanded={open} aria-label={t('action.more')} onClick={() => setOpen(!open)}>
+        <span aria-hidden="true">⋯</span>
+      </button>
+      {open && (
+        <Anchored trigger={more} role="menu" onClose={() => setOpen(false)}>
+          <button ref={item} role="menuitem" onClick={() => { setOpen(false); onEdit(); }}>{t('tech.edit')}</button>
+        </Anchored>
+      )}
+    </span>
+  );
+}
+
+export function TechnicianList({ technicians, days, skills, selected, onSelect, onAdd, onEdit }: Props): React.JSX.Element {
   const { lang, t } = useLang();
   const full = technicians.filter((x) => x.active).length >= MAX_ACTIVE_TECHNICIANS;
   const add = (
@@ -53,6 +79,7 @@ export function TechnicianList({ technicians, days, skills, selected, onSelect, 
                 </>
               )}
             </button>
+            <RowMenu onEdit={() => onEdit(tech.id)} />
           </li>
         );
       })}

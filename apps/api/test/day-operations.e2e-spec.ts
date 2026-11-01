@@ -474,29 +474,41 @@ describe('PATCH /jobs/:id/status (fake routing, fake clock)', () => {
     expect(await stopRows()).toHaveLength(3);
   });
 
+  /** PATCH /technicians/:id carrying the technician's current version, as a reviewed edit does. */
+  async function editTech(id: number, change: object, status: number): Promise<request.Response> {
+    const { version } = (await http().get(`/technicians/${id}`)).body;
+    return http().patch(`/technicians/${id}`).send({ ...change, version }).expect(status);
+  }
+
   it('refuses to change home, shift or skills of a technician with route stops, but allows renaming', async () => {
     const { techId } = await day();
     const before = (await http().get(`/technicians/${techId}`).expect(200)).body;
 
     for (const change of [{ home: [34.1, 32] }, { shiftStart: '07:00:00' }, { shiftEnd: '18:00:00' }, { skillIds: [] }]) {
-      const res = await http().patch(`/technicians/${techId}`).send(change).expect(409);
+      const res = await editTech(techId, change, 409);
       expect(res.body.message).toMatch(/route|stops/);
     }
     await http().get(`/technicians/${techId}`).expect(200, before);
 
-    await http().patch(`/technicians/${techId}`).send({ name: 'Avi B.' }).expect(200);
-    await http().patch(`/technicians/${techId}`).send({ name: 'Avi C.' }).expect(200);
+    await editTech(techId, { name: 'Avi B.' }, 200);
+    await editTech(techId, { name: 'Avi C.' }, 200);
+  });
+
+  it('also refuses home, shift and skills while a stop is in progress', async () => {
+    const { techId } = await day(['in_progress', 'assigned', 'assigned']);
+
+    await editTech(techId, { shiftEnd: '18:00:00' }, 409);
   });
 
   it('lets a technician whose stops are all done change home, shift and skills', async () => {
     const { techId } = await day(['done', 'done', 'done']);
 
-    await http().patch(`/technicians/${techId}`).send({ home: [34.1, 32], shiftEnd: '18:00:00', skillIds: [] }).expect(200);
+    await editTech(techId, { home: [34.1, 32], shiftEnd: '18:00:00', skillIds: [] }, 200);
   });
 
   it('still lets a technician without route stops change home, shift and skills', async () => {
     const techId = await technician();
 
-    await http().patch(`/technicians/${techId}`).send({ home: [34.1, 32], shiftEnd: '18:00:00', skillIds: [] }).expect(200);
+    await editTech(techId, { home: [34.1, 32], shiftEnd: '18:00:00', skillIds: [] }, 200);
   });
 });

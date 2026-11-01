@@ -183,6 +183,16 @@ export const he = {
   'review.back': 'חזרה לעריכה',
   'review.confirm.new': 'יצירת טכנאי',
   'error.activeCap': 'כבר יש 8 טכנאים פעילים.',
+  'tech.edit': 'עריכה',
+  'tech.edit.title': 'עריכת {name}',
+  'tech.save': 'שמירה',
+  'tech.saved.name': 'השם עודכן.',
+  'tech.updated': 'הפרטים של {name} עודכנו.',
+  'tech.inactive.editHint': 'אפשר לערוך רק את השם. כדי לשנות בית, משמרת או כישורים, קודם יש להפעיל מחדש.',
+  'review.title.edit': 'סקירה לפני שמירת השינויים',
+  'review.change': '{field}: {before} ← {after}',
+  'review.confirm.edit': 'שמירת שינויים',
+  'review.stale': 'הנתונים השתנו מאז הסקירה. יש לסקור שוב.',
 } as const;
 
 export type Key = keyof typeof he;
@@ -369,6 +379,16 @@ export const en: Record<Key, string> = {
   'review.back': 'Back to edit',
   'review.confirm.new': 'Create technician',
   'error.activeCap': '8 technicians are already active.',
+  'tech.edit': 'Edit',
+  'tech.edit.title': 'Edit {name}',
+  'tech.save': 'Save',
+  'tech.saved.name': 'Name updated.',
+  'tech.updated': "{name}'s details were updated.",
+  'tech.inactive.editHint': 'Only the name can be edited. To change home, shift or skills, reactivate first.',
+  'review.title.edit': 'Review before saving changes',
+  'review.change': '{field}: {before} → {after}',
+  'review.confirm.edit': 'Save changes',
+  'review.stale': 'The data changed since this review. Review again.',
 };
 
 export const dictionaries: Record<Lang, Record<Key, string>> = { he, en };

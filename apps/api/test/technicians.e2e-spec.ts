@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import request from 'supertest';
-import { ACTIVE_CAP_MESSAGE } from '@shibutz/contracts';
+import { ACTIVE_CAP_MESSAGE, STALE_TECHNICIAN_MESSAGE } from '@shibutz/contracts';
 import { DB, type Db } from '../src/db/db.module';
 import { setupTestApp } from './app';
 
@@ -56,9 +56,45 @@ describe('technicians', () => {
 
     await http()
       .patch(`/technicians/${body.id}`)
-      .send({ shiftEnd: '18:30:00', skillIds: [plmb] })
-      .expect(200, { ...body, shiftEnd: '18:30:00', skillIds: [plmb] });
-    await http().patch(`/technicians/${body.id}`).send({ skillIds: [] }).expect(200, { ...body, shiftEnd: '18:30:00', skillIds: [] });
+      .send({ shiftEnd: '18:30:00', skillIds: [plmb], version: 0 })
+      .expect(200, { ...body, shiftEnd: '18:30:00', skillIds: [plmb], version: 1 });
+    await http().patch(`/technicians/${body.id}`).send({ skillIds: [], version: 1 }).expect(200, { ...body, shiftEnd: '18:30:00', skillIds: [], version: 2 });
+  });
+
+  describe('versioned update', () => {
+    it('refuses a stale version with 409 and writes nothing; a skills-only edit also bumps the version', async () => {
+      const elec = await skill('ELEC');
+      const { body } = await http().post('/technicians').send(dana([elec])).expect(201);
+      await http().patch(`/technicians/${body.id}`).send({ skillIds: [], version: 0 }).expect(200);
+
+      const res = await http().patch(`/technicians/${body.id}`).send({ name: 'Late', version: 0 }).expect(409);
+
+      expect(res.body.message).toBe(STALE_TECHNICIAN_MESSAGE);
+      await http().get(`/technicians/${body.id}`).expect(200, { ...body, skillIds: [], version: 1 });
+    });
+
+    it('two edits from the same version: exactly one wins', async () => {
+      const { body } = await http().post('/technicians').send(dana([])).expect(201);
+
+      const results = await Promise.all(['A', 'B'].map((name) => http().patch(`/technicians/${body.id}`).send({ name, version: 0 })));
+
+      expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
+    });
+
+    it('requires the version and at least one field', async () => {
+      const { body } = await http().post('/technicians').send(dana([])).expect(201);
+
+      await http().patch(`/technicians/${body.id}`).send({ name: 'x' }).expect(400);
+      await http().patch(`/technicians/${body.id}`).send({ version: 0 }).expect(400);
+    });
+
+    it('lets an inactive technician change only the name', async () => {
+      const { body } = await http().post('/technicians').send(dana([])).expect(201);
+      await app().get<Db>(DB).execute(sql`UPDATE technicians SET active = false, color = NULL WHERE id = ${body.id}`);
+
+      await http().patch(`/technicians/${body.id}`).send({ shiftEnd: '18:00:00', version: 0 }).expect(409);
+      await http().patch(`/technicians/${body.id}`).send({ name: 'Renamed', version: 0 }).expect(200);
+    });
   });
 
   it('rejects unknown skill ids with 400 and stores nothing', async () => {
@@ -68,7 +104,7 @@ describe('technicians', () => {
     await http().get('/technicians').expect(200, []);
 
     const { body } = await http().post('/technicians').send(dana([elec])).expect(201);
-    await http().patch(`/technicians/${body.id}`).send({ name: 'Changed', skillIds: [999] }).expect(400);
+    await http().patch(`/technicians/${body.id}`).send({ name: 'Changed', skillIds: [999], version: 0 }).expect(400);
     await http().get(`/technicians/${body.id}`).expect(200, body);
   });
 
@@ -90,7 +126,7 @@ describe('technicians', () => {
   it('rejects a patch that makes the shift end before its start', async () => {
     const { body } = await http().post('/technicians').send(dana([])).expect(201);
 
-    await http().patch(`/technicians/${body.id}`).send({ shiftEnd: '07:00:00' }).expect(400);
+    await http().patch(`/technicians/${body.id}`).send({ shiftEnd: '07:00:00', version: 0 }).expect(400);
   });
 
   it('explains that overnight shifts are not supported', async () => {
@@ -108,7 +144,7 @@ describe('technicians', () => {
 
     await http().delete(`/technicians/${body.id}`).expect(204);
     await http().get(`/technicians/${body.id}`).expect(404);
-    await http().patch(`/technicians/${body.id}`).send({ name: 'x' }).expect(404);
+    await http().patch(`/technicians/${body.id}`).send({ name: 'x', version: 0 }).expect(404);
     await http().delete(`/technicians/${body.id}`).expect(404);
   });
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ACTIVE_CAP_MESSAGE, MAX_ACTIVE_TECHNICIANS } from '@shibutz/contracts';
+import { ACTIVE_CAP_MESSAGE, MAX_ACTIVE_TECHNICIANS, STALE_TECHNICIAN_MESSAGE } from '@shibutz/contracts';
 import type { CreateTechnician, DaySummary, Incident, JobStatus, InsertionOption, InsertionSuggestions, Job, LonLat, RouteView, Skill, Technician, UpdateJob } from '@shibutz/contracts';
-import { ApiError, createJob, createTechnician, fetchDaySummary, fetchJobs, fetchRoute, fetchSkills, fetchSuggestions, fetchTechnicians, insertJob, runOptimization, setJobStatus, updateJob } from './api';
+import { ApiError, createJob, createTechnician, fetchDaySummary, fetchJobs, fetchRoute, fetchSkills, fetchSuggestions, fetchTechnicians, insertJob, runOptimization, setJobStatus, updateJob, updateTechnician } from './api';
 import { jerusalemToIso, today, unassignedJobs } from './map';
 import type { Key, Vars } from './i18n';
 import { useLang } from './lang';
@@ -14,7 +14,7 @@ import { PanelTabs } from './components/PanelTabs';
 import type { Tab } from './components/PanelTabs';
 import { NewJobModal, draftOf } from './components/NewJobModal';
 import type { JobDraft } from './components/NewJobModal';
-import { TechnicianModal } from './components/TechnicianModal';
+import { TechnicianModal, techPatch } from './components/TechnicianModal';
 import { TechnicianList } from './components/TechnicianList';
 import { TopBar } from './components/TopBar';
 import { UnassignedList } from './components/UnassignedList';
@@ -99,6 +99,7 @@ export function App(): React.JSX.Element {
   // New-job modal: `picking` waits for a map click or the center crosshair; `suggestions` is the panel shown after the job was created.
   const [adding, setAdding] = useState(false);
   const [addingTech, setAddingTech] = useState(false);
+  const [editingTech, setEditingTech] = useState<number | null>(null); // the technician modal, pre-filled with this technician
   const [editing, setEditing] = useState<number | null>(null); // the same modal, pre-filled with this job
   const [picking, setPicking] = useState(false);
   const [at, setAt] = useState<LonLat | null>(null);
@@ -191,6 +192,7 @@ export function App(): React.JSX.Element {
   const closeModal = useCallback((): void => {
     setAdding(false);
     setAddingTech(false);
+    setEditingTech(null);
     setEditing(null);
     setPicking(false);
     setAt(null);
@@ -213,6 +215,34 @@ export function App(): React.JSX.Element {
       setBusy(false);
     }
   }
+
+  async function submitTechEdit(tech: Technician, body: CreateTechnician, version: number): Promise<void> {
+    setBusy(true);
+    setCreateError(null);
+    try {
+      const patch = techPatch(tech, body);
+      if (Object.keys(patch).length) await updateTechnician(tech.id, { ...patch, version });
+      const nameOnly = Object.keys(patch).every((k) => k === 'name');
+      closeModal();
+      setToast({ id: Date.now(), text: nameOnly ? t('tech.saved.name') : t('tech.updated', { name: body.name }) });
+      await reload();
+    } catch (e) {
+      const stale = e instanceof ApiError && e.status === 409 && e.message === STALE_TECHNICIAN_MESSAGE;
+      setCreateError(stale ? { key: 'review.stale' } : problem(e));
+      if (stale) await reload(); // the open review now shows the technician as it is; the modal returns to the form
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const openEditTech = (id: number): void => {
+    const tech = technicians.find((x) => x.id === id);
+    if (!tech) return;
+    trigger.current = document.activeElement;
+    setCreateError(null);
+    setAt(tech.home);
+    setEditingTech(id);
+  };
 
   const openEdit = (jobId: number): void => {
     const job = jobs.find((j) => j.id === jobId);
@@ -330,6 +360,7 @@ export function App(): React.JSX.Element {
   const noteSaved = (jobId: number, hasNote: boolean): void =>
     setRoutes((rs) => rs.map((r) => ({ ...r, stops: r.stops.map((s) => (s.jobId === jobId ? { ...s, hasNote } : s)) })));
   const editingJob = jobs.find((j) => j.id === editing);
+  const editingTechnician = technicians.find((x) => x.id === editingTech);
   const dayJobs = jobs.filter((j) => j.day === date);
   const jobById = new Map(jobs.map((j) => [j.id, j]));
   const route = routes.find((r) => r.technicianId === selected);
@@ -393,7 +424,7 @@ export function App(): React.JSX.Element {
           ) : first ? (
             <Skeleton />
           ) : current === 'technicians' ? (
-            <TechnicianList technicians={technicians} days={summary?.technicians ?? []} skills={skills} selected={selected} onSelect={selectTech} onAdd={() => { trigger.current = document.activeElement; setCreateError(null); setAddingTech(true); }} />
+            <TechnicianList technicians={technicians} days={summary?.technicians ?? []} skills={skills} selected={selected} onSelect={selectTech} onEdit={openEditTech} onAdd={() => { trigger.current = document.activeElement; setCreateError(null); setAddingTech(true); }} />
           ) : (
             <>
               <UnassignedList
@@ -481,17 +512,19 @@ export function App(): React.JSX.Element {
           onClose={closeModal}
         />
       )}
-      {addingTech && (
+      {(addingTech || editingTechnician) && (
         <TechnicianModal
+          key={editingTechnician?.id ?? 'new'}
+          technician={editingTechnician}
           skills={skills}
-          color={[1, 2, 3, 4, 5, 6, 7, 8].find((c) => !technicians.some((x) => x.color === c)) ?? MAX_ACTIVE_TECHNICIANS}
+          color={editingTechnician?.color ?? [1, 2, 3, 4, 5, 6, 7, 8].find((c) => !technicians.some((x) => x.color === c)) ?? MAX_ACTIVE_TECHNICIANS}
           busy={busy}
           at={at}
           picking={picking}
-          failure={createError && t('error.action', { message: why(createError) })}
+          failure={createError && (createError.key === 'review.stale' ? t('review.stale') : t('error.action', { message: why(createError) }))}
           onPicking={setPicking}
           onUsePoint={() => { if (center.current) { setAt(center.current); setPicking(false); } }}
-          onSubmit={(d) => void submitTechnician(d)}
+          onSubmit={(d, version) => void (editingTechnician ? submitTechEdit(editingTechnician, d, version) : submitTechnician(d))}
           onClose={closeModal}
         />
       )}

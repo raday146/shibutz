@@ -32,7 +32,7 @@ async function openStop(jobId: number): Promise<{ fetch: Fetch; field: HTMLEleme
   localStorage.setItem('shibutz.lang', 'en');
   const fetch = fakeApi(api);
   renderConsole();
-  await userEvent.click(within((await screen.findByText('Bob')).closest('li') as HTMLElement).getByRole('button'));
+  await userEvent.click(within((await screen.findByText('Bob')).closest('li') as HTMLElement).getAllByRole('button')[0] as HTMLElement);
   await userEvent.click(await screen.findByRole('button', { name: new RegExp(`Fix ${jobId}`) }));
   const field = await screen.findByRole('textbox', { name: 'Note' });
   return { fetch, field };
@@ -139,7 +139,7 @@ describe('job note in the drawer', () => {
     });
     renderConsole();
     const pick = async (name: string): Promise<void> => {
-      await userEvent.click(within((await screen.findByText(name)).closest('li') as HTMLElement).getByRole('button'));
+      await userEvent.click(within((await screen.findByText(name)).closest('li') as HTMLElement).getAllByRole('button')[0] as HTMLElement);
     };
     await pick('Bob');
     await userEvent.click(await screen.findByRole('button', { name: /Fix 2/ }));
@@ -158,7 +158,7 @@ describe('job note in the drawer', () => {
     localStorage.setItem('shibutz.lang', 'he');
     fakeApi(api);
     renderConsole();
-    await userEvent.click(within((await screen.findByText('Bob')).closest('li') as HTMLElement).getByRole('button'));
+    await userEvent.click(within((await screen.findByText('Bob')).closest('li') as HTMLElement).getAllByRole('button')[0] as HTMLElement);
     await userEvent.click(await screen.findByRole('button', { name: /Fix 2/ }));
     const field = await screen.findByRole('textbox', { name: 'הערה' });
     expect(field.getAttribute('placeholder')).toBe('הערה על העבודה');

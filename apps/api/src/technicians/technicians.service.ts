@@ -1,6 +1,6 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
-import { ACTIVE_CAP_MESSAGE } from '@shibutz/contracts';
+import { ACTIVE_CAP_MESSAGE, STALE_TECHNICIAN_MESSAGE } from '@shibutz/contracts';
 import type { CreateTechnician, Technician, UpdateTechnician } from '@shibutz/contracts';
 import { DB, type Db } from '../db/db.module';
 import { isForeignKeyViolation, isUniqueViolation, rejectInvalid } from '../db/errors';
@@ -62,12 +62,25 @@ export class TechniciansService {
     );
   }
 
-  async update(id: number, { skillIds, ...fields }: UpdateTechnician): Promise<Technician> {
+  async update(id: number, { skillIds, version, ...fields }: UpdateTechnician): Promise<Technician> {
     await rejectInvalid(
       this.db.transaction(async (tx) => {
-        // Home, shift and skills feed the stored ETAs and the skill match, so they are frozen while active stops exist.
-        // Done stops are history and do not block edits.
+        // The reviewed version must still be current. The UPDATE both checks and bumps it (and locks the row), so a
+        // skills-only edit is versioned too and two edits from the same version cannot both win.
+        const [row] = await tx
+          .update(technicians)
+          .set({ ...fields, version: sql`${technicians.version} + 1` })
+          .where(and(eq(technicians.id, id), eq(technicians.version, version)))
+          .returning({ active: technicians.active });
+        if (!row) {
+          const [exists] = await tx.select({ id: technicians.id }).from(technicians).where(eq(technicians.id, id));
+          throw exists ? new ConflictException(STALE_TECHNICIAN_MESSAGE) : new NotFoundException('Technician not found');
+        }
         if (skillIds || Object.keys(fields).some((k) => k !== 'name')) {
+          // An inactive technician keeps the home, shift and skills their history was built on.
+          if (!row.active) throw new ConflictException('Inactive technician: only the name can be edited');
+          // Home, shift and skills feed the stored ETAs and the skill match, so they are frozen while active stops exist.
+          // Done stops are history and do not block edits.
           const [stop] = await tx
             .select({ id: routeStops.id })
             .from(routeStops)
@@ -77,10 +90,6 @@ export class TechniciansService {
             .limit(1);
           if (stop) throw new ConflictException('Technician has stops on a route; unassign or cancel those jobs first');
         }
-        const [row] = Object.keys(fields).length
-          ? await tx.update(technicians).set(fields).where(eq(technicians.id, id)).returning({ id: technicians.id })
-          : await tx.select({ id: technicians.id }).from(technicians).where(eq(technicians.id, id)).for('update');
-        if (!row) throw new NotFoundException('Technician not found');
         if (!skillIds) return;
         await tx.delete(technicianSkills).where(eq(technicianSkills.technicianId, id));
         if (skillIds.length) await tx.insert(technicianSkills).values(skillIds.map((skillId) => ({ technicianId: id, skillId })));

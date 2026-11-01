@@ -61,7 +61,7 @@ async function open(page: Page, lang: 'he' | 'en', openDrawer = true): Promise<v
   });
   await page.goto('/');
   if (!openDrawer) return;
-  await page.getByRole('list', { name: /Technicians|טכנאים/ }).getByRole('button').click();
+  await page.getByRole('list', { name: /Technicians|טכנאים/ }).getByRole('button').first().click();
   await expect(page.locator('aside.drawer')).toBeVisible();
 }
 
@@ -87,7 +87,7 @@ for (const lang of ['he', 'en'] as const) {
     test('stop overflow menu is visible, on screen and next to its button', async ({ page }) => {
       await open(page, lang);
       await page.locator('aside.drawer').getByRole('button', { name: /Fix 2/ }).click();
-      const trigger = page.locator('[aria-haspopup=menu]');
+      const trigger = page.locator('aside.drawer [aria-haspopup=menu]');
       await trigger.click();
       await expectNextTo(page, page.getByRole('menu'), trigger);
       // Styled as a menu, not loose buttons: items stacked, inside a bordered box (the menu is portaled out of .stop-actions).
@@ -103,7 +103,7 @@ for (const lang of ['he', 'en'] as const) {
     test('Edit job in the stop menu opens the edit modal on screen, with the routed fields disabled, and Escape closes it', async ({ page }) => {
       await open(page, lang);
       await page.locator('aside.drawer').getByRole('button', { name: /Fix 2/ }).click();
-      const trigger = page.locator('[aria-haspopup=menu]');
+      const trigger = page.locator('aside.drawer [aria-haspopup=menu]');
       await trigger.click();
       await page.getByRole('menuitem').first().click(); // Edit job is the first entry
       const dialog = page.getByRole('dialog');
@@ -194,13 +194,49 @@ for (const lang of ['he', 'en'] as const) {
   });
 }
 
+const editWordsReview = { en: 'Continue to review', he: 'המשך לסקירה' };
+const editWords = {
+  en: { more: 'More actions', edit: 'Edit', title: 'Edit Bob', review: 'Review before saving changes', from: 'Shift start' },
+  he: { more: 'פעולות נוספות', edit: 'עריכה', title: 'עריכת Bob', review: 'סקירה לפני שמירת השינויים', from: 'תחילת המשמרת' },
+};
+
+for (const lang of ['he', 'en'] as const) {
+  test(`technician row menu and edit modal are laid out (${lang})`, async ({ page }) => {
+    const w = editWords[lang];
+    await open(page, lang, false);
+    const trigger = page.getByRole('list', { name: /Technicians|טכנאים/ }).getByRole('button', { name: w.more });
+    await trigger.click();
+    const menu = page.getByRole('menu');
+    await expectNextTo(page, menu, trigger);
+    await expect(menu).toHaveCSS('border-top-width', '1px');
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+
+    await trigger.click();
+    await page.getByRole('menuitem', { name: w.edit }).click();
+    const dialog = page.getByRole('dialog', { name: w.title });
+    await expect(dialog).toBeVisible();
+    await expectOnScreen(page, dialog);
+    await dialog.getByLabel(w.from).fill('09:00');
+    await dialog.getByRole('button', { name: editWordsReview[lang] }).click();
+    const review = page.getByRole('dialog', { name: w.review });
+    await expect(review).toBeVisible();
+    await expectOnScreen(page, review);
+    await review.getByRole('button', { name: words[lang].back }).click();
+    await expect(page.getByRole('dialog', { name: w.title }).getByLabel(w.from)).toHaveValue('09:00');
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+  });
+}
+
 test.describe('without the popover API or anchor positioning', () => {
   for (const lang of ['he', 'en'] as const) {
     test(`overlays still work (${lang})`, async ({ page }) => {
       await withoutModernPositioning(page);
       await open(page, lang);
       await page.locator('aside.drawer').getByRole('button', { name: /Fix 2/ }).click();
-      const more = page.locator('[aria-haspopup=menu]');
+      const more = page.locator('aside.drawer [aria-haspopup=menu]');
       await more.click();
       await expectNextTo(page, page.getByRole('menu'), more);
       await expectNoAnchorPositioning(page);

@@ -1,13 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
-import type { CreateTechnician, LonLat, Skill } from '@shibutz/contracts';
-import { Ltr, useLang } from '../lang';
+import type { CreateTechnician, LonLat, Skill, Technician, UpdateTechnician } from '@shibutz/contracts';
+import { Ltr, useLang, withLtrNumbers } from '../lang';
 import { formatLatLon, routeVar, shiftLabel, skillLabel, skillName } from '../map';
 import { MiniMap } from './MiniMap';
 import { PickBar } from './PickBar';
 
+/** What differs from the saved technician; the edit's request body (without the version) and the review's list of changes. */
+export function techPatch(was: Technician, now: CreateTechnician): Omit<UpdateTechnician, 'version'> {
+  const sorted = (ids: number[]): string => [...ids].sort().join();
+  return {
+    ...(now.name !== was.name && { name: now.name }),
+    ...((now.home[0] !== was.home[0] || now.home[1] !== was.home[1]) && { home: now.home }),
+    ...(now.shiftStart !== was.shiftStart && { shiftStart: now.shiftStart }),
+    ...(now.shiftEnd !== was.shiftEnd && { shiftEnd: now.shiftEnd }),
+    ...(sorted(now.skillIds) !== sorted(was.skillIds) && { skillIds: now.skillIds }),
+  };
+}
+
 interface Props {
+  /** Set to edit this technician: the same form, pre-filled, with a review of what changes. */
+  technician?: Technician;
   skills: Skill[];
-  /** The route color the new technician will get (lowest free among active). */
+  /** The route color shown in the review: the one the new technician will get (lowest free among active), or the current one. */
   color: number;
   busy: boolean;
   /** Set by the last map pick; the map shows it too. */
@@ -18,20 +32,24 @@ interface Props {
   onPicking: (picking: boolean) => void;
   /** Takes the point under the map's center crosshair. */
   onUsePoint: () => void;
-  onSubmit: (technician: CreateTechnician) => void;
+  /** `version` is the one the user reviewed; the server refuses the save if the technician changed since. */
+  onSubmit: (technician: CreateTechnician, version: number) => void;
   onClose: () => void;
 }
 
-const FOCUSABLE = 'input, button:not(:disabled)';
+const FOCUSABLE = 'input:not(:disabled), button:not(:disabled)';
 
 /** Add a technician in two steps in one dialog: the form, then a read-only review. The form state survives going back. */
-export function TechnicianModal({ skills, color, busy, at, picking, failure, onPicking, onUsePoint, onSubmit, onClose }: Props): React.JSX.Element {
+export function TechnicianModal({ technician, skills, color, busy, at, picking, failure, onPicking, onUsePoint, onSubmit, onClose }: Props): React.JSX.Element {
   const { lang, t } = useLang();
-  const [name, setName] = useState('');
-  const [skillIds, setSkillIds] = useState<number[]>([]);
-  const [from, setFrom] = useState('08:00');
-  const [to, setTo] = useState('16:00');
+  const [name, setName] = useState(technician?.name ?? '');
+  const [skillIds, setSkillIds] = useState<number[]>(technician?.skillIds ?? []);
+  const [from, setFrom] = useState(technician?.shiftStart.slice(0, 5) ?? '08:00');
+  const [to, setTo] = useState(technician?.shiftEnd.slice(0, 5) ?? '16:00');
   const [reviewing, setReviewing] = useState(false);
+  const reviewed = useRef(0); // the version the user looked at when entering the review
+  // An inactive technician keeps the home, shift and skills its history was built on.
+  const frozen = technician !== undefined && !technician.active;
   // Errors show once the user has tried to continue, then follow the fields as they are fixed.
   const [tried, setTried] = useState(false);
   const dialog = useRef<HTMLDivElement>(null);
@@ -75,13 +93,23 @@ export function TechnicianModal({ skills, color, busy, at, picking, failure, onP
     if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
   };
+  const form: CreateTechnician | null = at && { name: name.trim(), home: at, shiftStart: `${from}:00`, shiftEnd: `${to}:00`, skillIds };
+  const changes = technician && form ? techPatch(technician, form) : null;
+  const nameOnly = changes !== null && Object.keys(changes).every((k) => k === 'name');
+  const confirm = (): void => {
+    if (form) onSubmit(form, reviewed.current);
+  };
   const toReview = (): void => {
     setTried(true);
-    if (Object.values(errors).every((m) => !m)) setReviewing(true);
+    if (!Object.values(errors).every((m) => !m)) return;
+    reviewed.current = technician?.version ?? 0;
+    if (nameOnly) confirm(); // a name-only edit needs no review
+    else setReviewing(true);
   };
-  const confirm = (): void => {
-    if (at) onSubmit({ name: name.trim(), home: at, shiftStart: `${from}:00`, shiftEnd: `${to}:00`, skillIds });
-  };
+  // The technician changed under an open review (the roster reloaded after a stale save): back to the form to review again.
+  useEffect(() => {
+    if (reviewing && technician && technician.version !== reviewed.current) setReviewing(false);
+  }, [reviewing, technician]);
   const swatch = <span className="swatch" style={{ background: routeVar(color) }} aria-hidden="true" />;
 
   return (
@@ -89,27 +117,42 @@ export function TechnicianModal({ skills, color, busy, at, picking, failure, onP
       <div className="overlay" hidden={picking}>
         <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby="tech-modal-title" className="dialog form" onKeyDown={trap}>
           <div className="dialog-head">
-            <h2 id="tech-modal-title">{reviewing ? t('review.title.new') : t('tech.new.title')}</h2>
+            <h2 id="tech-modal-title">{reviewing ? t(technician ? 'review.title.edit' : 'review.title.new') : technician ? t('tech.edit.title', { name: technician.name }) : t('tech.new.title')}</h2>
             <button type="button" className="icon" aria-label={t('modal.x')} onClick={onClose}><span aria-hidden="true">×</span></button>
           </div>
           {reviewing ? (
             <>
-              <dl className="review">
-                <dt>{t('tech.field.name')}</dt>
-                <dd dir="auto">{name.trim()}</dd>
-                <dt>{t('tech.field.shift')}</dt>
-                <dd><Ltr>{shiftLabel(from, to)}</Ltr></dd>
-                <dt>{t('tech.field.skills')}</dt>
-                <dd>{skillLabel(skillIds, skills, lang) || t('tech.noSkills')}</dd>
-                <dt>{t('tech.field.home')}</dt>
-                <dd><Ltr>{at && formatLatLon(at)}</Ltr></dd>
-                <dt>{t('review.color')}</dt>
-                <dd>{swatch}</dd>
-              </dl>
-              {at && <MiniMap at={at} label={t('tech.field.home')} />}
+              {technician ? (
+                <>
+                  <ul className="review">
+                    {changes?.name !== undefined && <li dir="auto">{withLtrNumbers(t('review.change', { field: t('tech.field.name'), before: technician.name, after: name.trim() }))}</li>}
+                    {changes?.shiftStart !== undefined || changes?.shiftEnd !== undefined ? <li>{withLtrNumbers(t('review.change', { field: t('tech.field.shift'), before: shiftLabel(technician.shiftStart, technician.shiftEnd), after: shiftLabel(from, to) }))}</li> : null}
+                    {changes?.skillIds !== undefined && <li>{t('review.change', { field: t('tech.field.skills'), before: skillLabel(technician.skillIds, skills, lang) || t('tech.noSkills'), after: skillLabel(skillIds, skills, lang) || t('tech.noSkills') })}</li>}
+                    {changes?.home !== undefined && <li>{withLtrNumbers(t('review.change', { field: t('tech.field.home'), before: formatLatLon(technician.home), after: at ? formatLatLon(at) : '' }))}</li>}
+                  </ul>
+                  <p>{t('review.color')} {swatch}</p>
+                  {changes?.home !== undefined && at && <MiniMap at={at} label={t('tech.field.home')} />}
+                </>
+              ) : (
+                <>
+                  <dl className="review">
+                    <dt>{t('tech.field.name')}</dt>
+                    <dd dir="auto">{name.trim()}</dd>
+                    <dt>{t('tech.field.shift')}</dt>
+                    <dd><Ltr>{shiftLabel(from, to)}</Ltr></dd>
+                    <dt>{t('tech.field.skills')}</dt>
+                    <dd>{skillLabel(skillIds, skills, lang) || t('tech.noSkills')}</dd>
+                    <dt>{t('tech.field.home')}</dt>
+                    <dd><Ltr>{at && formatLatLon(at)}</Ltr></dd>
+                    <dt>{t('review.color')}</dt>
+                    <dd>{swatch}</dd>
+                  </dl>
+                  {at && <MiniMap at={at} label={t('tech.field.home')} />}
+                </>
+              )}
               {failure && <p className="error" role="alert">{failure}</p>}
               <div>
-                <button onClick={confirm} disabled={busy}>{t('review.confirm.new')}</button>{' '}
+                <button onClick={confirm} disabled={busy}>{t(technician ? 'review.confirm.edit' : 'review.confirm.new')}</button>{' '}
                 <button onClick={() => setReviewing(false)}>{t('review.back')}</button>
               </div>
             </>
@@ -123,9 +166,9 @@ export function TechnicianModal({ skills, color, busy, at, picking, failure, onP
               <fieldset>
                 <legend>{t('tech.field.shift')}</legend>
                 <Ltr>
-                  <input type="time" aria-label={t('tech.field.shift.from')} value={from} onChange={(e) => setFrom(e.target.value)} {...aria('shift')} />
+                  <input type="time" disabled={frozen} aria-label={t('tech.field.shift.from')} value={from} onChange={(e) => setFrom(e.target.value)} {...aria('shift')} />
                   {' – '}
-                  <input type="time" aria-label={t('tech.field.shift.to')} value={to} onChange={(e) => setTo(e.target.value)} {...aria('shift')} />
+                  <input type="time" disabled={frozen} aria-label={t('tech.field.shift.to')} value={to} onChange={(e) => setTo(e.target.value)} {...aria('shift')} />
                 </Ltr>
                 {error('shift')}
               </fieldset>
@@ -135,6 +178,7 @@ export function TechnicianModal({ skills, color, busy, at, picking, failure, onP
                   <label key={s.id}>
                     <input
                       type="checkbox"
+                      disabled={frozen}
                       checked={skillIds.includes(s.id)}
                       onChange={(e) => setSkillIds(e.target.checked ? [...skillIds, s.id] : skillIds.filter((x) => x !== s.id))}
                     />{' '}
@@ -145,16 +189,17 @@ export function TechnicianModal({ skills, color, busy, at, picking, failure, onP
               <div className="field">
                 {t('tech.field.home')}
                 <span>
-                  <button ref={homeRef} type="button" onClick={() => onPicking(true)} {...aria('home')}>
+                  <button ref={homeRef} type="button" disabled={frozen} onClick={() => onPicking(true)} {...aria('home')}>
                     {at ? t('location.change') : t('location.pick')}
                   </button>{' '}
                   <span className="muted">{at ? <Ltr>{formatLatLon(at)}</Ltr> : t('tech.field.home.hint')}</span>
                 </span>
                 {error('home')}
               </div>
-              <p className="muted">{swatch}{t('tech.color.note')}</p>
+              {frozen ? <p className="muted">{t('tech.inactive.editHint')}</p> : <p className="muted">{swatch}{t('tech.color.note')}</p>}
+              {failure && <p className="error" role="alert">{failure}</p>}
               <div>
-                <button onClick={toReview}>{t('tech.toReview')}</button>{' '}
+                <button onClick={toReview} disabled={busy}>{t(nameOnly ? 'tech.save' : 'tech.toReview')}</button>{' '}
                 <button onClick={onClose}>{t('modal.close')}</button>
               </div>
             </>
