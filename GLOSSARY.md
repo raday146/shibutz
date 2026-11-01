@@ -24,6 +24,22 @@ _Avoid_: Slot, appointment
 The daily wall-clock hours a technician works, the same every day.
 _Avoid_: Schedule, availability
 
+**Active / Inactive**:
+An active technician can be planned and given jobs. An inactive technician keeps their history (past routes, day reports, incidents) but is never planned. At most 8 technicians are active at once, and each active technician has their own route color.
+_Avoid_: Enabled/disabled, archived, deleted, retired
+
+**Deactivate / Reactivate**:
+Make a technician inactive, or active again. Deactivating is refused while they have unfinished stops on any date; unassign those jobs first. Reactivating gives the lowest free route color, which may differ from before.
+_Avoid_: Delete, remove, disable, restore
+
+**Review step**:
+The read-only summary shown before a new technician is saved, or before a technician's home, shift or skills change. It lists what will change and any warnings, and the dispatcher confirms or goes back.
+_Avoid_: Approval, confirmation page, preview
+
+**Change log**:
+The permanent record of changes to technicians: added, edited, deactivated, reactivated, with what changed.
+_Avoid_: Audit trail, history (history means past routes), activity feed
+
 ## Planning
 
 **Route**:

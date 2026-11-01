@@ -10,11 +10,12 @@ const stop = (jobId: number, hasNote: boolean) => ({
   eta: `2026-11-02T0${5 + jobId}:00:00.000Z`, etd: `2026-11-02T0${5 + jobId}:30:00.000Z`, actualArrival: null, actualDeparture: null,
 });
 const note = (body: string, updatedAt = '2026-11-02T08:05:00.000Z') => ({ jobId: 1, body, createdAt: '2026-11-02T08:00:00.000Z', updatedAt });
-const bob = { id: 1, name: 'Bob', home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', skillIds: [], color: 1 };
+const bob = { id: 1, name: 'Bob', home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', active: true, version: 0, skillIds: [], color: 1 };
 const api: Routes = {
   '/technicians': [bob],
   '/jobs': [],
   '/skills': [],
+  '/technician-changes?limit=20': [],
   [`/days/${DAY}/summary`]: daySummary(DAY, { total: 2, assigned: 2 }, [{ technicianId: 1, stopCount: 2, doneCount: 0, driveS: 0, expectedFinish: null, openIncidents: 0, stops: [] }]),
   [`/days/2026-11-03/summary`]: daySummary('2026-11-03'),
   [`/routes/1/${DAY}`]: { technicianId: 1, date: DAY, geometry: null, stops: [stop(1, true), stop(2, false)], summary: { doneCount: 0, driveS: 0, expectedFinish: null } },
@@ -32,7 +33,7 @@ async function openStop(jobId: number): Promise<{ fetch: Fetch; field: HTMLEleme
   localStorage.setItem('shibutz.lang', 'en');
   const fetch = fakeApi(api);
   renderConsole();
-  await userEvent.click(within((await screen.findByText('Bob')).closest('li') as HTMLElement).getByRole('button'));
+  await userEvent.click(within((await screen.findByText('Bob')).closest('li') as HTMLElement).getAllByRole('button')[0] as HTMLElement);
   await userEvent.click(await screen.findByRole('button', { name: new RegExp(`Fix ${jobId}`) }));
   const field = await screen.findByRole('textbox', { name: 'Note' });
   return { fetch, field };
@@ -139,7 +140,7 @@ describe('job note in the drawer', () => {
     });
     renderConsole();
     const pick = async (name: string): Promise<void> => {
-      await userEvent.click(within((await screen.findByText(name)).closest('li') as HTMLElement).getByRole('button'));
+      await userEvent.click(within((await screen.findByText(name)).closest('li') as HTMLElement).getAllByRole('button')[0] as HTMLElement);
     };
     await pick('Bob');
     await userEvent.click(await screen.findByRole('button', { name: /Fix 2/ }));
@@ -158,7 +159,7 @@ describe('job note in the drawer', () => {
     localStorage.setItem('shibutz.lang', 'he');
     fakeApi(api);
     renderConsole();
-    await userEvent.click(within((await screen.findByText('Bob')).closest('li') as HTMLElement).getByRole('button'));
+    await userEvent.click(within((await screen.findByText('Bob')).closest('li') as HTMLElement).getAllByRole('button')[0] as HTMLElement);
     await userEvent.click(await screen.findByRole('button', { name: /Fix 2/ }));
     const field = await screen.findByRole('textbox', { name: 'הערה' });
     expect(field.getAttribute('placeholder')).toBe('הערה על העבודה');

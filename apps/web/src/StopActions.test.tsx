@@ -40,7 +40,7 @@ function server(refuse?: { status: number; message: string }) {
       return gate.hold ? new Promise((r) => (gate.release = () => r(run()))) : run();
     }
     const body: Record<string, unknown> = {
-      '/technicians': [{ id: 1, name: 'Bob', home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', skillIds: [1], color: 1 }],
+      '/technicians': [{ id: 1, name: 'Bob', home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', active: true, version: 0, skillIds: [1], color: 1 }],
       '/jobs': [1, 2, 3].map(job),
       '/skills': [{ id: 1, code: 'hvac', nameEn: 'HVAC', nameHe: 'מיזוג' }],
       [`/days/${DAY}/summary`]: daySummary(DAY, { total: 3, assigned: live.length, unassigned: 3 - live.length, done }, [
@@ -58,7 +58,7 @@ const open = async (lang: 'he' | 'en' = 'en') => {
   localStorage.setItem('shibutz.date', DAY);
   localStorage.setItem('shibutz.lang', lang);
   renderConsole();
-  await userEvent.click(within((await screen.findByText('Bob')).closest('li') as HTMLElement).getByRole('button'));
+  await userEvent.click(within((await screen.findByText('Bob')).closest('li') as HTMLElement).getAllByRole('button')[0] as HTMLElement);
   return screen.getByRole('complementary', { name: 'Bob' });
 };
 const row = (d: HTMLElement, n: number): HTMLElement => within(d).getByRole('button', { name: new RegExp(`Fix ${n}`) }).closest('li') as HTMLElement;
@@ -167,11 +167,13 @@ describe('start, finish and unassign from the drawer', () => {
     const more = within(r2).getByRole('button', { name: 'More actions' });
     more.focus();
     await userEvent.keyboard('{Enter}');
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Edit job' }));
+    await userEvent.keyboard('{ArrowDown}');
     expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Unassign' }));
     await userEvent.keyboard('{ArrowDown}');
     expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Cancel job' }));
     await userEvent.keyboard('{ArrowDown}');
-    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Unassign' }));
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Edit job' }));
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('menu')).toBeNull();
     expect(document.activeElement).toBe(more);

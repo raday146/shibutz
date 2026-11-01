@@ -180,6 +180,7 @@ All strings and their keys are in `docs/console-copy.md`.
 - One term per thing, taken from `GLOSSARY.md`. The Hebrew vocabulary table in `docs/console-copy.md` is the reference.
 - Buttons name the outcome. English buttons start with a verb ("Plan day", "Find a slot"). The same word runs through the whole flow ("Assign here", then "Job assigned").
 - Hebrew grammar: never use gendered imperatives ("תכנן", "מצא", "התחל"). Buttons and labels are action nouns or infinitives ("תכנון יום", "חיפוש חלון", "התחלה", "סיום", "הסרת שיבוץ"). Instructions use the impersonal "יש ל…" ("יש ללחוץ על המפה"). Questions use the infinitive ("לבטל את העבודה?"). No slash forms such as טכנאי/ת, and groups use the generic plural (טכנאים).
+- Hebrew gender: no message that includes a person's name may use a verb or adjective that agrees with it ("הושבת", "נוסף", "עודכן" are wrong for Dana, Noa, Rina, Tamar). Build the sentence around the action noun or a neutral subject instead: "השבתה בוצעה: {name}", "הפרטים של {name} עודכנו", "הפעלה מחדש בוצעה: {name}". This covers toasts, dialogs and change-log rows.
 - "ביטול" is reserved for cancelling a job. A dialog is dismissed with "סגירה" or with a phrase naming what stays ("השארת העבודה").
 - Confirmations name the object and the consequence, and their buttons repeat the action ("ביטול עבודה" / "השארת העבודה").
 - Counts: prefer "label: number". Where a count sits inside a sentence, use `Intl.PluralRules` with one, two and other forms.

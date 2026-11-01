@@ -1,5 +1,6 @@
 import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { and, eq, exists, inArray, or, sql } from 'drizzle-orm';
+import { INACTIVE_TECHNICIAN_MESSAGE } from '@shibutz/contracts';
 import type { InsertCommit, InsertionOption, InsertionSuggestions, Job, LonLat, Technician } from '@shibutz/contracts';
 import { CLOCK, type Clock } from '../clock/clock';
 import { DB, type Db } from '../db/db.module';
@@ -11,9 +12,12 @@ import { loadStops, type StopRow } from '../routes/stops';
 import { suggestInsertions, type InsertionCandidate } from '../planning/insertion';
 import { currentPosition, toPositionStop } from '../planning/position';
 import { fromDaySeconds, toDaySeconds, wallClockDaySeconds } from '../planning/time';
-import { TechniciansService } from '../technicians/technicians.service';
+import { schedulingKey, TechniciansService } from '../technicians/technicians.service';
 
 const DEFAULT_RADIUS_M = 10_000;
+
+/** The job fields a slot's feasibility rests on. */
+const planningKey = (j: Job): string => JSON.stringify([j.location, j.serviceDurationS, j.windowStart, j.windowEnd, j.skillIds]);
 
 /** What `suggest` remembers per candidate to turn a slot back into neighbours. */
 interface Plan {
@@ -38,7 +42,7 @@ export class InsertionService {
   async suggest(jobId: number, limit: number): Promise<InsertionSuggestions> {
     const job = await this.jobsService.get(jobId);
     if (job.status !== 'unassigned') throw new ConflictException(`Only an unassigned job can get suggestions, this one is ${job.status}`);
-    const all = await this.techniciansService.list();
+    const all = (await this.techniciansService.list()).filter((t) => t.active);
     const skilled = all.filter((t) => job.skillIds.every((s) => t.skillIds.includes(s)));
     const missing = all.filter((t) => !skilled.includes(t));
     const rejections: InsertionSuggestions['rejections'] = missing.map((t) => ({ technicianId: t.id, reason: 'MISSING_SKILL' }));
@@ -61,6 +65,7 @@ export class InsertionService {
     const job = await this.jobsService.get(jobId);
     if (job.status !== 'unassigned') throw new ConflictException(`Only an unassigned job can be inserted, this one is ${job.status}`);
     const tech = await this.techniciansService.get(technicianId);
+    if (!tech.active) throw new ConflictException(INACTIVE_TECHNICIAN_MESSAGE);
     const chosen = (await this.rank(job, job.skillIds.every((s) => tech.skillIds.includes(s)) ? [tech] : [])).options.find(
       (r) => r.option.position.afterJobId === position.afterJobId && r.option.position.beforeJobId === position.beforeJobId,
     );
@@ -68,6 +73,8 @@ export class InsertionService {
     if (chosen.option.routeVersion !== routeVersion) throw new ConflictException('Route changed since the suggestion');
 
     await this.db.transaction(async (tx) => {
+      // The candidate was active, at this version, when selected; a deactivation or edit may have committed since. Locked before any job or route row.
+      await this.techniciansService.assertActive(tx, new Map([[technicianId, schedulingKey(tech)]]));
       // ponytail: the expected version 0 case: make sure the row exists, then the same guarded bump as every other case.
       if (routeVersion === 0) await tx.insert(routes).values({ technicianId, date: job.day }).onConflictDoNothing({ target: [routes.technicianId, routes.date] });
       const [bumped] = await tx
@@ -83,6 +90,8 @@ export class InsertionService {
         .where(and(eq(jobs.id, jobId), eq(jobs.status, 'unassigned')))
         .returning({ id: jobs.id });
       if (!assigned) throw new ConflictException('Job changed concurrently; retry');
+      // The row is locked now: an edit that committed after the slot was computed shows here.
+      if (planningKey(await this.jobsService.get(jobId, tx)) !== planningKey(job)) throw new ConflictException('Job changed concurrently; retry');
 
       await tx
         .update(routeStops)

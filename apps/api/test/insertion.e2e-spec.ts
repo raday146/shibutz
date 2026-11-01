@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { ServiceUnavailableException } from '@nestjs/common';
 import { eq, sql } from 'drizzle-orm';
+import { INACTIVE_TECHNICIAN_MESSAGE, STALE_TECHNICIAN_MESSAGE } from '@shibutz/contracts';
 import type { InsertionSuggestions, Job, JobStatus, LonLat } from '@shibutz/contracts';
 import { CLOCK } from '../src/clock/clock';
 import { DB, type Db } from '../src/db/db.module';
@@ -13,9 +14,11 @@ import { setupTestApp } from './app';
 const travel = (a: LonLat, b: LonLat): number => Math.round(Math.abs(a[0] - b[0]) * 10_000);
 let matrixCalls = 0;
 let routingDown = false;
+let beforeMatrix: (() => Promise<void>) | undefined;
 const fakeRouting: RoutingGateway = {
   durationMatrix: async (points: LonLat[]): Promise<DurationMatrix> => {
     matrixCalls += 1;
+    await beforeMatrix?.();
     if (routingDown) throw new ServiceUnavailableException('OSRM unavailable: fake');
     return points.map((a) => points.map((b) => travel(a, b)));
   },
@@ -37,6 +40,7 @@ describe('POST /jobs/:id/insertion-suggestions (fake routing, fake clock)', () =
     now = new Date(local('07:00:00'));
     matrixCalls = 0;
     routingDown = false;
+    beforeMatrix = undefined;
     delete process.env.INSERTION_RADIUS_M;
   });
   afterAll(() => {
@@ -110,6 +114,18 @@ describe('POST /jobs/:id/insertion-suggestions (fake routing, fake clock)', () =
       { jobId: target.id, eta: local('08:01:40'), etd: local('08:11:40') },
       { jobId: stop.id, eta: local('08:13:20'), etd: local('08:23:20') },
     ]);
+  });
+
+  it('leaves out inactive technicians, as candidates and in rejections', async () => {
+    const avi = await technician(34.0);
+    const bea = await technician(34.05);
+    const target = await job(34.01);
+    await http().post(`/technicians/${avi}/deactivate`).send({ version: 0 }).expect(201);
+
+    const result = await body(target.id);
+
+    expect(result.options.map((o) => o.technicianId)).toEqual([bea]);
+    expect(result.rejections).toEqual([]);
   });
 
   it('honours limit', async () => {
@@ -303,6 +319,50 @@ describe('POST /jobs/:id/insertion-suggestions (fake routing, fake clock)', () =
       expect(statuses.sort()).toEqual([200, 409]);
       expect(await db().select().from(routeStops)).toHaveLength(1);
       expect((await db().select().from(routes))[0]?.version).toBe(1);
+    });
+
+    it('409s and writes nothing when the technician is deactivated between candidate selection and the write', async () => {
+      const avi = await technician(34.0);
+      const target = await job(34.01);
+      const before = await snapshot();
+      beforeMatrix = async () => void (await http().post(`/technicians/${avi}/deactivate`).send({ version: 0 }).expect(201));
+
+      const res = await insert(target.id, avi, null, null, 0).expect(409);
+
+      expect(res.body.message).toBe(INACTIVE_TECHNICIAN_MESSAGE);
+      expect(await snapshot()).toEqual(before);
+      expect((await db().select().from(jobsTable).where(eq(jobsTable.id, target.id)))[0]?.status).toBe('unassigned');
+    });
+
+    it("409s and writes nothing when the technician's home changed between candidate selection and the write", async () => {
+      const avi = await technician(34.0);
+      const target = await job(34.01);
+      const before = await snapshot();
+      beforeMatrix = async () => void (await http().patch(`/technicians/${avi}`).send({ home: [34.2, 32], version: 0 }).expect(200));
+
+      const res = await insert(target.id, avi, null, null, 0).expect(409);
+
+      expect(res.body.message).toBe(STALE_TECHNICIAN_MESSAGE);
+      expect(await snapshot()).toEqual(before);
+    });
+
+    it('409s and writes nothing when the job was edited after the slot was computed', async () => {
+      const avi = await technician(34.0);
+      const target = await job(34.01);
+      const before = await snapshot();
+      beforeMatrix = async () => void (await http().patch(`/jobs/${target.id}`).send({ serviceDurationS: 1200 }).expect(200));
+
+      await insert(target.id, avi, null, null, 0).expect(409);
+
+      expect(await snapshot()).toEqual(before);
+    });
+
+    it('refuses an inactive technician outright', async () => {
+      const avi = await technician(34.0);
+      const target = await job(34.01);
+      await http().post(`/technicians/${avi}/deactivate`).send({ version: 0 }).expect(201);
+
+      await insert(target.id, avi, null, null, 0).expect(409);
     });
 
     it('refuses a job that is not unassigned and an unknown technician', async () => {

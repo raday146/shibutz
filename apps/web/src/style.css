@@ -124,7 +124,7 @@ input, textarea { min-height: 28px; border: 1px solid var(--control-border); bor
 .overlay { position: fixed; inset: 0; display: grid; place-items: start center; padding: var(--space-8) var(--space-4) var(--space-4); box-sizing: border-box; background: rgb(28 25 23 / 0.3); z-index: var(--z-modal); }
 .dialog { width: 420px; max-width: calc(100vw - 32px); padding: var(--space-5); background: var(--surface); border-radius: var(--radius-surface); box-shadow: var(--shadow-overlay); }
 .overlay[hidden] { display: none; }
-.dialog.form { width: 480px; gap: var(--space-2); max-height: calc(100vh - 64px); overflow: auto; }
+.dialog.form { width: 480px; gap: var(--space-2); box-sizing: border-box; max-height: calc(100vh - 48px); overflow: auto; }
 .dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
 /* Reserved line for a validation message, so one appearing never moves the fields below it. */
 .slot { display: block; min-block-size: 1.5em; font-size: var(--text-sm); line-height: 1.5; }
@@ -144,6 +144,9 @@ button.plain { min-height: 0; padding: 0; border: 0; font: inherit; font-weight:
 .side li.row.on .muted { color: var(--ink-2); } /* --ink-3 drops to 4.15:1 on the tint */
 .side li.row p { margin: 0; }
 .side li > button:first-child { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--space-1); width: 100%; min-height: 28px; text-align: start; padding: var(--space-1) var(--space-2); border: 0; }
+.side li.row { position: relative; }
+.side li.row > button:first-child { padding-inline-end: 44px; }
+.row-menu { position: absolute; inset-block-start: var(--space-1); inset-inline-end: var(--space-1); }
 .side .skills { flex-basis: 100%; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .row.idle b { color: var(--ink-3); }
 .bar { flex-basis: 100%; block-size: 4px; margin-block-start: var(--space-1); background: var(--hairline); border-radius: 2px; overflow: hidden; }
@@ -159,7 +162,7 @@ button.plain { min-height: 0; padding: 0; border: 0; font: inherit; font-weight:
 .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-inline-end: var(--space-2); }
 /* Leaflet sets stroke as an attribute, which cannot hold var(); a class can. */
 .route-1 { stroke: var(--route-1); } .route-2 { stroke: var(--route-2); } .route-3 { stroke: var(--route-3); } .route-4 { stroke: var(--route-4); }
-.route-5 { stroke: var(--route-5); } .route-6 { stroke: var(--route-6); } .route-7 { stroke: var(--route-7); } .route-8 { stroke: var(--route-8); }
+.route-none { stroke: var(--ink-3); } .route-5 { stroke: var(--route-5); } .route-6 { stroke: var(--route-6); } .route-7 { stroke: var(--route-7); } .route-8 { stroke: var(--route-8); }
 /* Map markers: a 24px transparent hit area (.hit) around a small visible pin. Status is a ring or glyph, never color alone. */
 .leaflet-marker-icon.hit { display: grid; place-items: center; background: none; border: 0; transition: opacity var(--dur-fast) var(--ease-out); }
 .leaflet-overlay-pane path { transition: opacity var(--dur-fast) var(--ease-out); }
@@ -293,3 +296,24 @@ button:active:not(:disabled):not(.primary):not(:is(.tabs button, .side li > butt
   .timeline li > button { min-block-size: 44px; }
   .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; }
 }
+.pin.picked { width: 16px; height: 16px; background: transparent; border: 2px dashed var(--attention); cursor: grab; }
+
+.add-tech { margin-block-end: var(--space-2); }
+.add-tech p { margin: var(--space-1) 0 0; }
+.dialog .review { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-1) var(--space-3); margin: 0 0 var(--space-3); }
+.dialog ul.review { display: block; padding-inline-start: var(--space-4); overflow-wrap: anywhere; } /* an edit's list of changes */
+.dialog .review dt { color: var(--ink-3); }
+.dialog .review dd { margin: 0; }
+.minimap { block-size: 160px; margin-block-end: var(--space-3); border-radius: var(--radius-surface); overflow: hidden; }
+.minimap .leaflet-container { block-size: 100%; }
+.dialog .warnings { margin: 0 0 var(--space-3); }
+.dialog .warnings h3 { margin: 0; font-size: var(--text-sm); color: var(--ink-3); }
+.dialog .warnings ul { margin: var(--space-1) 0 0; padding-inline-start: var(--space-4); }
+.change-log ul { margin: 0; padding-inline-start: var(--space-4); max-block-size: 14rem; overflow: auto; overflow-wrap: anywhere; }
+.change-log h3 { margin-block: var(--space-3) var(--space-1); font-size: var(--text-md); }
+
+/* Inactive technicians: neutral grey, initials instead of a route color. */
+.initials { display: inline-grid; place-items: center; box-sizing: border-box; min-inline-size: 22px; block-size: 22px; padding-inline: 2px; margin-inline-end: var(--space-2); border-radius: 11px; background: var(--ink-3); color: #fff; font: 600 var(--text-xs)/1 var(--font); }
+.badge.neutral { background: var(--surface-2); color: var(--ink-2); border-color: var(--ink-3); }
+.inactive-tech > summary { cursor: pointer; padding-block: var(--space-2); }
+.dialog a { color: inherit; text-decoration: underline; }

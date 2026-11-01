@@ -2,6 +2,7 @@ import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
+import { INACTIVE_TECHNICIAN_MESSAGE } from '@shibutz/contracts';
 import { daySummary, fakeApi, renderConsole } from './test/render';
 import type { Routes } from './test/render';
 
@@ -9,7 +10,7 @@ const DAY = '2026-11-02';
 const T0 = '2026-11-02T07:00:00.000Z';
 const T1 = '2026-11-02T07:30:00.000Z';
 const HOME = (n: number): [number, number] => [Math.round((34.7 + n / 100) * 100) / 100, 32.0];
-const tech = (id: number, name: string, color: number) => ({ id, name, home: HOME(id), shiftStart: '08:00:00', shiftEnd: '16:00:00', skillIds: [1], color });
+const tech = (id: number, name: string, color: number) => ({ id, name, home: HOME(id), shiftStart: '08:00:00', shiftEnd: '16:00:00', active: true, version: 0, skillIds: [1], color });
 const job = (id: number, status: string, x: number) => ({
   id, title: `Job ${id}`, address: `Addr ${id}`, location: [x, 32.1], skillIds: [1], serviceDurationS: 1800, windowStart: T0, windowEnd: '2026-11-02T10:00:00.000Z',
   priority: 50, status, day: DAY, unassignedReason: null, unassignedAt: null,
@@ -127,6 +128,20 @@ describe('find a slot in place', () => {
     expect((await screen.findByRole('alert')).textContent).toContain('The route changed since these options were calculated');
     expect(items()).toHaveLength(1);
     expect(preview()).toBeNull();
+  });
+
+  it('when the chosen technician was deactivated meanwhile shows that notice and refreshed options', async () => {
+    await open(api());
+    intercept((path) => {
+      if (path === '/jobs/1/insert') return { status: 409, body: { message: INACTIVE_TECHNICIAN_MESSAGE } };
+      if (path === SUGGEST) return { status: 200, body: suggestions([option(2, null, null, 300)]) };
+      return undefined;
+    });
+    await userEvent.click(assign(0));
+    const alert = (await screen.findByRole('alert')).textContent;
+    expect(alert).toContain('The technician was deactivated in the meantime. Nothing was saved.');
+    expect(alert).not.toContain('The route changed');
+    expect(items()).toHaveLength(1);
   });
 
   it('lists each technician rejection in plain language when nothing fits', async () => {
