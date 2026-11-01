@@ -26,6 +26,7 @@ interface Props {
   onLink: (jobId: number) => void;
   /** Records day progress; resolves once the data is reloaded, rejects with the server's refusal. */
   onStatus: (jobId: number, status: JobStatus, reason?: string) => Promise<void>;
+  onEdit: (jobId: number) => void;
   /** A note was saved: the route view must reflect it, since it outlives this drawer. */
   onNoted: (jobId: number, hasNote: boolean) => void;
   /** Changes whenever the day's data was reloaded, so the cancelled list refetches. */
@@ -39,7 +40,7 @@ const GLYPH: Record<JobStatus, string> = { unassigned: '', assigned: '○', in_p
 const minutes = (s: number): number => Math.round(s / 60);
 
 /** The work-day drawer: summary header and a timeline of stops that expand for detail. */
-export function Drawer({ technician, route, date, skills, link, instant, pending, error, onRetry, onLink, onStatus, onNoted, stamp, onClose, onDayChanged }: Props): React.JSX.Element {
+export function Drawer({ technician, route, date, skills, link, instant, pending, error, onRetry, onLink, onStatus, onEdit, onNoted, stamp, onClose, onDayChanged }: Props): React.JSX.Element {
   const { lang, t } = useLang();
   const heading = useRef<HTMLHeadingElement>(null);
   const [open, setOpen] = useState<Set<number>>(new Set());
@@ -85,6 +86,7 @@ export function Drawer({ technician, route, date, skills, link, instant, pending
     <aside className={[instant ? 'drawer' : 'drawer animate', leaving && 'leaving'].filter(Boolean).join(' ')} aria-label={technician.name} style={{ '--c': routeVar(technician.color) } as React.CSSProperties}>
       <header>
         <h2 ref={heading} tabIndex={-1} dir="auto">{technician.name}</h2>
+        {!technician.active && <span className="badge neutral">{t('tech.inactive.badge')}</span>}
         <button onClick={(e) => { if (e.detail === 0) onClose(); else { setLeaving(true); closing.current = setTimeout(onClose, 140); } }}>{t('drawer.close')}</button>
       </header>
       <p className="muted">
@@ -126,7 +128,7 @@ export function Drawer({ technician, route, date, skills, link, instant, pending
                       <p dir="auto">{s.address || t('job.noAddress')}</p>
                       <p>{skillLabel(s.skillIds, skills, lang)}</p>
                       <p className="muted">{withLtrNumbers(t('stop.duration', { n: minutes(s.serviceDurationS) }))}{' · '}{withLtrNumbers(t('stop.drive', { n: minutes(s.driveS) }))}</p>
-                      <StopActions stop={s} earlier={stops.slice(0, i)} onStatus={async (id, to, reason) => { await onStatus(id, to, reason); refocus(id, to); }} />
+                      <StopActions stop={s} earlier={stops.slice(0, i)} onEdit={onEdit} onStatus={async (id, to, reason) => { await onStatus(id, to, reason); refocus(id, to); }} />
                       <NoteField jobId={s.jobId} hasNote={s.hasNote} date={date} onSaved={onNoted} />
                     </div>
                   )}

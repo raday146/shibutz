@@ -21,6 +21,11 @@ Every string in the dispatch console, in Hebrew and English. The keys here becom
 | Note | הערה | |
 | Day report | סיכום יום | |
 | Incident | אירוע | |
+| Active / Inactive | פעיל / לא פעיל | |
+| Deactivate | השבתה | Verb forms "להשבית", "להשבית את {name}" |
+| Reactivate | הפעלה מחדש | |
+| Review step | סקירה | Button: "המשך לסקירה" |
+| Change log | יומן שינויים | Shown as "שינויים אחרונים" |
 
 ## Top bar
 
@@ -191,6 +196,125 @@ Every string in the dispatch console, in Hebrew and English. The keys here becom
 | `validation.window` | סיום החלון חייב להיות אחרי ההתחלה. | The window must end after it starts. |
 | `create.failed` | יצירת העבודה נכשלה. {message} | Couldn't create the job. {message} |
 
+## Job edit
+
+| Key | Hebrew | English |
+|---|---|---|
+| `job.edit` | עריכת עבודה | Edit job |
+| `job.edit.title` | עריכת "{title}" | Edit "{title}" |
+| `job.edit.save` | שמירה | Save |
+| `job.edit.saved` | העבודה עודכנה. | Job updated. |
+| `job.edit.saved.unassigned` | העבודה עודכנה. אפשר לחפש לה חלון. | Job updated. You can find it a slot. |
+| `job.edit.routed` | העבודה משובצת במסלול. כותרת וכתובת ניתנות לעריכה. כדי לשנות מיקום, כישורים, משך או חלון זמן, קודם יש להסיר את השיבוץ. | This job is on a route. Title and address can be edited. To change location, skills, duration or time window, unassign it first. |
+| `job.edit.locked` | אי אפשר לערוך עבודה שהושלמה או בוטלה | A done or cancelled job can't be edited. |
+| `job.edit.conflict` | העבודה שובצה במסלול בינתיים. יש להסיר את השיבוץ כדי לשנות שדות תזמון. | The job was placed on a route in the meantime. Unassign it to change scheduling fields. |
+| `coords` | {lat}, {lon} | {lat}, {lon} |
+
+Title, address and priority are free on any job that is not done or cancelled. Location, skills, duration and window need a job with no route stop; on a routed job those fields are disabled with `job.edit.routed` as the hint. The location picker reuses the New job modal's `location.*` keys.
+
+## Technician management
+
+| Key | Hebrew | English |
+|---|---|---|
+| `tech.add` | הוספת טכנאי | Add technician |
+| `tech.add.disabled` | 8 טכנאים פעילים. יש להשבית אחד קודם. | 8 technicians are active. Deactivate one first. |
+| `tech.edit` | עריכה | Edit |
+| `tech.edit.title` | עריכת {name} | Edit {name} |
+| `tech.new.title` | טכנאי חדש | New technician |
+| `tech.field.name` | שם | Name |
+| `tech.field.home` | מיקום הבית | Home location |
+| `tech.field.home.hint` | יש ללחוץ על המפה כדי לבחור את מיקום הבית. | Click the map to pick the home location. |
+| `tech.field.shift` | משמרת | Shift |
+| `tech.field.skills` | כישורים | Skills |
+| `tech.color.note` | הצבע נקבע אוטומטית. | The color is assigned automatically. |
+| `tech.toReview` | המשך לסקירה | Continue to review |
+| `tech.save` | שמירה | Save |
+| `tech.saved.name` | השם עודכן. | Name updated. |
+| `tech.inactive.title` | לא פעילים | Inactive |
+| `tech.inactive.badge` | לא פעיל | Inactive |
+| `tech.inactive.editHint` | אפשר לערוך רק את השם. כדי לשנות בית, משמרת או כישורים, קודם יש להפעיל מחדש. | Only the name can be edited. To change home, shift or skills, reactivate first. |
+| `tech.deactivate` | השבתה | Deactivate |
+| `tech.reactivate` | הפעלה מחדש | Reactivate |
+| `tech.reactivate.disabled` | 8 טכנאים פעילים. יש להשבית אחד קודם. | 8 technicians are active. Deactivate one first. |
+
+An inactive technician renders in history in neutral grey with initials instead of a route color.
+
+## Technician review step
+
+| Key | Hebrew | English |
+|---|---|---|
+| `review.title.new` | סקירה לפני יצירת הטכנאי | Review before creating the technician |
+| `review.title.edit` | סקירה לפני שמירת השינויים | Review before saving changes |
+| `review.title.reactivate` | סקירה לפני הפעלה מחדש | Review before reactivating |
+| `review.change` | {field}: {before} ← {after} | {field}: {before} → {after} |
+| `review.color` | צבע המסלול | Route color |
+| `review.back` | חזרה לעריכה | Back to edit |
+| `review.confirm.new` | יצירת טכנאי | Create technician |
+| `review.confirm.edit` | שמירת שינויים | Save changes |
+| `review.confirm.reactivate` | הפעלה מחדש | Reactivate |
+| `review.warnings` | לתשומת לב | Worth a look |
+| `review.stale` | הנתונים השתנו מאז הסקירה. יש לסקור שוב. | The data changed since this review. Review again. |
+
+`review.color` is shown as a color swatch beside the label, never as a number. On create and on reactivation the swatch is the slot the technician will get; on an edit it is the current color. Coordinates in the summary use `coords` ("lat, lon"). The review step shows only what changed on an edit. A name-only change skips it.
+
+### Warnings
+
+All are non-blocking and need no acknowledgement. Thresholds are named constants in one place.
+
+| Key | Hebrew | English |
+|---|---|---|
+| `warn.farHome` | הבית רחוק יותר מ־{km} ק״מ מהטכנאי הפעיל הקרוב ביותר. | Home is more than {km} km from the nearest active technician. |
+| `warn.shortShift` | המשמרת קצרה מ־{h} שעות. | The shift is shorter than {h} hours. |
+| `warn.longShift` | המשמרת ארוכה מ־{h} שעות. | The shift is longer than {h} hours. |
+| `warn.noSkills` | לא נבחרו כישורים, ולכן לא תשובץ עבודה שדורשת כישור. | No skills selected, so no job that needs a skill will be assigned. |
+| `warn.duplicateName` | כבר יש טכנאי בשם הזה. | A technician with this name already exists. |
+| `warn.duplicateName.inactive` | יש טכנאי לא פעיל בשם הזה. אולי עדיף להפעיל מחדש את הקיים? | An inactive technician has this name. Reactivate the existing one instead? |
+
+## Deactivation and reactivation
+
+No message with `{name}` uses a verb that agrees with the name (see the gender rule in `DESIGN.md`). The wording is built around the action instead.
+
+| Key | Hebrew | English |
+|---|---|---|
+| `deactivate.title` | להשבית את {name}? | Deactivate {name}? |
+| `deactivate.body` | טכנאי מושבת לא נכלל בתכנון ובחיפוש חלון. ההיסטוריה של {name} נשמרת. אפשר להפעיל מחדש בכל עת, והצבע עשוי להשתנות. | A deactivated technician is left out of planning and Find a slot. {name}'s history is kept. You can reactivate at any time; the color may change. |
+| `deactivate.ok` | השבתה | Deactivate |
+| `deactivate.keep` | להשאיר פעיל | Keep active |
+| `deactivate.blocked.one` | ל־{name} יש עצירות שטרם הושלמו בתאריך {dates}. יש להסיר את השיבוץ שלהן קודם. | {name} has unfinished stops on {dates}. Unassign them first. |
+| `deactivate.blocked.two` | ל־{name} יש עצירות שטרם הושלמו בשני התאריכים {dates}. יש להסיר את השיבוץ שלהן קודם. | {name} has unfinished stops on both dates: {dates}. Unassign them first. |
+| `deactivate.blocked.other` | ל־{name} יש עצירות שטרם הושלמו בתאריכים {dates}. יש להסיר את השיבוץ שלהן קודם. | {name} has unfinished stops on these dates: {dates}. Unassign them first. |
+| `deactivate.blocked.open` | פתיחת {date} | Open {date} |
+| `deactivate.done` | השבתה בוצעה: {name} | Deactivated: {name} |
+| `reactivate.done` | הפעלה מחדש בוצעה: {name} | Reactivated: {name} |
+| `tech.created` | הוספה בוצעה: {name} | Added: {name} |
+| `tech.updated` | הפרטים של {name} עודכנו. | {name}'s details were updated. |
+
+`{dates}` lists every date that has unfinished stops, not just one. Each date is formatted by the existing date helper and links to that day. The plural key is chosen with `pluralKey`.
+
+## Change log
+
+Rows store the technician's name as it was at the time, so a later rename does not rewrite history.
+
+| Key | Hebrew | English |
+|---|---|---|
+| `changes.title` | שינויים אחרונים | Recent changes |
+| `changes.empty` | עדיין אין שינויים. | No changes yet. |
+| `changes.created` | הוספה: {name} | Added: {name} |
+| `changes.updated` | הפרטים של {name} עודכנו: {fields} | {name}'s details were updated: {fields} |
+| `changes.deactivated` | השבתה: {name} | Deactivated: {name} |
+| `changes.reactivated` | הפעלה מחדש: {name} | Reactivated: {name} |
+| `changes.deleted` | מחיקה: {name} | Deleted: {name} |
+| `changes.history` | היסטוריית שינויים | Change history |
+
+## Errors from the activity rules
+
+| Key | Hebrew | English |
+|---|---|---|
+| `error.techInactive` | הטכנאי הושבת בינתיים. לא נשמר דבר. | The technician was deactivated in the meantime. Nothing was saved. |
+| `error.activeCap` | כבר יש 8 טכנאים פעילים. | 8 technicians are already active. |
+
+`error.techInactive` is shown when Find a slot or Plan day is refused with 409 because a technician it would write to is no longer active. The options then refresh, as with `slot.stale`.
+
 ## Empty, loading and error states
 
 | Key | Hebrew | English |
@@ -217,8 +341,12 @@ Every string in the dispatch console, in Hebrew and English. The keys here becom
 
 ## Server messages
 
-The API's own messages are English only. Known ones map to keys: "Only the first not-done stop of a route can be started" is `blocked.order`, "Technician already has a stop in progress" is `blocked.busy`, "Route changed concurrently; retry" and "Route changed since the suggestion" are `error.stale`, and "A stop that day has already started" is `plan.disabled`. Any other message is shown as received, after the localized lead sentence.
+The API's own messages are English only. Known ones map to keys: "Only the first not-done stop of a route can be started" is `blocked.order`, "Technician already has a stop in progress" is `blocked.busy`, "Route changed concurrently; retry" and "Route changed since the suggestion" are `error.stale`, and "A stop that day has already started" is `plan.disabled`. A 409 about an inactive technician is `error.techInactive`; one saying the technician changed since the data was read (a batch or insert racing a technician edit) is `review.stale` (`slot.stale` when choosing a slot); one about the 8-active cap is `error.activeCap`; the job guard's "Job is on a route" is `job.edit.conflict`. Any other message is shown as received, after the localized lead sentence.
 
 ## Keys added by the foundation ticket
 
 Strings of the existing screen that the deck above did not cover: `date.label`, `lang.toggle.label` (accessible name of the toggle, written in the language it switches to), `tech.noSkills`, `job.ref` (a job shown as "Job {id}" until jobs have titles), `slot.close`, `map.legend.home`, `map.needs`, `duration.min`, `stops.one`/`stops.two`/`stops.other`. Source of truth is `apps/web/src/i18n.ts`.
+
+## Keys added by the add-technician ticket
+
+Not in the deck above, needed by the add form: `tech.field.shift.from` (Shift start / תחילת המשמרת), `tech.field.shift.to` (Shift end / סיום המשמרת), `validation.name` (Enter a name. / יש להזין שם.), `validation.shift` (The shift must end after it starts. / סיום המשמרת חייב להיות אחרי ההתחלה.). Source of truth is `apps/web/src/i18n.ts`.

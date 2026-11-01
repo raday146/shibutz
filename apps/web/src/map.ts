@@ -6,6 +6,8 @@ export const toLatLng = ([lon, lat]: LonLat): [number, number] => [lat, lon];
 /** The inverse of `toLatLng`, for a Leaflet point. */
 export const fromLatLng = ({ lat, lng }: { lat: number; lng: number }): LonLat => [lng, lat];
 export const toLatLngs = (points: LonLat[]): [number, number][] => points.map(toLatLng);
+/** What users read: "lat, lon". The `[lon, lat]` order stays internal. */
+export const formatLatLon = ([lon, lat]: LonLat): string => `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
 
 const COLORS: Record<JobStatus, string> = {
   unassigned: '#d97706',
@@ -46,11 +48,17 @@ export function jerusalemToIso(date: string, hhmm: string): string {
 /** The skill's name in `lang`, or the other language's when that one is empty. */
 export const skillName = (s: Skill, lang: Lang): string => (lang === 'he' ? s.nameHe || s.nameEn : s.nameEn || s.nameHe);
 
+/** Order-independent key of an id list, for comparing skill sets. */
+export const idsKey = (ids: number[]): string => [...ids].sort((a, b) => a - b).join();
+
 export const skillLabel = (ids: number[], skills: Skill[], lang: Lang): string =>
   ids.map((id) => skills.find((s) => s.id === id)).map((s, i) => (s ? skillName(s, lang) : `#${ids[i]}`)).join(', ');
 
-/** Technician color slot (1 to 8) as the DESIGN.md token. */
-export const routeVar = (slot: number): string => `var(--route-${slot})`;
+/** Technician color slot (1 to 8) as the DESIGN.md token; an inactive technician has none and renders neutral grey. */
+export const routeVar = (slot: number | null): string => (slot === null ? 'var(--ink-3)' : `var(--route-${slot})`);
+
+/** Up to two initials, for an inactive technician who has no route color. */
+export const initials = (name: string): string => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => [...w][0]).join('');
 
 export const shiftLabel = (start: string, end: string): string => `${start.slice(0, 5)}-${end.slice(0, 5)}`;
 

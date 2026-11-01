@@ -403,15 +403,66 @@ describe('PATCH /jobs/:id/status (fake routing, fake clock)', () => {
     expect(res.body.message).toMatch(/on a route/);
   });
 
-  it('refuses to change location, window, service or skills of a job on a route, but allows priority', async () => {
-    const { jobs } = await day();
-    const url = `/jobs/${jobs[0]?.id}`;
+  describe('PATCH /jobs/:id guard', () => {
+    const scheduling = [{ location: [34.5, 32] }, { windowEnd: local('16:00:00') }, { serviceDurationS: 60 }, { skillIds: [] }];
+    const free = [{ title: 'New title' }, { address: '9 New St' }, { priority: 10 }];
 
-    for (const body of [{ location: [34.5, 32] }, { windowEnd: local('16:00:00') }, { serviceDurationS: 60 }, { skillIds: [] }]) {
-      const res = await http().patch(url).send(body).expect(409);
-      expect(res.body.message).toMatch(/unassign or cancel/);
-    }
-    await http().patch(url).send({ priority: 10 }).expect(200);
+    it('on a routed job (assigned or in progress) allows title, address and priority and refuses the scheduling fields with 409', async () => {
+      const { jobs } = await day(['assigned', 'in_progress', 'assigned']);
+      for (const j of [jobs[0], jobs[1]]) {
+        for (const body of scheduling) {
+          const res = await http().patch(`/jobs/${j?.id}`).send(body).expect(409);
+          expect(res.body.message).toBe('Job is on a route');
+        }
+        for (const body of free) await http().patch(`/jobs/${j?.id}`).send(body).expect(200);
+      }
+      // a mixed body is refused whole: nothing partially written
+      await http().patch(`/jobs/${jobs[0]?.id}`).send({ title: 'Mixed', serviceDurationS: 60 }).expect(409);
+      expect(((await http().get(`/jobs/${jobs[0]?.id}`)).body as Job).title).toBe('New title');
+    });
+
+    it('on an unrouted job allows every field and clears the stored unassigned reason only for scheduling fields', async () => {
+      const j = await job(34.01);
+      const setReason = (): Promise<unknown> =>
+        db().update(jobsTable).set({ unassignedReason: 'NOT_FEASIBLE_IN_PLAN', unassignedAt: new Date(local('06:00:00')) }).where(eq(jobsTable.id, j.id));
+      const reason = async (): Promise<string | null> => ((await http().get(`/jobs/${j.id}`)).body as Job).unassignedReason;
+
+      await setReason();
+      for (const body of free) await http().patch(`/jobs/${j.id}`).send(body).expect(200);
+      expect(await reason()).toBe('NOT_FEASIBLE_IN_PLAN');
+      for (const body of scheduling) {
+        await setReason();
+        await http().patch(`/jobs/${j.id}`).send(body).expect(200);
+        expect(await reason()).toBeNull();
+      }
+    });
+
+    it('refuses every field on a done or cancelled job', async () => {
+      const { jobs } = await day(['done', 'assigned', 'assigned']);
+      const cancelled = await job(34.5, 'cancelled');
+      for (const j of [jobs[0], cancelled]) {
+        for (const body of [...free, ...scheduling]) await http().patch(`/jobs/${j?.id}`).send(body).expect(409);
+      }
+    });
+
+    it('a placement committing while the edit waits yields 409 and writes nothing', async () => {
+      const techId = await technician();
+      const j = await job(34.01);
+      const [routeRow] = await db().insert(routes).values({ technicianId: techId, date: DATE, version: 1 }).returning({ id: routes.id });
+      let edit: Promise<request.Response> | undefined;
+      await db().transaction(async (tx) => {
+        await tx.update(jobsTable).set({ status: 'assigned' }).where(eq(jobsTable.id, j.id));
+        await tx.insert(routeStops).values({ routeId: routeRow?.id ?? 0, jobId: j.id, sequence: 1, eta: new Date(local('08:01:40')), etd: new Date(local('08:11:40')) });
+        edit = http().patch(`/jobs/${j.id}`).send({ title: 'Raced', serviceDurationS: 60 }).then((r) => r);
+        await new Promise((r) => setTimeout(r, 300)); // the edit is now waiting on the job row
+      });
+
+      const res = await edit;
+
+      expect(res?.status).toBe(409);
+      const after = (await http().get(`/jobs/${j.id}`)).body as Job;
+      expect(after).toMatchObject({ title: 'Test job', serviceDurationS: 600, status: 'assigned' });
+    });
   });
 
   it('refuses to delete a technician who has route stops', async () => {
@@ -423,29 +474,41 @@ describe('PATCH /jobs/:id/status (fake routing, fake clock)', () => {
     expect(await stopRows()).toHaveLength(3);
   });
 
+  /** PATCH /technicians/:id carrying the technician's current version, as a reviewed edit does. */
+  async function editTech(id: number, change: object, status: number): Promise<request.Response> {
+    const { version } = (await http().get(`/technicians/${id}`)).body;
+    return http().patch(`/technicians/${id}`).send({ ...change, version }).expect(status);
+  }
+
   it('refuses to change home, shift or skills of a technician with route stops, but allows renaming', async () => {
     const { techId } = await day();
     const before = (await http().get(`/technicians/${techId}`).expect(200)).body;
 
     for (const change of [{ home: [34.1, 32] }, { shiftStart: '07:00:00' }, { shiftEnd: '18:00:00' }, { skillIds: [] }]) {
-      const res = await http().patch(`/technicians/${techId}`).send(change).expect(409);
+      const res = await editTech(techId, change, 409);
       expect(res.body.message).toMatch(/route|stops/);
     }
     await http().get(`/technicians/${techId}`).expect(200, before);
 
-    await http().patch(`/technicians/${techId}`).send({ name: 'Avi B.' }).expect(200);
-    await http().patch(`/technicians/${techId}`).send({ name: 'Avi C.', color: 7 }).expect(200).expect((r) => expect(r.body.color).toBe(7));
+    await editTech(techId, { name: 'Avi B.' }, 200);
+    await editTech(techId, { name: 'Avi C.' }, 200);
+  });
+
+  it('also refuses home, shift and skills while a stop is in progress', async () => {
+    const { techId } = await day(['in_progress', 'assigned', 'assigned']);
+
+    await editTech(techId, { shiftEnd: '18:00:00' }, 409);
   });
 
   it('lets a technician whose stops are all done change home, shift and skills', async () => {
     const { techId } = await day(['done', 'done', 'done']);
 
-    await http().patch(`/technicians/${techId}`).send({ home: [34.1, 32], shiftEnd: '18:00:00', skillIds: [] }).expect(200);
+    await editTech(techId, { home: [34.1, 32], shiftEnd: '18:00:00', skillIds: [] }, 200);
   });
 
   it('still lets a technician without route stops change home, shift and skills', async () => {
     const techId = await technician();
 
-    await http().patch(`/technicians/${techId}`).send({ home: [34.1, 32], shiftEnd: '18:00:00', skillIds: [] }).expect(200);
+    await editTech(techId, { home: [34.1, 32], shiftEnd: '18:00:00', skillIds: [] }, 200);
   });
 });

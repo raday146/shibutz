@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { DaySummary, Incident, JobStatus, InsertionOption, InsertionSuggestions, Job, LonLat, RouteView, Skill, Technician } from '@shibutz/contracts';
-import { ApiError, createJob, fetchDaySummary, fetchJobs, fetchRoute, fetchSkills, fetchSuggestions, fetchTechnicians, insertJob, runOptimization, setJobStatus } from './api';
-import { jerusalemToIso, today, unassignedJobs } from './map';
+import { ACTIVE_CAP_MESSAGE, INACTIVE_TECHNICIAN_MESSAGE, JOB_LOCKED_MESSAGE, JOB_ON_ROUTE_MESSAGE, STALE_TECHNICIAN_MESSAGE, freeColorSlot } from '@shibutz/contracts';
+import type { CreateTechnician, DaySummary, Incident, JobStatus, InsertionOption, InsertionSuggestions, Job, LonLat, RouteView, Skill, Technician, UpdateJob } from '@shibutz/contracts';
+import { ApiError, createJob, createTechnician, deactivateTechnician, fetchDaySummary, fetchJobs, fetchRoute, fetchSkills, fetchSuggestions, fetchTechnicians, insertJob, reactivateTechnician, runOptimization, setJobStatus, updateJob, updateTechnician } from './api';
+import { idsKey, jerusalemToIso, today, unassignedJobs } from './map';
 import type { Key, Vars } from './i18n';
 import { useLang } from './lang';
 import { Drawer } from './components/Drawer';
@@ -11,8 +12,10 @@ import { MapView } from './components/MapView';
 import type { Point } from './components/MapView';
 import { PanelTabs } from './components/PanelTabs';
 import type { Tab } from './components/PanelTabs';
-import { NewJobModal } from './components/NewJobModal';
+import { NewJobModal, draftOf } from './components/NewJobModal';
 import type { JobDraft } from './components/NewJobModal';
+import { TechnicianActionDialog } from './components/TechnicianActionDialog';
+import { TechnicianModal, techPatch } from './components/TechnicianModal';
 import { TechnicianList } from './components/TechnicianList';
 import { TopBar } from './components/TopBar';
 import { UnassignedList } from './components/UnassignedList';
@@ -29,10 +32,29 @@ function openingDate(): string {
   return today();
 }
 
+/** What differs from the saved job. Scheduling fields count only while the job has no route stop; the server refuses them otherwise. */
+function jobPatch(job: Job, draft: JobDraft, at: LonLat): UpdateJob {
+  const was = draftOf(job);
+  const scheduling = job.status === 'unassigned';
+  return {
+    ...(draft.title !== was.title && { title: draft.title }),
+    ...(draft.address !== was.address && { address: draft.address }),
+    ...(scheduling && idsKey(draft.skillIds) !== idsKey(was.skillIds) && { skillIds: draft.skillIds }),
+    ...(scheduling && draft.minutes !== was.minutes && { serviceDurationS: Math.round(draft.minutes * 60) }),
+    ...(scheduling && draft.from !== was.from && { windowStart: jerusalemToIso(job.day, draft.from) }),
+    ...(scheduling && draft.to !== was.to && { windowEnd: jerusalemToIso(job.day, draft.to) }),
+    ...(scheduling && (at[0] !== job.location[0] || at[1] !== job.location[1]) && { location: at }),
+  };
+}
+
 /** A message to show, kept untranslated until render so a language change does not reload data. */
 interface Problem { key: Key; vars?: Vars }
+/** The job guard's English refusals that have a localized text (docs/console-copy.md, Server messages). */
+const EDIT_REFUSALS: Record<string, Key> = { [JOB_ON_ROUTE_MESSAGE]: 'job.edit.conflict', [JOB_LOCKED_MESSAGE]: 'job.edit.locked' };
 const problem = (e: unknown): Problem =>
-  e instanceof TypeError ? { key: 'error.network' } : { key: 'error.action', vars: { message: e instanceof Error ? e.message : String(e) } };
+  e instanceof TypeError ? { key: 'error.network' } :
+  e instanceof ApiError && e.status === 409 && e.message === INACTIVE_TECHNICIAN_MESSAGE ? { key: 'error.techInactive' } :
+  e instanceof ApiError && e.status === 409 && e.message === STALE_TECHNICIAN_MESSAGE ? { key: 'review.stale' } : { key: 'error.action', vars: { message: e instanceof Error ? e.message : String(e) } };
 
 export function App(): React.JSX.Element {
   const { t } = useLang();
@@ -78,6 +100,11 @@ export function App(): React.JSX.Element {
   const [skills, setSkills] = useState<Skill[]>([]);
   // New-job modal: `picking` waits for a map click or the center crosshair; `suggestions` is the panel shown after the job was created.
   const [adding, setAdding] = useState(false);
+  const [addingTech, setAddingTech] = useState(false);
+  const [editingTech, setEditingTech] = useState<number | null>(null); // the technician modal, pre-filled with this technician
+  const [editing, setEditing] = useState<number | null>(null); // the same modal, pre-filled with this job
+  const [acting, setActing] = useState<{ mode: 'deactivate' | 'reactivate'; id: number } | null>(null); // the deactivate or reactivate dialog
+  const [blocked, setBlocked] = useState<string[] | null>(null); // dates that refused the deactivation
   const [picking, setPicking] = useState(false);
   const [at, setAt] = useState<LonLat | null>(null);
   const [createError, setCreateError] = useState<Problem | null>(null);
@@ -85,7 +112,7 @@ export function App(): React.JSX.Element {
   const center = useRef<LonLat | null>(null);
   const trigger = useRef<Element | null>(null);
   const [suggestions, setSuggestions] = useState<InsertionSuggestions | null>(null);
-  const [stale, setStale] = useState(false);
+  const [stale, setStale] = useState<Key | null>(null); // the notice above the slot options after a refused or refreshed search
   const [previewed, setPreviewed] = useState<InsertionOption | null>(null);
 
   // One reload for everything the map shows; also called after a batch run.
@@ -147,6 +174,7 @@ export function App(): React.JSX.Element {
       await reload();
     } catch (e) {
       setPlanError(problem(e));
+      if (e instanceof ApiError && e.status === 409) await reload(); // the roster on screen may be stale
     } finally {
       setBusy(false);
     }
@@ -168,10 +196,121 @@ export function App(): React.JSX.Element {
   };
   const closeModal = useCallback((): void => {
     setAdding(false);
+    setAddingTech(false);
+    setEditingTech(null);
+    setEditing(null);
+    setActing(null);
+    setBlocked(null);
     setPicking(false);
     setAt(null);
     (trigger.current as HTMLElement | null)?.focus?.();
   }, []);
+
+  async function submitTechnician(body: CreateTechnician): Promise<void> {
+    setBusy(true);
+    setCreateError(null);
+    try {
+      const created = await createTechnician(body);
+      closeModal();
+      setToast({ id: Date.now(), text: t('tech.created', { name: created.name }) });
+      await reload();
+    } catch (e) {
+      const cap = e instanceof ApiError && e.status === 409 && e.message === ACTIVE_CAP_MESSAGE;
+      setCreateError(cap ? { key: 'error.action', vars: { message: t('error.activeCap') } } : problem(e));
+      if (cap) await reload(); // the roster on screen was stale
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitTechEdit(tech: Technician, body: CreateTechnician, version: number): Promise<void> {
+    setBusy(true);
+    setCreateError(null);
+    try {
+      const patch = techPatch(tech, body);
+      const keys = Object.keys(patch);
+      if (!keys.length) return closeModal(); // nothing changed: no request, no toast
+      await updateTechnician(tech.id, { ...patch, version });
+      const nameOnly = keys.every((k) => k === 'name');
+      closeModal();
+      setToast({ id: Date.now(), text: nameOnly ? t('tech.saved.name') : t('tech.updated', { name: body.name }) });
+      await reload();
+    } catch (e) {
+      const stale = e instanceof ApiError && e.status === 409 && e.message === STALE_TECHNICIAN_MESSAGE;
+      setCreateError(stale ? { key: 'review.stale' } : problem(e));
+      if (stale) await reload(); // the open review now shows the technician as it is; the modal returns to the form
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const openAction = (mode: 'deactivate' | 'reactivate', id: number): void => {
+    trigger.current = document.activeElement;
+    setCreateError(null);
+    setBlocked(null);
+    setActing({ mode, id });
+  };
+
+  async function submitAction(tech: Technician, mode: 'deactivate' | 'reactivate'): Promise<void> {
+    setBusy(true);
+    setCreateError(null);
+    try {
+      await (mode === 'deactivate' ? deactivateTechnician : reactivateTechnician)(tech.id, tech.version);
+      closeModal();
+      setToast({ id: Date.now(), text: t(mode === 'deactivate' ? 'deactivate.done' : 'reactivate.done', { name: tech.name }) });
+      await reload();
+    } catch (e) {
+      const conflict = e instanceof ApiError && e.status === 409;
+      if (conflict && e.dates.length) setBlocked(e.dates);
+      else if (conflict && e.message === ACTIVE_CAP_MESSAGE) setCreateError({ key: 'error.action', vars: { message: t('error.activeCap') } });
+      else if (conflict && e.message === STALE_TECHNICIAN_MESSAGE) setCreateError({ key: 'review.stale' });
+      else setCreateError(problem(e));
+      if (conflict) await reload(); // the roster on screen was stale
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const openEditTech = (id: number): void => {
+    const tech = technicians.find((x) => x.id === id);
+    if (!tech) return;
+    trigger.current = document.activeElement;
+    setCreateError(null);
+    setAt(tech.home);
+    setEditingTech(id);
+  };
+
+  const openEdit = (jobId: number): void => {
+    const job = jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    trigger.current = document.activeElement;
+    setCreateError(null);
+    setAt(job.location);
+    setEditing(jobId);
+  };
+
+  async function submitEdit(job: Job, draft: JobDraft): Promise<void> {
+    if (!at) return;
+    setBusy(true);
+    setCreateError(null);
+    try {
+      const patch = jobPatch(job, draft, at);
+      const saved = Object.keys(patch).length ? await updateJob(job.id, patch) : job;
+      closeModal();
+      setToast({ id: Date.now(), text: t(saved.status === 'unassigned' ? 'job.edit.saved.unassigned' : 'job.edit.saved') });
+      if (saved.status === 'unassigned') {
+        setTab('unassigned');
+        setPinned(saved.id);
+      }
+      await reload();
+    } catch (e) {
+      const known = e instanceof ApiError && e.status === 409 ? EDIT_REFUSALS[e.message] : undefined;
+      setCreateError(known ? { key: known } : problem(e));
+      if (known) await reload(); // the job changed under the form: the next render shows its fields as they are now
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function submitJob({ title, address, skillIds, minutes, from, to }: JobDraft): Promise<void> {
     if (!at) return;
@@ -190,7 +329,7 @@ export function App(): React.JSX.Element {
         priority: 50,
       });
       closeModal();
-      setStale(false);
+      setStale(null);
       setTab('unassigned');
       setPinned(job.id);
       setFresh(job.id);
@@ -213,7 +352,7 @@ export function App(): React.JSX.Element {
     try {
       setPreviewed(null);
       setSuggestions(await fetchSuggestions(jobId));
-      setStale(false);
+      setStale(null);
     } catch (e) {
       setSlotError({ jobId, problem: problem(e) });
     } finally {
@@ -229,13 +368,13 @@ export function App(): React.JSX.Element {
       await insertJob(suggestions.jobId, { technicianId: option.technicianId, position: option.position, routeVersion: option.routeVersion });
       setSuggestions(null);
       setPreviewed(null);
-      setStale(false);
+      setStale(null);
       await reload();
       selectTech(option.technicianId);
       setToast({ id: Date.now(), text: t('slot.assigned', { name: technicians.find((x) => x.id === option.technicianId)?.name ?? '' }) });
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
-        setStale(true);
+        setStale(e.message === INACTIVE_TECHNICIAN_MESSAGE ? 'error.techInactive' : 'slot.stale');
         setPreviewed(null);
         try {
           setSuggestions(await fetchSuggestions(suggestions.jobId));
@@ -250,12 +389,16 @@ export function App(): React.JSX.Element {
     }
   }
 
-  const why = (p: Problem): string => (p.key === 'error.network' ? t(p.key) : String(p.vars?.message ?? ''));
+  const why = (p: Problem): string => (p.vars ? String(p.vars.message ?? '') : t(p.key));
   // First load: nothing to show yet. A reload keeps the content and shows the progress line instead.
   const first = loading && !summary;
   // A saved note changes no route on the server, so patch the loaded view instead of reloading.
   const noteSaved = (jobId: number, hasNote: boolean): void =>
     setRoutes((rs) => rs.map((r) => ({ ...r, stops: r.stops.map((s) => (s.jobId === jobId ? { ...s, hasNote } : s)) })));
+  const editingJob = jobs.find((j) => j.id === editing);
+  const editingTechnician = technicians.find((x) => x.id === editingTech);
+  const actingTechnician = technicians.find((x) => x.id === acting?.id);
+  const nextColor = freeColorSlot(technicians.map((x) => x.color)); // undefined at the cap, where no add or reactivate is offered
   const dayJobs = jobs.filter((j) => j.day === date);
   const jobById = new Map(jobs.map((j) => [j.id, j]));
   const route = routes.find((r) => r.technicianId === selected);
@@ -272,7 +415,7 @@ export function App(): React.JSX.Element {
     if (!previewed || !job || !owner) return null;
     const stops = routes.find((r) => r.technicianId === owner.id)?.stops ?? [];
     const at = (id: number | null): LonLat => stops.find((s) => s.jobId === id)?.location ?? owner.home;
-    return { points: [at(previewed.position.afterJobId), job.location, at(previewed.position.beforeJobId)], color: owner.color };
+    return { points: [at(previewed.position.afterJobId), job.location, at(previewed.position.beforeJobId)], color: owner.color ?? 1 };
   })();
   selectedNow.current = selected;
   const selectTech = (id: number | null, from?: HTMLElement, keyboard = false): void => {
@@ -319,7 +462,7 @@ export function App(): React.JSX.Element {
           ) : first ? (
             <Skeleton />
           ) : current === 'technicians' ? (
-            <TechnicianList technicians={technicians} days={summary?.technicians ?? []} skills={skills} selected={selected} onSelect={selectTech} />
+            <TechnicianList technicians={technicians} days={summary?.technicians ?? []} skills={skills} selected={selected} onSelect={selectTech} onEdit={openEditTech} onDeactivate={(id) => openAction('deactivate', id)} onReactivate={(id) => openAction('reactivate', id)} onAdd={() => { trigger.current = document.activeElement; setCreateError(null); setAddingTech(true); }} />
           ) : (
             <>
               <UnassignedList
@@ -330,15 +473,16 @@ export function App(): React.JSX.Element {
                 failure={slotError && { jobId: slotError.jobId, message: t('error.action', { message: why(slotError.problem) }) }}
                 onFocus={setFocus}
                 onFind={(id) => void find(id)}
+                onEdit={openEdit}
                 slot={suggestions && {
                   suggestions,
-                  notice: stale ? t('slot.stale') : '',
+                  notice: stale ? t(stale) : '',
                   technicians,
                   titleOf: (id) => jobById.get(id)?.title ?? t('job.ref', { id }),
                   previewed,
                   onPreview: setPreviewed,
                   onChoose: (o) => void choose(o),
-                  onClose: () => { setSuggestions(null); setStale(false); setPreviewed(null); },
+                  onClose: () => { setSuggestions(null); setStale(null); setPreviewed(null); },
                 }}
               />
             </>
@@ -382,6 +526,7 @@ export function App(): React.JSX.Element {
           onRetry={() => void reload()}
           onLink={setHighlighted}
           onStatus={changeStatus}
+          onEdit={openEdit}
           onNoted={noteSaved}
           stamp={summary}
           onClose={closeDrawer}
@@ -389,18 +534,50 @@ export function App(): React.JSX.Element {
         />
       )}
       </div>
-      {adding && (
+      {(adding || editingJob) && (
         <NewJobModal
+          key={editingJob?.id ?? 'new'}
+          job={editingJob}
           date={date}
           skills={skills}
           busy={busy}
           at={at}
           picking={picking}
-          failure={createError && t('create.failed', { message: why(createError) })}
+          failure={createError && (editingJob ? t(createError.key, createError.vars) : t('create.failed', { message: why(createError) }))}
           onPicking={setPicking}
           onUsePoint={() => { if (center.current) { setAt(center.current); setPicking(false); } }}
-          onSubmit={(d) => void submitJob(d)}
+          onSubmit={(d) => void (editingJob ? submitEdit(editingJob, d) : submitJob(d))}
           onClose={closeModal}
+        />
+      )}
+      {(addingTech || editingTechnician) && (
+        <TechnicianModal
+          key={editingTechnician?.id ?? 'new'}
+          technician={editingTechnician}
+          skills={skills}
+          technicians={technicians}
+          color={editingTechnician?.color ?? nextColor}
+          busy={busy}
+          at={at}
+          picking={picking}
+          failure={createError && (createError.key === 'review.stale' ? t('review.stale') : t('error.action', { message: why(createError) }))}
+          onPicking={setPicking}
+          onUsePoint={() => { if (center.current) { setAt(center.current); setPicking(false); } }}
+          onSubmit={(d, version) => void (editingTechnician ? submitTechEdit(editingTechnician, d, version) : submitTechnician(d))}
+          onClose={closeModal}
+        />
+      )}
+      {acting && actingTechnician && (
+        <TechnicianActionDialog
+          mode={acting.mode}
+          technician={actingTechnician}
+          color={nextColor}
+          busy={busy}
+          blocked={blocked}
+          failure={createError && (createError.key === 'review.stale' ? t('review.stale') : t('error.action', { message: why(createError) }))}
+          onConfirm={() => void submitAction(actingTechnician, acting.mode)}
+          onClose={closeModal}
+          onOpenDay={(d) => { closeModal(); setDate(d); }}
         />
       )}
       <Toasts toast={toast} onGone={() => setToast(null)} />

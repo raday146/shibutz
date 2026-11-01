@@ -39,3 +39,11 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 ### Domain docs
 
 Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root, created lazily. See `docs/agents/domain.md`.
+
+## Agent workflow
+
+- Tests: implementers run only related tests (`jest --findRelatedTests`, `vitest related`) plus typecheck and lint. The merge step runs the full suite once. Locally run Playwright on chromium only; CI runs all three engines.
+- Real-browser checks only for tickets that change the UI.
+- Sequential ticket chains: implement in the main session one ticket at a time, no worktrees and no separate merger agent. Use parallel worktree agents only when two or more tickets are unblocked at the same time.
+- One code review per feature at the end; review per ticket only for transactions, concurrency or migrations.
+- Prefer 4-6 tickets per feature over many small ones.

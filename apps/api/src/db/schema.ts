@@ -1,5 +1,6 @@
 import { type SQL, sql } from 'drizzle-orm';
-import { check, date, integer, pgEnum, pgTable, primaryKey, text, time, timestamp, unique } from 'drizzle-orm/pg-core';
+import { boolean, check, date, integer, jsonb, pgEnum, pgTable, primaryKey, text, time, timestamp, unique, uniqueIndex } from 'drizzle-orm/pg-core';
+import type { TechnicianChangeFields } from '@shibutz/contracts';
 import { geographyPoint } from './geography';
 
 // Integer ids: VROOM requires integer skill ids.
@@ -19,12 +20,17 @@ export const technicians = pgTable(
     home: geographyPoint('home').notNull(),
     shiftStart: time('shift_start').notNull(),
     shiftEnd: time('shift_end').notNull(),
-    // Route color slot (DESIGN.md palette), stable for the technician's life.
-    color: integer('color').notNull(),
+    // Route color slot (DESIGN.md palette): held while active, freed (NULL) when inactive.
+    color: integer('color'),
+    active: boolean().notNull().default(true),
+    // Optimistic-concurrency token for technician edits.
+    version: integer().notNull().default(0),
   },
   (t) => [
     check('technicians_shift_order', sql`${t.shiftEnd} > ${t.shiftStart}`),
     check('technicians_color_range', sql`${t.color} BETWEEN 1 AND 8`),
+    check('technicians_active_color', sql`${t.active} = (${t.color} IS NOT NULL)`),
+    uniqueIndex('technicians_active_color_key').on(t.color).where(sql`${t.active}`),
   ],
 );
 
@@ -168,6 +174,20 @@ export const dayReports = pgTable(
   },
   (t) => [unique('day_reports_technician_date').on(t.technicianId, t.date)],
 );
+
+export const technicianChangeAction = pgEnum('technician_change_action', ['created', 'updated', 'deactivated', 'reactivated', 'deleted']);
+
+// Permanent, append-only: rows are only ever inserted, in the same transaction as the change. Deleting a technician
+// sets technician_id to NULL instead of erasing history. `name` is the name at that time; before/after hold only changed fields.
+export const technicianChanges = pgTable('technician_changes', {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  technicianId: integer('technician_id').references(() => technicians.id, { onDelete: 'set null' }),
+  action: technicianChangeAction().notNull(),
+  name: text().notNull(),
+  before: jsonb().$type<TechnicianChangeFields>(),
+  after: jsonb().$type<TechnicianChangeFields>(),
+});
 
 export const incidentStatus = pgEnum('incident_status', ['open', 'reviewed']);
 

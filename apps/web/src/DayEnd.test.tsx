@@ -9,7 +9,7 @@ const stop = (jobId: number, status: string) => ({
   jobId, title: `Fix ${jobId}`, address: 'A', sequence: jobId, location: [34.8, 32.1], status, skillIds: [], serviceDurationS: 1800, driveS: 0, hasNote: false,
   eta: '2026-11-02T06:00:00.000Z', etd: '2026-11-02T06:30:00.000Z', actualArrival: null, actualDeparture: null,
 });
-const tech = (id: number, name: string) => ({ id, name, home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', skillIds: [], color: id });
+const tech = (id: number, name: string) => ({ id, name, home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', active: true, version: 0, skillIds: [], color: id });
 const route = (technicianId: number, statuses: string[]) => ({
   technicianId, date: DAY, geometry: null, stops: statuses.map((s, i) => stop(technicianId * 10 + i, s)),
   summary: { doneCount: statuses.filter((s) => s === 'done').length, driveS: 0, expectedFinish: null },
@@ -69,7 +69,7 @@ function open(lang: 'he' | 'en' = 'en', incidents: ReturnType<typeof incident>[]
   return backend;
 }
 
-const techButton = async (name: string): Promise<HTMLElement> => within((await screen.findByText(name)).closest('li') as HTMLElement).getByRole('button');
+const techButton = async (name: string): Promise<HTMLElement> => within((await screen.findByText(name)).closest('li') as HTMLElement).getAllByRole('button')[0] as HTMLElement;
 const rowOf = (name: string): HTMLElement => within(screen.getByRole('list', { name: 'Technicians' })).getByText(name).closest('li') as HTMLElement;
 const drawer = (name: string): HTMLElement => screen.getByRole('complementary', { name });
 const openDrawer = async (name: string): Promise<HTMLElement> => {
