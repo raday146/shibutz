@@ -66,6 +66,16 @@ const editFromStop = async (title: string): Promise<void> => {
 };
 
 describe('job edit', () => {
+  it('isolates only the job title in the Hebrew heading, so the quote marks keep the sentence direction', async () => {
+    server();
+    await open('he');
+    await editFromUnassigned('עריכת עבודה', /לא משובצות/);
+    const heading = screen.getByRole('heading', { name: 'עריכת "Loose pipe"' });
+    const isolated = heading.querySelectorAll('bdi');
+    expect(isolated).toHaveLength(1);
+    expect(isolated[0]?.textContent).toBe('Loose pipe');
+  });
+
   it('edits an unassigned job from its row: prefilled, sends only what changed, offers Find a slot', async () => {
     const s = server();
     await open();

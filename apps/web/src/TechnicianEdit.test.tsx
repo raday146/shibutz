@@ -65,6 +65,16 @@ describe('edit technician', () => {
     expect(await screen.findByText('Rob')).toBeTruthy();
   });
 
+  it('saving with nothing changed closes the dialog without a request or a toast', async () => {
+    const fetch = open([tech(1, 'Bob', 1, 4)]);
+    await openEdit();
+    await userEvent.click(within(screen.getByRole('dialog', { name: 'Edit Bob' })).getByRole('button', { name: 'Save' }));
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(patched(fetch)).toBeUndefined();
+    expect(screen.getByTestId('toasts').textContent).toBe('');
+  });
+
   it('changing the shift, skills or home goes through a review with before and after; back keeps the input', async () => {
     const fetch = open([tech(1, 'Bob', 1, 2)]);
     await openEdit();

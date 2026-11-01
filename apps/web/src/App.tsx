@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ACTIVE_CAP_MESSAGE, INACTIVE_TECHNICIAN_MESSAGE, MAX_ACTIVE_TECHNICIANS, STALE_TECHNICIAN_MESSAGE } from '@shibutz/contracts';
+import { ACTIVE_CAP_MESSAGE, INACTIVE_TECHNICIAN_MESSAGE, JOB_LOCKED_MESSAGE, JOB_ON_ROUTE_MESSAGE, STALE_TECHNICIAN_MESSAGE, freeColorSlot } from '@shibutz/contracts';
 import type { CreateTechnician, DaySummary, Incident, JobStatus, InsertionOption, InsertionSuggestions, Job, LonLat, RouteView, Skill, Technician, UpdateJob } from '@shibutz/contracts';
 import { ApiError, createJob, createTechnician, deactivateTechnician, fetchDaySummary, fetchJobs, fetchRoute, fetchSkills, fetchSuggestions, fetchTechnicians, insertJob, reactivateTechnician, runOptimization, setJobStatus, updateJob, updateTechnician } from './api';
-import { jerusalemToIso, today, unassignedJobs } from './map';
+import { idsKey, jerusalemToIso, today, unassignedJobs } from './map';
 import type { Key, Vars } from './i18n';
 import { useLang } from './lang';
 import { Drawer } from './components/Drawer';
@@ -35,12 +35,11 @@ function openingDate(): string {
 /** What differs from the saved job. Scheduling fields count only while the job has no route stop; the server refuses them otherwise. */
 function jobPatch(job: Job, draft: JobDraft, at: LonLat): UpdateJob {
   const was = draftOf(job);
-  const sorted = (ids: number[]): string => [...ids].sort().join();
   const scheduling = job.status === 'unassigned';
   return {
     ...(draft.title !== was.title && { title: draft.title }),
     ...(draft.address !== was.address && { address: draft.address }),
-    ...(scheduling && sorted(draft.skillIds) !== sorted(was.skillIds) && { skillIds: draft.skillIds }),
+    ...(scheduling && idsKey(draft.skillIds) !== idsKey(was.skillIds) && { skillIds: draft.skillIds }),
     ...(scheduling && draft.minutes !== was.minutes && { serviceDurationS: Math.round(draft.minutes * 60) }),
     ...(scheduling && draft.from !== was.from && { windowStart: jerusalemToIso(job.day, draft.from) }),
     ...(scheduling && draft.to !== was.to && { windowEnd: jerusalemToIso(job.day, draft.to) }),
@@ -51,10 +50,11 @@ function jobPatch(job: Job, draft: JobDraft, at: LonLat): UpdateJob {
 /** A message to show, kept untranslated until render so a language change does not reload data. */
 interface Problem { key: Key; vars?: Vars }
 /** The job guard's English refusals that have a localized text (docs/console-copy.md, Server messages). */
-const EDIT_REFUSALS: Record<string, Key> = { 'Job is on a route': 'job.edit.conflict', 'Job is done or cancelled': 'job.edit.locked' };
+const EDIT_REFUSALS: Record<string, Key> = { [JOB_ON_ROUTE_MESSAGE]: 'job.edit.conflict', [JOB_LOCKED_MESSAGE]: 'job.edit.locked' };
 const problem = (e: unknown): Problem =>
   e instanceof TypeError ? { key: 'error.network' } :
-  e instanceof ApiError && e.status === 409 && e.message === INACTIVE_TECHNICIAN_MESSAGE ? { key: 'error.techInactive' } : { key: 'error.action', vars: { message: e instanceof Error ? e.message : String(e) } };
+  e instanceof ApiError && e.status === 409 && e.message === INACTIVE_TECHNICIAN_MESSAGE ? { key: 'error.techInactive' } :
+  e instanceof ApiError && e.status === 409 && e.message === STALE_TECHNICIAN_MESSAGE ? { key: 'review.stale' } : { key: 'error.action', vars: { message: e instanceof Error ? e.message : String(e) } };
 
 export function App(): React.JSX.Element {
   const { t } = useLang();
@@ -228,8 +228,10 @@ export function App(): React.JSX.Element {
     setCreateError(null);
     try {
       const patch = techPatch(tech, body);
-      if (Object.keys(patch).length) await updateTechnician(tech.id, { ...patch, version });
-      const nameOnly = Object.keys(patch).every((k) => k === 'name');
+      const keys = Object.keys(patch);
+      if (!keys.length) return closeModal(); // nothing changed: no request, no toast
+      await updateTechnician(tech.id, { ...patch, version });
+      const nameOnly = keys.every((k) => k === 'name');
       closeModal();
       setToast({ id: Date.now(), text: nameOnly ? t('tech.saved.name') : t('tech.updated', { name: body.name }) });
       await reload();
@@ -396,7 +398,7 @@ export function App(): React.JSX.Element {
   const editingJob = jobs.find((j) => j.id === editing);
   const editingTechnician = technicians.find((x) => x.id === editingTech);
   const actingTechnician = technicians.find((x) => x.id === acting?.id);
-  const nextColor = [1, 2, 3, 4, 5, 6, 7, 8].find((c) => !technicians.some((x) => x.color === c)) ?? MAX_ACTIVE_TECHNICIANS;
+  const nextColor = freeColorSlot(technicians.map((x) => x.color)); // undefined at the cap, where no add or reactivate is offered
   const dayJobs = jobs.filter((j) => j.day === date);
   const jobById = new Map(jobs.map((j) => [j.id, j]));
   const route = routes.find((r) => r.technicianId === selected);
