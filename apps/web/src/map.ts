@@ -48,6 +48,9 @@ export function jerusalemToIso(date: string, hhmm: string): string {
 /** The skill's name in `lang`, or the other language's when that one is empty. */
 export const skillName = (s: Skill, lang: Lang): string => (lang === 'he' ? s.nameHe || s.nameEn : s.nameEn || s.nameHe);
 
+/** Order-independent key of an id list, for comparing skill sets. */
+export const idsKey = (ids: number[]): string => [...ids].sort((a, b) => a - b).join();
+
 export const skillLabel = (ids: number[], skills: Skill[], lang: Lang): string =>
   ids.map((id) => skills.find((s) => s.id === id)).map((s, i) => (s ? skillName(s, lang) : `#${ids[i]}`)).join(', ');
 

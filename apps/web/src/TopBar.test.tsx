@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { daySummary, emptyDay, fakeApi, renderConsole } from './test/render';
 
 const DAY = '2026-11-02';
@@ -16,9 +16,13 @@ const day = (over: Parameters<typeof daySummary>[1], stops: ReturnType<typeof st
 const posted = (fetch: ReturnType<typeof fakeApi>): boolean => fetch.mock.calls.some(([p, init]) => p === `/optimization/day/${DAY}` && init?.method === 'POST');
 
 describe('date controls', () => {
+  afterEach(() => vi.useRealTimers());
+
   it('opens on the last viewed date and moves with previous, next and Today', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] }); // a fixed "today", so the test does not depend on the calendar
+    vi.setSystemTime(new Date('2026-12-15T09:00:00Z'));
     localStorage.setItem('shibutz.date', DAY);
-    const fetch = fakeApi({ ...emptyDay, [`/days/${DAY}/summary`]: daySummary(DAY), '/days/2026-11-03/summary': daySummary('2026-11-03'), '/days/2026-11-01/summary': daySummary('2026-11-01') });
+    const fetch = fakeApi({ ...emptyDay, '/days/2026-12-15/summary': daySummary('2026-12-15'), [`/days/${DAY}/summary`]: daySummary(DAY), '/days/2026-11-03/summary': daySummary('2026-11-03'), '/days/2026-11-01/summary': daySummary('2026-11-01') });
     renderConsole();
     await userEvent.click(screen.getByRole('button', { name: 'היום הבא' }));
     expect(await screen.findByLabelText('תאריך')).toHaveProperty('value', '2026-11-03');
@@ -28,7 +32,7 @@ describe('date controls', () => {
     expect(localStorage.getItem('shibutz.date')).toBe('2026-11-01');
     expect(fetch).toHaveBeenCalledWith('/days/2026-11-03/summary', undefined);
     await userEvent.click(screen.getByRole('button', { name: 'היום' }));
-    expect(screen.getByLabelText('תאריך')).not.toHaveProperty('value', '2026-11-01');
+    expect(await screen.findByLabelText('תאריך')).toHaveProperty('value', '2026-12-15');
   });
 
   it('ignores a half-typed year, so keyboard typing never fetches or shows an invalid day', async () => {

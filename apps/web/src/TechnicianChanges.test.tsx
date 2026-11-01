@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type { TechnicianChange } from '@shibutz/contracts';
@@ -22,6 +22,7 @@ function open(changes: TechnicianChange[], lang: 'en' | 'he' = 'en'): ReturnType
     [`/days/${DAY}/summary`]: daySummary(DAY),
     '/technician-changes?limit=20': changes,
     '/technician-changes?technicianId=1': changes,
+    '/days/2026-11-03/summary': daySummary('2026-11-03'),
   });
   renderConsole();
   return fetch;
@@ -42,6 +43,19 @@ describe('technician change log', () => {
     const items = lines(await screen.findByRole('list', { name: 'שינויים אחרונים' }));
     expect(items[0]).toContain('הפרטים של Dani עודכנו: שם: Dana ← Dani; סיום המשמרת: 15:00 ← 16:00');
     expect(items[1]).toContain('הוספה: Dana');
+  });
+
+  it('does not refetch on an unrelated reload (another day), only when a technician changes', async () => {
+    const fetch = open(log);
+    await screen.findByRole('list', { name: 'Recent changes' });
+    const count = (): number => fetch.mock.calls.filter(([p]) => p === '/technician-changes?limit=20').length;
+    expect(count()).toBe(1);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next day' }));
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('/days/2026-11-03/summary', undefined));
+    await screen.findByRole('list', { name: 'Recent changes' });
+
+    expect(count()).toBe(1);
   });
 
   it('shows an empty state when nothing has changed', async () => {

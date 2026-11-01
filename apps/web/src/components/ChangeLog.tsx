@@ -10,7 +10,7 @@ interface Props {
   /** Limits the log to this technician's history; without it, the latest `limit` changes of everyone. */
   technicianId?: number;
   limit?: number;
-  /** The loaded roster: a change is logged with a technician save, which reloads it, so a new roster means refetch. */
+  /** The loaded roster: a change is logged with a technician save, which bumps a version or adds a row, so a changed roster means refetch. */
   roster: Technician[];
   title: Key;
 }
@@ -21,6 +21,8 @@ const hhmm = (time: string): string => time.slice(0, 5);
 export function ChangeLog({ skills, technicianId, limit, roster, title }: Props): React.JSX.Element {
   const { lang, t } = useLang();
   const [changes, setChanges] = useState<TechnicianChange[] | null>(null);
+  // Every logged change bumps a version or adds a technician, so unrelated reloads leave this unchanged.
+  const rosterKey = roster.map((x) => `${x.id}:${x.version}`).join();
   const [failed, setFailed] = useState<string | null>(null);
   useEffect(() => {
     let current = true;
@@ -29,7 +31,7 @@ export function ChangeLog({ skills, technicianId, limit, roster, title }: Props)
       (e: unknown) => { if (current) setFailed(e instanceof Error ? e.message : String(e)); },
     );
     return () => { current = false; };
-  }, [technicianId, limit, roster]);
+  }, [technicianId, limit, rosterKey]);
 
   /** "Name: Dana → Dani" for each changed field. */
   const fields = (c: TechnicianChange): string => {

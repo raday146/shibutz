@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CreateTechnician, LonLat, Skill, Technician, UpdateTechnician } from '@shibutz/contracts';
 import { Ltr, useLang, withLtrNumbers } from '../lang';
-import { formatLatLon, routeVar, shiftLabel, skillLabel, skillName } from '../map';
+import { formatLatLon, idsKey, routeVar, shiftLabel, skillLabel, skillName } from '../map';
 import { ChangeLog } from './ChangeLog';
 import { MiniMap } from './MiniMap';
 import { PickBar } from './PickBar';
@@ -9,13 +9,12 @@ import { technicianWarnings } from '../techWarnings';
 
 /** What differs from the saved technician; the edit's request body (without the version) and the review's list of changes. */
 export function techPatch(was: Technician, now: CreateTechnician): Omit<UpdateTechnician, 'version'> {
-  const sorted = (ids: number[]): string => [...ids].sort().join();
   return {
     ...(now.name !== was.name && { name: now.name }),
     ...((now.home[0] !== was.home[0] || now.home[1] !== was.home[1]) && { home: now.home }),
     ...(now.shiftStart !== was.shiftStart && { shiftStart: now.shiftStart }),
     ...(now.shiftEnd !== was.shiftEnd && { shiftEnd: now.shiftEnd }),
-    ...(sorted(now.skillIds) !== sorted(was.skillIds) && { skillIds: now.skillIds }),
+    ...(idsKey(now.skillIds) !== idsKey(was.skillIds) && { skillIds: now.skillIds }),
   };
 }
 
@@ -26,7 +25,7 @@ interface Props {
   /** The loaded roster, active and inactive, for the review warnings. */
   technicians: Technician[];
   /** The route color shown in the review: the one the new technician will get (lowest free among active), or the current one. */
-  color: number;
+  color: number | undefined;
   busy: boolean;
   /** Set by the last map pick; the map shows it too. */
   at: LonLat | null;
@@ -121,7 +120,7 @@ export function TechnicianModal({ technician, skills, technicians, color, busy, 
   }, [reviewing, technician]);
   // An edit is compared with the others, not with itself.
   const warnings = reviewing && at ? technicianWarnings({ name, home: at, from, to, skillIds }, technicians.filter((x) => x.id !== technician?.id)) : [];
-  const swatch = <span className="swatch" style={{ background: routeVar(color) }} aria-hidden="true" />;
+  const swatch = color === undefined ? null : <span className="swatch" style={{ background: routeVar(color) }} aria-hidden="true" />;
 
   return (
     <>

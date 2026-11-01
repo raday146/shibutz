@@ -8,7 +8,7 @@ interface Props {
   mode: 'deactivate' | 'reactivate';
   technician: Technician;
   /** Reactivate: the route color the technician will get. */
-  color: number;
+  color: number | undefined;
   busy: boolean;
   /** Deactivate refused: every date with unfinished stops. */
   blocked: string[] | null;
@@ -64,7 +64,7 @@ export function TechnicianActionDialog({ mode, technician, color, busy, blocked,
             <dt>{t('tech.field.name')}</dt>
             <dd dir="auto">{technician.name}</dd>
             <dt>{t('review.color')}</dt>
-            <dd><span className="swatch" style={{ background: routeVar(color) }} aria-hidden="true" /></dd>
+            <dd>{color !== undefined && <span className="swatch" style={{ background: routeVar(color) }} aria-hidden="true" />}</dd>
           </dl>
         )}
         {failure && <p className="error" role="alert">{failure}</p>}

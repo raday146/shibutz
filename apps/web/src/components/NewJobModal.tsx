@@ -38,6 +38,13 @@ export const draftOf = (job?: Job): JobDraft =>
     ? { title: job.title, address: job.address, skillIds: job.skillIds, minutes: job.serviceDurationS / 60, from: time(job.windowStart), to: time(job.windowEnd) }
     : { title: '', address: '', skillIds: [], minutes: 30, from: '09:00', to: '14:00' };
 
+/** `Edit "title"` with only the job title isolated, so the quote marks and the lead follow the sentence's direction. */
+function EditTitle({ title }: { title: string }): React.JSX.Element {
+  const { t } = useLang();
+  const [lead, tail] = t('job.edit.title', { title: '\u0001' }).split('\u0001');
+  return <>{lead}<bdi dir="auto">{title}</bdi>{tail}</>;
+}
+
 export function NewJobModal({ date, job, skills, busy, at, picking, failure, onPicking, onUsePoint, onSubmit, onClose }: Props): React.JSX.Element {
   const { lang, t } = useLang();
   const [draft, setDraft] = useState<JobDraft>(() => draftOf(job));
@@ -107,7 +114,7 @@ export function NewJobModal({ date, job, skills, busy, at, picking, failure, onP
       <div className={leaving ? 'overlay leaving' : 'overlay'} hidden={picking}>
         <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby="job-modal-title" className="dialog form" onKeyDown={trap}>
           <div className="dialog-head">
-            <h2 id="job-modal-title">{job ? <bdi dir="auto">{t('job.edit.title', { title: job.title })}</bdi> : <>{t('job.new')} (<bdi dir="ltr">{date}</bdi>)</>}</h2>
+            <h2 id="job-modal-title">{job ? <EditTitle title={job.title} /> : <>{t('job.new')} (<bdi dir="ltr">{date}</bdi>)</>}</h2>
             <button type="button" className="icon" aria-label={t('modal.x')} onClick={dismiss}><span aria-hidden="true">×</span></button>
           </div>
           <div className="field">
