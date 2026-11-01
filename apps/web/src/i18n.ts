@@ -182,6 +182,13 @@ export const he = {
   'review.color': 'צבע המסלול',
   'review.back': 'חזרה לעריכה',
   'review.confirm.new': 'יצירת טכנאי',
+  'review.warnings': 'לתשומת לב',
+  'warn.farHome': 'הבית רחוק יותר מ־{km} ק״מ מהטכנאי הפעיל הקרוב ביותר.',
+  'warn.shortShift': 'המשמרת קצרה מ־{h} שעות.',
+  'warn.longShift': 'המשמרת ארוכה מ־{h} שעות.',
+  'warn.noSkills': 'לא נבחרו כישורים, ולכן לא תשובץ עבודה שדורשת כישור.',
+  'warn.duplicateName': 'כבר יש טכנאי בשם הזה.',
+  'warn.duplicateName.inactive': 'יש טכנאי לא פעיל בשם הזה. אולי עדיף להפעיל מחדש את הקיים?',
   'error.activeCap': 'כבר יש 8 טכנאים פעילים.',
 } as const;
 
@@ -368,6 +375,13 @@ export const en: Record<Key, string> = {
   'review.color': 'Route color',
   'review.back': 'Back to edit',
   'review.confirm.new': 'Create technician',
+  'review.warnings': 'Worth a look',
+  'warn.farHome': 'Home is more than {km} km from the nearest active technician.',
+  'warn.shortShift': 'The shift is shorter than {h} hours.',
+  'warn.longShift': 'The shift is longer than {h} hours.',
+  'warn.noSkills': 'No skills selected, so no job that needs a skill will be assigned.',
+  'warn.duplicateName': 'A technician with this name already exists.',
+  'warn.duplicateName.inactive': 'An inactive technician has this name. Reactivate the existing one instead?',
   'error.activeCap': '8 technicians are already active.',
 };
 
