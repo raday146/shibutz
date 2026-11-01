@@ -69,7 +69,7 @@ function open(lang: 'he' | 'en' = 'en', incidents: ReturnType<typeof incident>[]
   return backend;
 }
 
-const techButton = async (name: string): Promise<HTMLElement> => within((await screen.findByText(name)).closest('li') as HTMLElement).getByRole('button');
+const techButton = async (name: string): Promise<HTMLElement> => within((await screen.findByText(name)).closest('li') as HTMLElement).getAllByRole('button')[0] as HTMLElement;
 const rowOf = (name: string): HTMLElement => within(screen.getByRole('list', { name: 'Technicians' })).getByText(name).closest('li') as HTMLElement;
 const drawer = (name: string): HTMLElement => screen.getByRole('complementary', { name });
 const openDrawer = async (name: string): Promise<HTMLElement> => {

@@ -58,7 +58,7 @@ const editFromUnassigned = async (name: string, tab: RegExp = /Unassigned/): Pro
   await userEvent.click(await screen.findByRole('button', { name }));
 };
 const editFromStop = async (title: string): Promise<void> => {
-  await userEvent.click(within((await screen.findByText('Bob')).closest('li') as HTMLElement).getByRole('button'));
+  await userEvent.click(within((await screen.findByText('Bob')).closest('li') as HTMLElement).getAllByRole('button')[0] as HTMLElement);
   const drawer = screen.getByRole('complementary', { name: 'Bob' });
   await userEvent.click(within(drawer).getByRole('button', { name: new RegExp(title) }));
   await userEvent.click(within(drawer).getByRole('button', { name: 'More actions' }));

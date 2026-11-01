@@ -30,7 +30,7 @@ const open = (lang: 'he' | 'en' = 'en'): void => {
   fakeApi(api);
   renderConsole();
 };
-const techButton = async (name: string): Promise<HTMLElement> => within((await screen.findByText(name)).closest('li') as HTMLElement).getByRole('button');
+const techButton = async (name: string): Promise<HTMLElement> => within((await screen.findByText(name)).closest('li') as HTMLElement).getAllByRole('button')[0] as HTMLElement;
 const drawer = (name = 'Bob'): HTMLElement => screen.getByRole('complementary', { name });
 
 describe('work-day drawer', () => {

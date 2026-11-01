@@ -58,7 +58,7 @@ const open = async (lang: 'he' | 'en' = 'en') => {
   localStorage.setItem('shibutz.date', DAY);
   localStorage.setItem('shibutz.lang', lang);
   renderConsole();
-  await userEvent.click(within((await screen.findByText('Bob')).closest('li') as HTMLElement).getByRole('button'));
+  await userEvent.click(within((await screen.findByText('Bob')).closest('li') as HTMLElement).getAllByRole('button')[0] as HTMLElement);
   return screen.getByRole('complementary', { name: 'Bob' });
 };
 const row = (d: HTMLElement, n: number): HTMLElement => within(d).getByRole('button', { name: new RegExp(`Fix ${n}`) }).closest('li') as HTMLElement;
