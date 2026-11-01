@@ -132,3 +132,89 @@ describe('add technician', () => {
     expect(document.activeElement).toBe(add);
   });
 });
+
+describe('review warnings', () => {
+  const warnings = (): string[] => within(screen.getByRole('dialog')).queryAllByRole('listitem').map((li) => li.textContent ?? '');
+  const back = (): Promise<void> => userEvent.click(screen.getByRole('button', { name: 'Back to edit' }));
+  const setTime = async (label: string, value: string): Promise<void> => {
+    await userEvent.clear(screen.getByLabelText(label));
+    await userEvent.type(screen.getByLabelText(label), value);
+  };
+  const start = async (roster: ReturnType<typeof tech>[], lang: 'en' | 'he' = 'en'): Promise<void> => {
+    open(roster, lang);
+    await userEvent.click(await screen.findByRole('button', { name: lang === 'he' ? 'הוספת טכנאי' : 'Add technician' }));
+  };
+
+  it('warns when home is over 50 km from the nearest active technician, and not when near', async () => {
+    await start([{ ...tech(1, 'Far', 1), home: [30, 30] }]);
+    await fillForm();
+    await toReview();
+    expect(warnings()).toEqual(['Home is more than 50 km from the nearest active technician.']);
+    expect(screen.getByText('Worth a look')).toBeTruthy();
+  });
+
+  it('skips the distance check with no active technician', async () => {
+    await start([{ ...tech(1, 'Gone', null), home: [30, 30] }]);
+    await fillForm();
+    await toReview();
+    expect(warnings()).toEqual([]);
+    expect(screen.queryByText('Worth a look')).toBeNull();
+  });
+
+  it('no distance warning when within 50 km', async () => {
+    await start([tech(1, 'Near', 1)]);
+    await fillForm();
+    await toReview();
+    expect(warnings()).toEqual([]);
+  });
+
+  it('warns on a short or long shift, and clears it when fixed', async () => {
+    await start([]);
+    await fillForm();
+    await setTime('Shift end', '11:00');
+    await toReview();
+    expect(warnings()).toEqual(['The shift is shorter than 4 hours.']);
+    await back();
+    await setTime('Shift end', '19:00');
+    await toReview();
+    expect(warnings()).toEqual(['The shift is longer than 10 hours.']);
+    await back();
+    await setTime('Shift end', '16:00');
+    await toReview();
+    expect(warnings()).toEqual([]);
+  });
+
+  it('warns when no skills are selected, never blocking create', async () => {
+    const fetch = open([]);
+    await userEvent.click(await addButton());
+    await fillForm();
+    await userEvent.click(screen.getByRole('checkbox', { name: 'HVAC' }));
+    await toReview();
+    expect(warnings()).toEqual(['No skills selected, so no job that needs a skill will be assigned.']);
+    await userEvent.click(screen.getByRole('button', { name: 'Create technician' }));
+    expect(posted(fetch)).toBeDefined();
+  });
+
+  it('warns on a duplicate name, case-insensitively, and suggests reactivating an inactive match', async () => {
+    await start([tech(1, 'noa', 1), tech(2, 'NOA', null)]);
+    await fillForm();
+    await toReview();
+    expect(warnings()).toEqual(['A technician with this name already exists.', 'An inactive technician has this name. Reactivate the existing one instead?']);
+  });
+
+  it('suggests reactivating when only an inactive technician has the name', async () => {
+    await start([tech(2, 'NOA', null)]);
+    await fillForm();
+    await toReview();
+    expect(warnings()).toEqual(['An inactive technician has this name. Reactivate the existing one instead?']);
+  });
+
+  it('shows warnings in Hebrew', async () => {
+    await start([{ ...tech(1, 'Far', 1), home: [30, 30] }], 'he');
+    await userEvent.type(screen.getByLabelText('שם'), 'דנה');
+    await userEvent.click(screen.getByRole('button', { name: 'הגדרת מיקום במפה' }));
+    await userEvent.click(screen.getByRole('button', { name: 'map click' }));
+    await userEvent.click(screen.getByRole('button', { name: 'המשך לסקירה' }));
+    expect(warnings()).toEqual(['הבית רחוק יותר מ־50 ק״מ מהטכנאי הפעיל הקרוב ביותר.', 'לא נבחרו כישורים, ולכן לא תשובץ עבודה שדורשת כישור.']);
+  });
+});
