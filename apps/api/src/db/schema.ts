@@ -1,5 +1,5 @@
 import { type SQL, sql } from 'drizzle-orm';
-import { check, date, integer, pgEnum, pgTable, primaryKey, text, time, timestamp, unique } from 'drizzle-orm/pg-core';
+import { boolean, check, date, integer, pgEnum, pgTable, primaryKey, text, time, timestamp, unique, uniqueIndex } from 'drizzle-orm/pg-core';
 import { geographyPoint } from './geography';
 
 // Integer ids: VROOM requires integer skill ids.
@@ -19,12 +19,17 @@ export const technicians = pgTable(
     home: geographyPoint('home').notNull(),
     shiftStart: time('shift_start').notNull(),
     shiftEnd: time('shift_end').notNull(),
-    // Route color slot (DESIGN.md palette), stable for the technician's life.
-    color: integer('color').notNull(),
+    // Route color slot (DESIGN.md palette): held while active, freed (NULL) when inactive.
+    color: integer('color'),
+    active: boolean().notNull().default(true),
+    // Optimistic-concurrency token for technician edits.
+    version: integer().notNull().default(0),
   },
   (t) => [
     check('technicians_shift_order', sql`${t.shiftEnd} > ${t.shiftStart}`),
     check('technicians_color_range', sql`${t.color} BETWEEN 1 AND 8`),
+    check('technicians_active_color', sql`${t.active} = (${t.color} IS NOT NULL)`),
+    uniqueIndex('technicians_active_color_key').on(t.color).where(sql`${t.active}`),
   ],
 );
 

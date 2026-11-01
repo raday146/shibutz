@@ -1,8 +1,9 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
+import { ACTIVE_CAP_MESSAGE } from '@shibutz/contracts';
 import type { CreateTechnician, Technician, UpdateTechnician } from '@shibutz/contracts';
 import { DB, type Db } from '../db/db.module';
-import { isForeignKeyViolation, rejectInvalid } from '../db/errors';
+import { isForeignKeyViolation, isUniqueViolation, rejectInvalid } from '../db/errors';
 import { jobs, routeStops, routes, technicianSkills, technicians } from '../db/schema';
 
 const columns = {
@@ -12,6 +13,8 @@ const columns = {
   shiftStart: technicians.shiftStart,
   shiftEnd: technicians.shiftEnd,
   color: technicians.color,
+  active: technicians.active,
+  version: technicians.version,
   skillIds: sql<number[]>`coalesce((
     select array_agg(${technicianSkills.skillId} order by ${technicianSkills.skillId})
     from ${technicianSkills} where ${technicianSkills.technicianId} = ${technicians.id}), '{}')`,
@@ -31,20 +34,32 @@ export class TechniciansService {
     return row;
   }
 
-  async create({ skillIds, ...fields }: CreateTechnician): Promise<Technician> {
-    const id = await rejectInvalid(
+  async create(body: CreateTechnician): Promise<Technician> {
+    // Two creates racing for the same free color: the partial unique index lets one win; the loser retries once on fresh data.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await this.get(await this.createOnce(body));
+      } catch (err) {
+        if (!isUniqueViolation(err)) throw err;
+        if (attempt === 2) throw new ConflictException('Technician color was taken concurrently; retry');
+      }
+    }
+  }
+
+  private createOnce({ skillIds, ...fields }: CreateTechnician): Promise<number> {
+    return rejectInvalid(
       this.db.transaction(async (tx) => {
-        // Least-used slot, lowest first on ties; an unused slot has count 0, so it wins.
-        const used = await tx.select({ color: technicians.color }).from(technicians);
-        const count = (slot: number): number => used.filter((u) => u.color === slot).length;
-        const color = [1, 2, 3, 4, 5, 6, 7, 8].reduce((best, slot) => (count(slot) < count(best) ? slot : best));
+        const taken = new Set(
+          (await tx.select({ color: technicians.color }).from(technicians).where(isNotNull(technicians.color))).map((r) => r.color),
+        );
+        const color = [1, 2, 3, 4, 5, 6, 7, 8].find((slot) => !taken.has(slot));
+        if (color === undefined) throw new ConflictException(ACTIVE_CAP_MESSAGE);
         const [row] = await tx.insert(technicians).values({ ...fields, color }).returning({ id: technicians.id });
         if (!row) throw new Error('Insert returned no row');
         if (skillIds.length) await tx.insert(technicianSkills).values(skillIds.map((skillId) => ({ technicianId: row.id, skillId })));
         return row.id;
       }),
     );
-    return this.get(id);
   }
 
   async update(id: number, { skillIds, ...fields }: UpdateTechnician): Promise<Technician> {
@@ -52,7 +67,7 @@ export class TechniciansService {
       this.db.transaction(async (tx) => {
         // Home, shift and skills feed the stored ETAs and the skill match, so they are frozen while active stops exist.
         // Done stops are history and do not block edits.
-        if (skillIds || Object.keys(fields).some((k) => k !== 'name' && k !== 'color')) {
+        if (skillIds || Object.keys(fields).some((k) => k !== 'name')) {
           const [stop] = await tx
             .select({ id: routeStops.id })
             .from(routeStops)

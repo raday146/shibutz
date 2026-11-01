@@ -12,7 +12,7 @@ const stop = (jobId: number) => ({
 const incident = (id: number, technicianId: number, date: string, over: object = {}) => ({
   id, technicianId, date, jobId: null, body: `Incident ${id}`, status: 'open', createdAt: '2026-11-02T10:00:00.000Z', updatedAt: '2026-11-02T10:00:00.000Z', reviewedAt: null, ...over,
 });
-const tech = (id: number, name: string) => ({ id, name, home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', skillIds: [], color: id });
+const tech = (id: number, name: string) => ({ id, name, home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', active: true, version: 0, skillIds: [], color: id });
 const ok = (body: unknown): Promise<unknown> => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) });
 
 function open(lang: 'he' | 'en' = 'en'): void {

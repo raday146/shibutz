@@ -9,7 +9,7 @@ const stop = (jobId: number, over: object = {}) => ({
   jobId, title: `Fix ${jobId}`, address: `Addr ${jobId}`, sequence: jobId, location: [34.8, 32.1], status: 'assigned', skillIds: [1], serviceDurationS: 1800, driveS: 600, hasNote: false,
   eta: `2026-11-02T0${5 + jobId}:00:00.000Z`, etd: `2026-11-02T0${5 + jobId}:30:00.000Z`, actualArrival: null, actualDeparture: null, ...over,
 });
-const tech = (id: number, name: string) => ({ id, name, home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', skillIds: [1], color: id });
+const tech = (id: number, name: string) => ({ id, name, home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', active: true, version: 0, skillIds: [1], color: id });
 const sumTech = (technicianId: number, stopCount: number, doneCount = 0) => ({ technicianId, stopCount, doneCount, driveS: 0, expectedFinish: null, openIncidents: 0, stops: [] });
 
 // Bob: two stops, the last ends 18:30 Israel time, 150 minutes after his shift. Alice has none.

@@ -8,7 +8,7 @@ const stop = (jobId: number) => ({
   eta: iso(`0${5 + jobId}:00`), etd: iso(`0${5 + jobId}:30`), actualArrival: null, actualDeparture: null,
 });
 const body: Record<string, unknown> = {
-  '/technicians': [{ id: 1, name: 'Bob', home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', skillIds: [], color: 1 }],
+  '/technicians': [{ id: 1, name: 'Bob', home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', active: true, version: 0, skillIds: [], color: 1 }],
   '/jobs': [],
   '/skills': [],
   [`/days/${DAY}/summary`]: {
@@ -46,7 +46,7 @@ async function expectNoAnchorPositioning(page: Page): Promise<void> {
   expect(used).toEqual([]);
 }
 
-async function open(page: Page, lang: 'he' | 'en'): Promise<void> {
+async function open(page: Page, lang: 'he' | 'en', openDrawer = true): Promise<void> {
   await page.addInitScript(({ day, l }) => { localStorage.setItem('shibutz.date', day); localStorage.setItem('shibutz.lang', l); }, { day: DAY, l: lang });
   await page.route('**/*.tile.openstreetmap.org/**', (r) => r.abort());
   await page.route(/\/(technicians|jobs|routes|skills|days|incidents)(\/|$)/, (route) => {
@@ -57,6 +57,7 @@ async function open(page: Page, lang: 'he' | 'en'): Promise<void> {
       : route.fulfill({ status: 404, json: { message: 'no fixture' } }); // reports and notes: none yet
   });
   await page.goto('/');
+  if (!openDrawer) return;
   await page.getByRole('list', { name: /Technicians|טכנאים/ }).getByRole('button').click();
   await expect(page.locator('aside.drawer')).toBeVisible();
 }
@@ -108,6 +109,64 @@ for (const lang of ['he', 'en'] as const) {
       await page.mouse.click(10, 300); // outside press closes it
       await expect(page.locator('#incidents-panel')).toHaveCount(0);
     });
+  });
+}
+
+const words = {
+  en: { add: 'Add technician', name: 'Name', pick: 'Set location on map', use: 'Use this point', next: 'Continue to review', back: 'Back to edit', home: 'Home location' },
+  he: { add: 'הוספת טכנאי', name: 'שם', pick: 'הגדרת מיקום במפה', use: 'שימוש בנקודה הזו', next: 'המשך לסקירה', back: 'חזרה לעריכה', home: 'מיקום הבית' },
+};
+
+/** The box is fully on screen. */
+async function expectOnScreen(page: Page, box: Locator): Promise<void> {
+  const [b, view] = [await box.boundingBox(), page.viewportSize()];
+  if (!b || !view) throw new Error('nothing to measure');
+  expect(b.x).toBeGreaterThanOrEqual(0);
+  expect(b.y).toBeGreaterThanOrEqual(0);
+  expect(b.x + b.width).toBeLessThanOrEqual(view.width);
+  expect(b.y + b.height).toBeLessThanOrEqual(view.height);
+}
+
+for (const lang of ['he', 'en'] as const) {
+  test(`add-technician dialog and review mini-map are laid out (${lang})`, async ({ page }) => {
+    const w = words[lang];
+    await open(page, lang, false);
+    await page.getByRole('button', { name: w.add }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expectOnScreen(page, dialog);
+
+    await dialog.getByLabel(w.name, { exact: true }).fill('Noa');
+    await dialog.getByRole('button', { name: w.pick }).click();
+    await expect(dialog).toBeHidden(); // the dialog steps aside for the map-pick
+    await page.getByRole('button', { name: w.use }).click();
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: w.next }).click();
+
+    // The mini-map has a real size inside the dialog, a rendered tile layer container and the pin.
+    const mini = dialog.getByRole('img', { name: w.home });
+    await expect(mini).toBeVisible();
+    const [m, d] = [await mini.boundingBox(), await dialog.boundingBox()];
+    if (!m || !d) throw new Error('nothing to measure');
+    expect(m.height).toBeGreaterThan(100);
+    expect(m.width).toBeGreaterThan(200);
+    expect(m.x).toBeGreaterThanOrEqual(d.x);
+    expect(m.x + m.width).toBeLessThanOrEqual(d.x + d.width + 1);
+    await expect(mini.locator('.leaflet-container')).toBeVisible();
+    const pin = mini.locator('.pin');
+    await expect(pin).toBeVisible();
+    const p = await pin.boundingBox();
+    if (!p) throw new Error('no pin');
+    expect(p.x).toBeGreaterThanOrEqual(m.x);
+    expect(p.x + p.width).toBeLessThanOrEqual(m.x + m.width);
+    expect(p.y).toBeGreaterThanOrEqual(m.y);
+    expect(p.y + p.height).toBeLessThanOrEqual(m.y + m.height);
+    await expectOnScreen(page, dialog);
+
+    await dialog.getByRole('button', { name: w.back }).click();
+    await expect(dialog.getByLabel(w.name, { exact: true })).toHaveValue('Noa');
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
   });
 }
 

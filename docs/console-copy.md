@@ -345,3 +345,7 @@ The API's own messages are English only. Known ones map to keys: "Only the first
 ## Keys added by the foundation ticket
 
 Strings of the existing screen that the deck above did not cover: `date.label`, `lang.toggle.label` (accessible name of the toggle, written in the language it switches to), `tech.noSkills`, `job.ref` (a job shown as "Job {id}" until jobs have titles), `slot.close`, `map.legend.home`, `map.needs`, `duration.min`, `stops.one`/`stops.two`/`stops.other`. Source of truth is `apps/web/src/i18n.ts`.
+
+## Keys added by the add-technician ticket
+
+Not in the deck above, needed by the add form: `tech.field.shift.from` (Shift start / תחילת המשמרת), `tech.field.shift.to` (Shift end / סיום המשמרת), `validation.name` (Enter a name. / יש להזין שם.), `validation.shift` (The shift must end after it starts. / סיום המשמרת חייב להיות אחרי ההתחלה.). Source of truth is `apps/web/src/i18n.ts`.

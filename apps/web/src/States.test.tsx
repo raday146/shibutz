@@ -12,7 +12,7 @@ const stop = (jobId: number) => ({
 });
 const sumTech = { technicianId: 1, stopCount: 1, doneCount: 0, driveS: 0, expectedFinish: null, openIncidents: 0, stops: [] };
 const api = (): Routes => ({
-  '/technicians': [{ id: 1, name: 'Bob', home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', skillIds: [1], color: 1 }],
+  '/technicians': [{ id: 1, name: 'Bob', home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', active: true, version: 0, skillIds: [1], color: 1 }],
   '/jobs': [],
   '/skills': [{ id: 1, code: 'hvac', nameEn: 'HVAC', nameHe: 'מיזוג' }],
   [`/days/${DAY}/summary`]: daySummary(DAY, { total: 1, assigned: 1 }, [sumTech]),

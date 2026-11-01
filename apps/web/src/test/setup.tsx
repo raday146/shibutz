@@ -31,6 +31,10 @@ vi.mock('../components/MapView', () => ({
   ),
 }));
 
+vi.mock('../components/MiniMap', () => ({
+  MiniMap: ({ at, label }: { at: [number, number]; label: string }) => <div role="img" aria-label={label} data-testid="minimap" data-at={JSON.stringify(at)} />,
+}));
+
 afterEach(() => {
   cleanup();
   localStorage.clear();

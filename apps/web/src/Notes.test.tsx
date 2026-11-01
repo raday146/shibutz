@@ -10,7 +10,7 @@ const stop = (jobId: number, hasNote: boolean) => ({
   eta: `2026-11-02T0${5 + jobId}:00:00.000Z`, etd: `2026-11-02T0${5 + jobId}:30:00.000Z`, actualArrival: null, actualDeparture: null,
 });
 const note = (body: string, updatedAt = '2026-11-02T08:05:00.000Z') => ({ jobId: 1, body, createdAt: '2026-11-02T08:00:00.000Z', updatedAt });
-const bob = { id: 1, name: 'Bob', home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', skillIds: [], color: 1 };
+const bob = { id: 1, name: 'Bob', home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', active: true, version: 0, skillIds: [], color: 1 };
 const api: Routes = {
   '/technicians': [bob],
   '/jobs': [],
