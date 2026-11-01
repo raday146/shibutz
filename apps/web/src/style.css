@@ -301,6 +301,7 @@ button:active:not(:disabled):not(.primary):not(:is(.tabs button, .side li > butt
 .add-tech { margin-block-end: var(--space-2); }
 .add-tech p { margin: var(--space-1) 0 0; }
 .dialog .review { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-1) var(--space-3); margin: 0 0 var(--space-3); }
+.dialog ul.review { display: block; padding-inline-start: var(--space-4); overflow-wrap: anywhere; } /* an edit's list of changes */
 .dialog .review dt { color: var(--ink-3); }
 .dialog .review dd { margin: 0; }
 .minimap { block-size: 160px; margin-block-end: var(--space-3); border-radius: var(--radius-surface); overflow: hidden; }

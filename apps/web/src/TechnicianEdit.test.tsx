@@ -116,6 +116,8 @@ describe('edit technician', () => {
     expect((await screen.findByRole('alert')).textContent).toBe('The data changed since this review. Review again.');
     expect(await screen.findByLabelText('Shift end')).toBeTruthy(); // back on the form
     expect((screen.getByLabelText('Shift end') as HTMLInputElement).value).toBe('18:00'); // input kept
+    await userEvent.click(screen.getByRole('button', { name: 'Continue to review' }));
+    expect(screen.queryByRole('alert')).toBeNull(); // the old message does not follow into the new review
   });
 
   it('shows the refusal when the technician has assigned stops', async () => {
