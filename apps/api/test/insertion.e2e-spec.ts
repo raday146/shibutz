@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { ServiceUnavailableException } from '@nestjs/common';
 import { eq, sql } from 'drizzle-orm';
-import { INACTIVE_TECHNICIAN_MESSAGE } from '@shibutz/contracts';
+import { INACTIVE_TECHNICIAN_MESSAGE, STALE_TECHNICIAN_MESSAGE } from '@shibutz/contracts';
 import type { InsertionSuggestions, Job, JobStatus, LonLat } from '@shibutz/contracts';
 import { CLOCK } from '../src/clock/clock';
 import { DB, type Db } from '../src/db/db.module';
@@ -332,6 +332,29 @@ describe('POST /jobs/:id/insertion-suggestions (fake routing, fake clock)', () =
       expect(res.body.message).toBe(INACTIVE_TECHNICIAN_MESSAGE);
       expect(await snapshot()).toEqual(before);
       expect((await db().select().from(jobsTable).where(eq(jobsTable.id, target.id)))[0]?.status).toBe('unassigned');
+    });
+
+    it("409s and writes nothing when the technician's home changed between candidate selection and the write", async () => {
+      const avi = await technician(34.0);
+      const target = await job(34.01);
+      const before = await snapshot();
+      beforeMatrix = async () => void (await http().patch(`/technicians/${avi}`).send({ home: [34.2, 32], version: 0 }).expect(200));
+
+      const res = await insert(target.id, avi, null, null, 0).expect(409);
+
+      expect(res.body.message).toBe(STALE_TECHNICIAN_MESSAGE);
+      expect(await snapshot()).toEqual(before);
+    });
+
+    it('409s and writes nothing when the job was edited after the slot was computed', async () => {
+      const avi = await technician(34.0);
+      const target = await job(34.01);
+      const before = await snapshot();
+      beforeMatrix = async () => void (await http().patch(`/jobs/${target.id}`).send({ serviceDurationS: 1200 }).expect(200));
+
+      await insert(target.id, avi, null, null, 0).expect(409);
+
+      expect(await snapshot()).toEqual(before);
     });
 
     it('refuses an inactive technician outright', async () => {

@@ -81,18 +81,22 @@ export class TechniciansService {
   }
 
   /**
-   * For planning writers, inside their own transaction: every technician they write to is still active, else 409.
-   * A shared row lock makes a deactivation wait for the writer (and then see its stops), or the writer see the deactivation.
+   * For planning writers, inside their own transaction and BEFORE they lock any job or route row (lock order:
+   * technicians, then jobs, then routes, as job-status start does): every technician they write to is still active
+   * and unchanged since `expected` (id to the version their candidate data was read at), else 409. A shared row lock
+   * makes a deactivation or an edit wait for the writer (and then see its stops), or the writer see them.
    */
-  async assertActive(tx: Pick<Db, 'select'>, ids: number[]): Promise<void> {
-    const wanted = new Set(ids);
-    if (!wanted.size) return;
+  async assertActive(tx: Pick<Db, 'select'>, expected: ReadonlyMap<number, number>): Promise<void> {
+    if (!expected.size) return;
     const rows = await tx
-      .select({ id: technicians.id })
+      .select({ id: technicians.id, active: technicians.active, version: technicians.version })
       .from(technicians)
-      .where(and(inArray(technicians.id, [...wanted]), eq(technicians.active, true)))
+      .where(inArray(technicians.id, [...expected.keys()]))
+      .orderBy(asc(technicians.id))
       .for('share');
-    if (rows.length !== wanted.size) throw new ConflictException(INACTIVE_TECHNICIAN_MESSAGE);
+    if (rows.length !== expected.size || rows.some((r) => !r.active)) throw new ConflictException(INACTIVE_TECHNICIAN_MESSAGE);
+    // Home, shift or skills changed since the candidates were read: the planned stops would rest on outdated data.
+    if (rows.some((r) => r.version !== expected.get(r.id))) throw new ConflictException(STALE_TECHNICIAN_MESSAGE);
   }
 
   /** Locks the technician and checks the reviewed version is still current. */

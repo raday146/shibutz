@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { sql } from 'drizzle-orm';
-import { INACTIVE_TECHNICIAN_MESSAGE } from '@shibutz/contracts';
+import { Client } from 'pg';
+import { INACTIVE_TECHNICIAN_MESSAGE, STALE_TECHNICIAN_MESSAGE } from '@shibutz/contracts';
 import type { DayPlan, Job, LonLat, Technician } from '@shibutz/contracts';
 import { DB, type Db } from '../src/db/db.module';
 import { OsrmRoutingGateway } from '../src/gateways/osrm.gateway';
@@ -354,6 +355,43 @@ describeIfUp('vroom')('POST /optimization/day/:date and inactive technicians (re
 
     expect(res.body.message).toBe(INACTIVE_TECHNICIAN_MESSAGE);
     expect(await countPlanRows(app().get<Db>(DB))).toBe(0);
+  });
+
+  it("returns 409 and writes nothing when a technician's home changed after planning started", async () => {
+    const { avi } = await twoTechniciansAndAJob();
+    beforeSolve = async () => void (await http().patch(`/technicians/${avi}`).send({ home: at(34.2), version: 0 }).expect(200));
+
+    const res = await http().post(`/optimization/day/${DATE}`).expect(409);
+
+    expect(res.body.message).toBe(STALE_TECHNICIAN_MESSAGE);
+    expect(await countPlanRows(app().get<Db>(DB))).toBe(0);
+  });
+
+  it('takes technician locks before any job lock (the order job-status start uses), so the two cannot deadlock', async () => {
+    await twoTechniciansAndAJob();
+    // Stands in for a status start: holds the technician rows FOR UPDATE while the batch reaches its write transaction.
+    const other = new Client({ connectionString: process.env.DATABASE_URL });
+    await other.connect();
+    let probe: Promise<string> = Promise.resolve('hook did not run');
+    beforeSolve = async () => {
+      await other.query('BEGIN');
+      await other.query('SELECT id FROM technicians FOR UPDATE');
+      probe = new Promise((resolve) => {
+        setTimeout(() => {
+          other
+            .query('SELECT id FROM jobs FOR UPDATE NOWAIT') // fails if the batch already holds job locks
+            .then(() => 'free', (e: Error) => e.message)
+            .then(async (r) => (await other.query('COMMIT'), resolve(r)));
+        }, 500);
+      });
+    };
+
+    try {
+      await http().post(`/optimization/day/${DATE}`).expect(201);
+      expect(await probe).toBe('free');
+    } finally {
+      await other.end();
+    }
   });
 });
 

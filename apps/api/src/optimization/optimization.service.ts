@@ -50,7 +50,7 @@ export class OptimizationService {
     const { passing, unassigned } = precheckJobs(planTechnicians, planJobs);
 
     const { routes, unassigned: dropped } = await this.solve(date, planTechnicians, passing);
-    await this.replace(date, jobs.map((j) => j.id), routes, [...unassigned, ...dropped]);
+    await this.replace(date, jobs.map((j) => j.id), routes, [...unassigned, ...dropped], new Map(active.map((t) => [t.id, t.version])));
 
     return {
       date,
@@ -91,17 +91,18 @@ export class OptimizationService {
     return { routes, unassigned };
   }
 
-  private replace(date: string, jobIds: number[], routes: PlannedRoutes, unplaced: UnassignedJob[]): Promise<void> {
+  private replace(date: string, jobIds: number[], routes: PlannedRoutes, unplaced: UnassignedJob[], versions: ReadonlyMap<number, number>): Promise<void> {
     const at = this.clock.now();
     return this.db.transaction(async (tx) => {
+      // Technicians first (lock order, see assertActive): every one written to must still be active and unchanged
+      // since the candidates were read (a deactivation or edit may have committed since).
+      await this.technicians.assertActive(tx, new Map(routes.map((r) => [r.technicianId, versions.get(r.technicianId) ?? -1])));
       // Re-check under row locks (no external calls here): a status change racing the batch either committed
       // before this point (409) or waits until we are done.
       const day = await tx.select({ status: jobsTable.status }).from(jobsTable).where(eq(jobsTable.day, date)).for('update');
       if (day.some((j) => j.status === 'in_progress' || j.status === 'done')) {
         throw new ConflictException('A stop that day has already started');
       }
-      // Every technician written to must still be active (a deactivation may have committed since the candidates were read).
-      await this.technicians.assertActive(tx, routes.map((r) => r.technicianId));
       const existing = await tx
         .select({ id: routesTable.id, technicianId: routesTable.technicianId })
         .from(routesTable)
