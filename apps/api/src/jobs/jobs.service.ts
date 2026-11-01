@@ -92,16 +92,18 @@ export class JobsService {
   async update(id: number, { skillIds, ...fields }: UpdateJob): Promise<Job> {
     await rejectInvalid(
       this.db.transaction(async (tx) => {
-        if (skillIds || Object.keys(fields).some((k) => k !== 'priority')) {
-          const [stop] = await tx.select({ id: routeStops.id }).from(routeStops).where(eq(routeStops.jobId, id)).limit(1);
-          if (stop) throw new ConflictException('Job is on a route; unassign or cancel it first');
-        }
+        // The row lock makes the checks and the update one unit: a placement updates this row first, so it either
+        // committed before we got the lock (its stop is visible below) or waits until we are done.
+        const [current] = await tx.select({ status: jobs.status }).from(jobs).where(eq(jobs.id, id)).for('update');
+        if (!current) throw new NotFoundException('Job not found');
+        if (current.status === 'done' || current.status === 'cancelled') throw new ConflictException('Job is done or cancelled');
         const clear = skillIds !== undefined || REASON_FIELDS.some((k) => k in fields);
+        if (clear) {
+          const [stop] = await tx.select({ id: routeStops.id }).from(routeStops).where(eq(routeStops.jobId, id)).limit(1);
+          if (stop) throw new ConflictException('Job is on a route');
+        }
         const set = { ...toRow(fields), ...(clear && { unassignedReason: null, unassignedAt: null }) };
-        const [row] = Object.keys(set).length
-          ? await tx.update(jobs).set(set).where(eq(jobs.id, id)).returning({ id: jobs.id })
-          : await tx.select({ id: jobs.id }).from(jobs).where(eq(jobs.id, id)).for('update');
-        if (!row) throw new NotFoundException('Job not found');
+        if (Object.keys(set).length) await tx.update(jobs).set(set).where(eq(jobs.id, id));
         if (!skillIds) return;
         await tx.delete(jobSkills).where(eq(jobSkills.jobId, id));
         if (skillIds.length) await tx.insert(jobSkills).values(skillIds.map((skillId) => ({ jobId: id, skillId })));

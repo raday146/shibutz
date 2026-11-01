@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { cancellationSchema, dayPlanSchema, dayReportSchema, daySummarySchema, incidentSchema, insertionSuggestionsSchema, jobSchema, noteSchema, routeViewSchema, skillSchema, technicianSchema } from '@shibutz/contracts';
-import type { Cancellation, CreateIncident, CreateTechnician, CreateJob, DayPlan, DayReport, DaySummary, Incident, InsertCommit, InsertionSuggestions, Job, JobStatus, Note, RouteView, Skill, Technician } from '@shibutz/contracts';
+import type { Cancellation, CreateIncident, CreateTechnician, CreateJob, UpdateJob, DayPlan, DayReport, DaySummary, Incident, InsertCommit, InsertionSuggestions, Job, JobStatus, Note, RouteView, Skill, Technician } from '@shibutz/contracts';
 
 /** Carries the HTTP status so callers can tell a stale 409 from other failures. */
 export class ApiError extends Error {
@@ -31,6 +31,7 @@ export const runOptimization = (date: string): Promise<DayPlan> =>
   request(dayPlanSchema, `/optimization/day/${date}`, { method: 'POST' });
 export const fetchSkills = (): Promise<Skill[]> => request(z.array(skillSchema), '/skills');
 export const createJob = (job: CreateJob): Promise<Job> => request(jobSchema, '/jobs', post(job));
+export const updateJob = (jobId: number, patch: UpdateJob): Promise<Job> => request(jobSchema, `/jobs/${jobId}`, json('PATCH', patch));
 export const fetchSuggestions = (jobId: number): Promise<InsertionSuggestions> =>
   request(insertionSuggestionsSchema, `/jobs/${jobId}/insertion-suggestions?limit=3`, { method: 'POST' });
 export const insertJob = (jobId: number, commit: InsertCommit): Promise<Job> => request(jobSchema, `/jobs/${jobId}/insert`, post(commit));
