@@ -1,26 +1,54 @@
 # shibutz
 
-Field technician routing, built as a learning project. Technicians have skills and shifts; jobs have a location,
-required skills, a service duration, a time window and a priority. The system plans a whole day in one batch
-(OSRM travel times + the VROOM solver) and, when a new job arrives mid-day, finds the technician and position
-with the smallest detour using a hand-written insertion heuristic that is compared against VROOM. It
-demonstrates PostGIS geography queries, routing on OpenStreetMap data, vehicle-routing optimization, forward
-time propagation with waiting, and optimistic concurrency, with tests at every seam.
+A dispatch console for field technicians, built as a learning project. Technicians have skills, shifts and a home;
+jobs have a place, required skills, a service duration, a time window and a priority. A dispatcher plans a whole
+day in one batch (OSRM travel times + the VROOM solver), places a late job into existing routes with the smallest
+detour (a hand-written insertion heuristic, compared against VROOM), and follows the day as it unfolds. It
+demonstrates PostGIS geography queries, routing on OpenStreetMap data, vehicle-routing optimization, forward time
+propagation with waiting, and optimistic concurrency, with tests at every seam.
 
-![A technician's route and ETAs on the map](docs/screenshots/route.jpg)
+![The console in Hebrew, right to left: colored routes on the map, top bar, technician list](docs/screenshots/console-he.jpg)
+
+## The console
+
+Hebrew first (right to left) with an English (left to right) toggle; the map keeps its own direction.
+
+- **Plan day** re-optimizes one date; every technician gets a route color, shown on the map and in the list.
+- **Work-day drawer:** click a technician to see their stops with ETAs, start, finish, unassign or cancel a stop,
+  and keep a free-text **note** per job.
+- **Find a slot** places an unassigned job without reordering anyone's stops. Each option shows the detour and the
+  stops around it, and previews the new leg on the map as a dashed line.
+- **Job editing:** change a job's title and address until it is done or cancelled; its place, skills, duration and window only while
+  it has no stop on a route (the server refuses the rest).
+- **Technician management:** add, edit, deactivate and reactivate technicians. A **review step** summarizes what
+  will change and warns about odd shifts or far-away homes before saving; every change lands in the **change log**.
+  An inactive technician keeps their history and is never planned. Up to 8 can be active, one per route color.
+- **Day reports and incidents:** an optional end-of-day summary per work day, and incidents to review later.
+
+| Work-day drawer | Find a slot |
+|---|---|
+| ![A technician's work day with one stop expanded](docs/screenshots/drawer-stop.jpg) | ![Best slot options with the dashed preview on the map](docs/screenshots/find-slot.jpg) |
+| **Add technician, review step** | **Same console in English** |
+| ![The review step with a short-shift warning](docs/screenshots/add-technician-review.jpg) | ![The console in English, left to right](docs/screenshots/console-en.jpg) |
+
+Design and vocabulary: [`DESIGN.md`](DESIGN.md) (tokens, type, web platform support), [`GLOSSARY.md`](GLOSSARY.md)
+(the domain words used in the UI and code), [`docs/adr/`](docs/adr/) (architecture decisions), and
+[`docs/console-copy.md`](docs/console-copy.md) (every string in both languages).
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    Web["Web: React + Leaflet<br/>:5173"] -->|"HTTP (Vite proxy)"| API["API: NestJS<br/>:3001"]
+    Web["Console: React + Leaflet<br/>he / en, RTL<br/>:5173"] -->|"HTTP (Vite proxy)"| API["API: NestJS<br/>:3001"]
     API -->|"Drizzle, ST_DWithin"| DB[("PostGIS<br/>:5432")]
     API -->|"/table, /route"| OSRM["OSRM (MLD, car)<br/>:5001"]
     API -->|"solve with custom matrix"| VROOM["VROOM<br/>:3000"]
+    Web -.->|"zod schemas"| Contracts["packages/contracts"]
+    API -.->|"zod schemas"| Contracts
 ```
 
 - `apps/api`: NestJS (strict TS). `planning/` is the pure core (no I/O); `gateways/` holds the OSRM and VROOM ports.
-- `apps/web`: map UI. `packages/contracts`: zod schemas shared by both.
+- `apps/web`: the dispatch console. `packages/contracts`: zod schemas shared by both.
 
 ## Quickstart
 Needs Docker, Node 24 and pnpm (`corepack enable` is enough).
@@ -32,11 +60,12 @@ docker compose up -d                       # PostGIS, OSRM, VROOM; first run dow
 pnpm install
 pnpm --filter @shibutz/api db:seed         # migrate + 6 skills, 8 technicians, 60 jobs for 2026-11-02
 pnpm --filter @shibutz/api start           # API on :3001 (leave running)
-pnpm --filter web dev                      # map on :5173 (second terminal)
+pnpm --filter web dev                      # console on :5173 (second terminal)
 ```
 
-Open http://localhost:5173, click **Run optimization** (plans 2026-11-02), then click a technician to see their
-route and ETAs. Pinned image versions and arm64 notes: `docs/infra.md`; sanity check: `./scripts/smoke.sh`.
+Open http://localhost:5173, pick 2026-11-02, click **Plan day** (the button is labeled in Hebrew; `EN` switches the
+language), then click a technician to see their route and ETAs. Pinned image versions and arm64 notes:
+`docs/infra.md`; sanity check: `./scripts/smoke.sh`.
 
 ## How it works
 
@@ -65,7 +94,8 @@ route and ETAs. Pinned image versions and arm64 notes: `docs/infra.md`; sanity c
   then in one transaction does `UPDATE routes SET version = version + 1 WHERE ... AND version = ?`; zero rows
   means 409. A technician with no route yet is version 0, and two racing first inserts give one 200 and one 409.
 
-Other endpoints: CRUD for `/skills`, `/technicians`, `/jobs`; `PATCH /jobs/:id/status` (assigned, in_progress,
+Other endpoints: CRUD for `/skills`, `/technicians`, `/jobs`; `POST /technicians/:id/deactivate` and `/reactivate`;
+`GET /technician-changes` (the change log); `PATCH /jobs/:id/status` (assigned, in_progress,
 done, unassigned, cancelled; each change bumps the route version); `GET /routes/:technicianId/:date` (stops, ETAs,
 GeoJSON line from OSRM). `pnpm --filter @shibutz/api compare` prints the heuristic vs VROOM report
 (`docs/comparison-report.md`: 124.3 vs 123.6 min fleet drive time on the scenario).
@@ -87,8 +117,12 @@ pnpm test                                   # unit tests: planning core, mapping
 pnpm test:e2e                               # e2e + integration, against compose PostGIS
 pnpm --filter web test                      # web unit tests (Vitest)
 pnpm --filter web test:e2e                  # browser checks (Playwright: chromium, webkit, firefox; the API is mocked)
+pnpm --filter web test:e2e --project=chromium   # one engine, for a quick local run
 # first time: pnpm --filter web exec playwright install chromium webkit firefox
 ```
+- CI (`.github/workflows/ci.yml`) runs on every pull request and on pushes to `main`: typecheck, lint, unit tests,
+  then e2e against a PostGIS service container with Playwright on all three engines. OSRM and VROOM are not started
+  there, so the tests that need them skip.
 - E2E boots the real app against `shibutz_test`, truncating between tests, `--runInBand`. Set `TEST_DB_NAME` per
   worktree so parallel runs do not share a database. Batch e2e uses real VROOM with a fake routing gateway.
 - `*.int-spec.ts` tests hit real OSRM/VROOM (matrix shape, timeouts, `scheduleRoute` reproducing VROOM's arrival
@@ -106,4 +140,4 @@ Accepted on purpose for this learning project (see the closed issues for the rea
 - After a `done` stop the technician is assumed to still be at that stop (no GPS).
 - Planned `eta`/`etd` of later stops are not rewritten when a stop is marked `done` or `in_progress`; actual times
   live in `actual_arrival`/`actual_departure`.
-- Open follow-ups: web UX improvements (#22-#27) and a possible lock-order deadlock between batch and status changes (#20).
+- Open follow-ups are the `needs-triage` [issues](https://github.com/raday146/shibutz/issues), for example a possible lock-order deadlock between batch and status changes (#20) and per-day technician availability (#32).
