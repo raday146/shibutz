@@ -1,6 +1,7 @@
 {
   "name": "shibutz",
   "private": true,
+  "license": "MIT",
   "packageManager": "pnpm@9.3.0",
   "engines": {
     "node": ">=24"
