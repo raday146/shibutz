@@ -16,6 +16,9 @@ import { TechniciansService } from '../technicians/technicians.service';
 
 const DEFAULT_RADIUS_M = 10_000;
 
+/** The job fields a slot's feasibility rests on. */
+const planningKey = (j: Job): string => JSON.stringify([j.location, j.serviceDurationS, j.windowStart, j.windowEnd, j.skillIds]);
+
 /** What `suggest` remembers per candidate to turn a slot back into neighbours. */
 interface Plan {
   afterJobId: number | null;
@@ -70,8 +73,8 @@ export class InsertionService {
     if (chosen.option.routeVersion !== routeVersion) throw new ConflictException('Route changed since the suggestion');
 
     await this.db.transaction(async (tx) => {
-      // The candidate was active when selected; a deactivation may have committed since.
-      await this.techniciansService.assertActive(tx, [technicianId]);
+      // The candidate was active, at this version, when selected; a deactivation or edit may have committed since. Locked before any job or route row.
+      await this.techniciansService.assertActive(tx, new Map([[technicianId, tech.version]]));
       // ponytail: the expected version 0 case: make sure the row exists, then the same guarded bump as every other case.
       if (routeVersion === 0) await tx.insert(routes).values({ technicianId, date: job.day }).onConflictDoNothing({ target: [routes.technicianId, routes.date] });
       const [bumped] = await tx
@@ -87,6 +90,8 @@ export class InsertionService {
         .where(and(eq(jobs.id, jobId), eq(jobs.status, 'unassigned')))
         .returning({ id: jobs.id });
       if (!assigned) throw new ConflictException('Job changed concurrently; retry');
+      // The row is locked now: an edit that committed after the slot was computed shows here.
+      if (planningKey(await this.jobsService.get(jobId, tx)) !== planningKey(job)) throw new ConflictException('Job changed concurrently; retry');
 
       await tx
         .update(routeStops)

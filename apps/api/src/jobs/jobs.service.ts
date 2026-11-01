@@ -70,8 +70,8 @@ export class JobsService {
     return row !== undefined;
   }
 
-  async get(id: number): Promise<Job> {
-    const [row] = await this.db.select(columns).from(jobs).where(eq(jobs.id, id));
+  async get(id: number, from: Pick<Db, 'select'> = this.db): Promise<Job> {
+    const [row] = await from.select(columns).from(jobs).where(eq(jobs.id, id));
     if (!row) throw new NotFoundException('Job not found');
     return toJob(row);
   }
