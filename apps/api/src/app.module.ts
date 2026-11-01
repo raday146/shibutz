@@ -22,12 +22,12 @@ import { RoutesController } from './routes/routes.controller';
 import { RoutesService } from './routes/routes.service';
 import { SkillsController } from './skills/skills.controller';
 import { SkillsService } from './skills/skills.service';
-import { TechniciansController } from './technicians/technicians.controller';
+import { TechnicianChangesController, TechniciansController } from './technicians/technicians.controller';
 import { TechniciansService } from './technicians/technicians.service';
 
 @Module({
   imports: [DbModule],
-  controllers: [SkillsController, TechniciansController, JobsController, JobStatusController, InsertionController, OptimizationController, RoutesController, DaysController, NotesController, IncidentsController],
+  controllers: [SkillsController, TechniciansController, TechnicianChangesController, JobsController, JobStatusController, InsertionController, OptimizationController, RoutesController, DaysController, NotesController, IncidentsController],
   providers: [
     SkillsService,
     TechniciansService,

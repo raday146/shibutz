@@ -1,10 +1,10 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { ACTIVE_CAP_MESSAGE, STALE_TECHNICIAN_MESSAGE } from '@shibutz/contracts';
-import type { CreateTechnician, Technician, UpdateTechnician } from '@shibutz/contracts';
+import type { CreateTechnician, Technician, TechnicianChange, TechnicianChangeFields, TechnicianChangesQuery, UpdateTechnician } from '@shibutz/contracts';
 import { DB, type Db } from '../db/db.module';
 import { isForeignKeyViolation, isUniqueViolation, rejectInvalid } from '../db/errors';
-import { jobs, routeStops, routes, technicianSkills, technicians } from '../db/schema';
+import { jobs, routeStops, routes, technicianChanges, technicianSkills, technicians } from '../db/schema';
 
 const columns = {
   id: technicians.id,
@@ -20,12 +20,34 @@ const columns = {
     from ${technicianSkills} where ${technicianSkills.technicianId} = ${technicians.id}), '{}')`,
 };
 
+/** The fields of `now` that differ from `was`, as before and after values; null when nothing changed. */
+function diff(was: TechnicianChangeFields, now: TechnicianChangeFields): { before: TechnicianChangeFields; after: TechnicianChangeFields } | null {
+  const before: Record<string, unknown> = {};
+  const after: Record<string, unknown> = {};
+  for (const key of Object.keys(now) as (keyof TechnicianChangeFields)[]) {
+    if (JSON.stringify(was[key]) === JSON.stringify(now[key])) continue;
+    before[key] = was[key];
+    after[key] = now[key];
+  }
+  return Object.keys(after).length ? { before, after } : null;
+}
+
 @Injectable()
 export class TechniciansService {
   constructor(@Inject(DB) private readonly db: Db) {}
 
   list(): Promise<Technician[]> {
     return this.db.select(columns).from(technicians).orderBy(asc(technicians.id));
+  }
+
+  async changes({ technicianId, limit }: TechnicianChangesQuery): Promise<TechnicianChange[]> {
+    const rows = await this.db
+      .select()
+      .from(technicianChanges)
+      .where(technicianId === undefined ? undefined : eq(technicianChanges.technicianId, technicianId))
+      .orderBy(desc(technicianChanges.id))
+      .limit(limit ?? 1000);
+    return rows.map((r) => ({ ...r, at: r.at.toISOString() }));
   }
 
   async get(id: number): Promise<Technician> {
@@ -57,6 +79,12 @@ export class TechniciansService {
         const [row] = await tx.insert(technicians).values({ ...fields, color }).returning({ id: technicians.id });
         if (!row) throw new Error('Insert returned no row');
         if (skillIds.length) await tx.insert(technicianSkills).values(skillIds.map((skillId) => ({ technicianId: row.id, skillId })));
+        await tx.insert(technicianChanges).values({
+          technicianId: row.id,
+          action: 'created',
+          name: fields.name,
+          after: { ...fields, skillIds: [...skillIds].sort((a, b) => a - b) },
+        });
         return row.id;
       }),
     );
@@ -65,6 +93,9 @@ export class TechniciansService {
   async update(id: number, { skillIds, version, ...fields }: UpdateTechnician): Promise<Technician> {
     await rejectInvalid(
       this.db.transaction(async (tx) => {
+        // Locked, so the logged before-values are exactly what this update replaces.
+        const [was] = await tx.select(columns).from(technicians).where(eq(technicians.id, id)).for('update');
+        if (!was) throw new NotFoundException('Technician not found');
         // The reviewed version must still be current. The UPDATE both checks and bumps it (and locks the row), so a
         // skills-only edit is versioned too and two edits from the same version cannot both win.
         const [row] = await tx
@@ -90,9 +121,12 @@ export class TechniciansService {
             .limit(1);
           if (stop) throw new ConflictException('Technician has stops on a route; unassign or cancel those jobs first');
         }
-        if (!skillIds) return;
-        await tx.delete(technicianSkills).where(eq(technicianSkills.technicianId, id));
-        if (skillIds.length) await tx.insert(technicianSkills).values(skillIds.map((skillId) => ({ technicianId: id, skillId })));
+        if (skillIds) {
+          await tx.delete(technicianSkills).where(eq(technicianSkills.technicianId, id));
+          if (skillIds.length) await tx.insert(technicianSkills).values(skillIds.map((skillId) => ({ technicianId: id, skillId })));
+        }
+        const changed = diff(was, { ...fields, ...(skillIds && { skillIds: [...skillIds].sort((a, b) => a - b) }) });
+        if (changed) await tx.insert(technicianChanges).values({ technicianId: id, action: 'updated', name: fields.name ?? was.name, ...changed });
       }),
     );
     return this.get(id);

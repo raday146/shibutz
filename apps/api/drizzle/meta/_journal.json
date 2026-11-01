@@ -78,6 +78,13 @@
       "when": 1793182795863,
       "tag": "0010_technician_active_version",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793535944625,
+      "tag": "0011_technician_changes",
+      "breakpoints": true
     }
   ]
 }

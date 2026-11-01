@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { cancellationSchema, dayPlanSchema, dayReportSchema, daySummarySchema, incidentSchema, insertionSuggestionsSchema, jobSchema, noteSchema, routeViewSchema, skillSchema, technicianSchema } from '@shibutz/contracts';
-import type { Cancellation, CreateIncident, CreateTechnician, CreateJob, UpdateJob, UpdateTechnician, DayPlan, DayReport, DaySummary, Incident, InsertCommit, InsertionSuggestions, Job, JobStatus, Note, RouteView, Skill, Technician } from '@shibutz/contracts';
+import { cancellationSchema, dayPlanSchema, dayReportSchema, daySummarySchema, incidentSchema, insertionSuggestionsSchema, jobSchema, noteSchema, routeViewSchema, skillSchema, technicianChangeSchema, technicianSchema } from '@shibutz/contracts';
+import type { Cancellation, CreateIncident, CreateTechnician, CreateJob, UpdateJob, UpdateTechnician, DayPlan, DayReport, DaySummary, Incident, InsertCommit, InsertionSuggestions, Job, JobStatus, Note, RouteView, Skill, Technician, TechnicianChange } from '@shibutz/contracts';
 
 /** Carries the HTTP status so callers can tell a stale 409 from other failures. */
 export class ApiError extends Error {
@@ -26,6 +26,10 @@ export const fetchTechnicians = (): Promise<Technician[]> => request(z.array(tec
 export const createTechnician = (technician: CreateTechnician): Promise<Technician> => request(technicianSchema, '/technicians', post(technician));
 export const updateTechnician = (id: number, patch: UpdateTechnician): Promise<Technician> =>
   request(technicianSchema, `/technicians/${id}`, json('PATCH', patch));
+export const fetchTechnicianChanges = (query: { technicianId?: number; limit?: number }): Promise<TechnicianChange[]> => {
+  const params = new URLSearchParams(Object.entries(query).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)]));
+  return request(z.array(technicianChangeSchema), `/technician-changes${params.size ? `?${params}` : ''}`);
+};
 export const fetchJobs = (): Promise<Job[]> => request(z.array(jobSchema), '/jobs');
 export const fetchRoute = (technicianId: number, date: string): Promise<RouteView> =>
   request(routeViewSchema, `/routes/${technicianId}/${date}`);

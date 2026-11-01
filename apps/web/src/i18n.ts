@@ -200,6 +200,13 @@ export const he = {
   'review.change': '{field}: {before} ← {after}',
   'review.confirm.edit': 'שמירת שינויים',
   'review.stale': 'הנתונים השתנו מאז הסקירה. יש לסקור שוב.',
+  'changes.title': 'שינויים אחרונים',
+  'changes.empty': 'עדיין אין שינויים.',
+  'changes.created': 'הוספה: {name}',
+  'changes.updated': 'הפרטים של {name} עודכנו: {fields}',
+  'changes.deactivated': 'השבתה: {name}',
+  'changes.reactivated': 'הפעלה מחדש: {name}',
+  'changes.history': 'היסטוריית שינויים',
 } as const;
 
 export type Key = keyof typeof he;
@@ -403,6 +410,13 @@ export const en: Record<Key, string> = {
   'review.change': '{field}: {before} → {after}',
   'review.confirm.edit': 'Save changes',
   'review.stale': 'The data changed since this review. Review again.',
+  'changes.title': 'Recent changes',
+  'changes.empty': 'No changes yet.',
+  'changes.created': 'Added: {name}',
+  'changes.updated': "{name}'s details were updated: {fields}",
+  'changes.deactivated': 'Deactivated: {name}',
+  'changes.reactivated': 'Reactivated: {name}',
+  'changes.history': 'Change history',
 };
 
 export const dictionaries: Record<Lang, Record<Key, string>> = { he, en };

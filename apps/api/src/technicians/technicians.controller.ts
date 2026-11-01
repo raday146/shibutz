@@ -1,6 +1,6 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
-import { createTechnicianSchema, updateTechnicianSchema } from '@shibutz/contracts';
-import type { CreateTechnician, Technician, UpdateTechnician } from '@shibutz/contracts';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
+import { createTechnicianSchema, technicianChangesQuerySchema, updateTechnicianSchema } from '@shibutz/contracts';
+import type { CreateTechnician, Technician, TechnicianChange, TechnicianChangesQuery, UpdateTechnician } from '@shibutz/contracts';
 import { ZodValidationPipe } from '../zod-validation.pipe';
 import { TechniciansService } from './technicians.service';
 
@@ -35,5 +35,16 @@ export class TechniciansController {
   @HttpCode(204)
   remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.technicians.remove(id);
+  }
+}
+
+/** Top level, not under `technicians/`, so it cannot be read as `technicians/:id`. */
+@Controller('technician-changes')
+export class TechnicianChangesController {
+  constructor(private readonly technicians: TechniciansService) {}
+
+  @Get()
+  list(@Query(new ZodValidationPipe(technicianChangesQuerySchema)) query: TechnicianChangesQuery): Promise<TechnicianChange[]> {
+    return this.technicians.changes(query);
   }
 }

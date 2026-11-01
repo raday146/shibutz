@@ -26,6 +26,6 @@ export const daySummary = (date: string, over: Partial<DaySummary['totals']> = {
   technicians,
 });
 
-export const emptyDay: Routes = { '/technicians': [], '/jobs': [], '/skills': [], [`/days/${today()}/summary`]: daySummary(today()) };
+export const emptyDay: Routes = { '/technicians': [], '/jobs': [], '/skills': [], '/technician-changes?limit=20': [], [`/days/${today()}/summary`]: daySummary(today()) };
 
 export const renderConsole = (): ReturnType<typeof render> => render(<LangProvider><App /></LangProvider>);
