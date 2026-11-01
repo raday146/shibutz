@@ -1,5 +1,6 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { JOB_LOCKED_MESSAGE, JOB_ON_ROUTE_MESSAGE } from '@shibutz/contracts';
 import type { CreateJob, Job, UpdateJob } from '@shibutz/contracts';
 import { DB, type Db } from '../db/db.module';
 import { isForeignKeyViolation, rejectInvalid } from '../db/errors';
@@ -96,11 +97,11 @@ export class JobsService {
         // committed before we got the lock (its stop is visible below) or waits until we are done.
         const [current] = await tx.select({ status: jobs.status }).from(jobs).where(eq(jobs.id, id)).for('update');
         if (!current) throw new NotFoundException('Job not found');
-        if (current.status === 'done' || current.status === 'cancelled') throw new ConflictException('Job is done or cancelled');
+        if (current.status === 'done' || current.status === 'cancelled') throw new ConflictException(JOB_LOCKED_MESSAGE);
         const clear = skillIds !== undefined || REASON_FIELDS.some((k) => k in fields);
         if (clear) {
           const [stop] = await tx.select({ id: routeStops.id }).from(routeStops).where(eq(routeStops.jobId, id)).limit(1);
-          if (stop) throw new ConflictException('Job is on a route');
+          if (stop) throw new ConflictException(JOB_ON_ROUTE_MESSAGE);
         }
         const set = { ...toRow(fields), ...(clear && { unassignedReason: null, unassignedAt: null }) };
         if (Object.keys(set).length) await tx.update(jobs).set(set).where(eq(jobs.id, id));

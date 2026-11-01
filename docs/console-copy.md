@@ -340,7 +340,7 @@ Rows store the technician's name as it was at the time, so a later rename does n
 
 ## Server messages
 
-The API's own messages are English only. Known ones map to keys: "Only the first not-done stop of a route can be started" is `blocked.order`, "Technician already has a stop in progress" is `blocked.busy`, "Route changed concurrently; retry" and "Route changed since the suggestion" are `error.stale`, and "A stop that day has already started" is `plan.disabled`. A 409 about an inactive technician is `error.techInactive`; one about the 8-active cap is `error.activeCap`; the job guard's "Job is on a route" is `job.edit.conflict`. Any other message is shown as received, after the localized lead sentence.
+The API's own messages are English only. Known ones map to keys: "Only the first not-done stop of a route can be started" is `blocked.order`, "Technician already has a stop in progress" is `blocked.busy`, "Route changed concurrently; retry" and "Route changed since the suggestion" are `error.stale`, and "A stop that day has already started" is `plan.disabled`. A 409 about an inactive technician is `error.techInactive`; one saying the technician changed since the data was read (a batch or insert racing a technician edit) is `review.stale` (`slot.stale` when choosing a slot); one about the 8-active cap is `error.activeCap`; the job guard's "Job is on a route" is `job.edit.conflict`. Any other message is shown as received, after the localized lead sentence.
 
 ## Keys added by the foundation ticket
 
