@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { CreateTechnician, LonLat, Skill, Technician, UpdateTechnician } from '@shibutz/contracts';
 import { Ltr, useLang, withLtrNumbers } from '../lang';
 import { formatLatLon, routeVar, shiftLabel, skillLabel, skillName } from '../map';
+import { ChangeLog } from './ChangeLog';
 import { MiniMap } from './MiniMap';
 import { PickBar } from './PickBar';
 import { technicianWarnings } from '../techWarnings';
@@ -218,6 +219,7 @@ export function TechnicianModal({ technician, skills, technicians, color, busy, 
                 <button onClick={toReview} disabled={busy}>{t(nameOnly ? 'tech.save' : 'tech.toReview')}</button>{' '}
                 <button onClick={onClose}>{t('modal.close')}</button>
               </div>
+              {technician && <ChangeLog title="changes.history" technicianId={technician.id} roster={technicians} skills={skills} />}
             </>
           )}
         </div>

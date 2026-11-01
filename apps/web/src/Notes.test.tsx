@@ -15,6 +15,7 @@ const api: Routes = {
   '/technicians': [bob],
   '/jobs': [],
   '/skills': [],
+  '/technician-changes?limit=20': [],
   [`/days/${DAY}/summary`]: daySummary(DAY, { total: 2, assigned: 2 }, [{ technicianId: 1, stopCount: 2, doneCount: 0, driveS: 0, expectedFinish: null, openIncidents: 0, stops: [] }]),
   [`/days/2026-11-03/summary`]: daySummary('2026-11-03'),
   [`/routes/1/${DAY}`]: { technicianId: 1, date: DAY, geometry: null, stops: [stop(1, true), stop(2, false)], summary: { doneCount: 0, driveS: 0, expectedFinish: null } },

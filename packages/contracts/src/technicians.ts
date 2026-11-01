@@ -41,3 +41,29 @@ export const technicianSchema = createTechnicianSchema.extend({
   version: z.number().int().min(0),
 });
 export type Technician = z.infer<typeof technicianSchema>;
+
+export const technicianChangeActions = ['created', 'updated', 'deactivated', 'reactivated'] as const;
+
+/** The technician fields a change can record; a before/after holds only the ones that changed. */
+export const technicianChangeFieldsSchema = createTechnicianSchema.partial();
+export type TechnicianChangeFields = z.infer<typeof technicianChangeFieldsSchema>;
+
+/** One row of the permanent technician change log. `name` is the technician's name at that time. */
+export const technicianChangeSchema = z.object({
+  id: z.number().int().positive(),
+  at: z.iso.datetime(),
+  technicianId: z.number().int().positive(),
+  action: z.enum(technicianChangeActions),
+  name: z.string(),
+  /** Null when there is no earlier state (created) or no field changed (deactivated, reactivated). */
+  before: technicianChangeFieldsSchema.nullable(),
+  after: technicianChangeFieldsSchema.nullable(),
+});
+export type TechnicianChange = z.infer<typeof technicianChangeSchema>;
+
+/** `GET /technician-changes`: newest first, optionally one technician's, optionally only the latest `limit`. */
+export const technicianChangesQuerySchema = z.object({
+  technicianId: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+});
+export type TechnicianChangesQuery = z.infer<typeof technicianChangesQuerySchema>;

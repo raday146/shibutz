@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import request from 'supertest';
 import { ACTIVE_CAP_MESSAGE, STALE_TECHNICIAN_MESSAGE } from '@shibutz/contracts';
+import type { TechnicianChange } from '@shibutz/contracts';
 import { DB, type Db } from '../src/db/db.module';
 import { setupTestApp } from './app';
 
@@ -228,6 +229,79 @@ describe('technicians', () => {
 
     it('does not accept a color on create', async () => {
       await http().post('/technicians').send({ ...dana([]), color: 4 }).expect(400);
+    });
+  });
+
+  describe('change log', () => {
+    const changes = async (query = ''): Promise<{ status: number; body: TechnicianChange[] }> => http().get(`/technician-changes${query}`);
+
+    it('logs a create with its fields, and an update with only the changed fields', async () => {
+      const elec = await skill('ELEC');
+      const { body } = await http().post('/technicians').send(dana([elec])).expect(201);
+      await http().patch(`/technicians/${body.id}`).send({ shiftEnd: '18:30:00', name: 'Dana', version: 0 }).expect(200);
+
+      const res = await changes();
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([
+        { id: 2, at: expect.any(String), technicianId: body.id, action: 'updated', name: 'Dana', before: { shiftEnd: '17:00:00' }, after: { shiftEnd: '18:30:00' } },
+        {
+          id: 1,
+          at: expect.any(String),
+          technicianId: body.id,
+          action: 'created',
+          name: 'Dana',
+          before: null,
+          after: { name: 'Dana', home: BANGKOK, shiftStart: '08:00:00', shiftEnd: '17:00:00', skillIds: [elec] },
+        },
+      ]);
+    });
+
+    it('logs a name-only edit, and keeps the old name on earlier rows after a rename', async () => {
+      const { body } = await http().post('/technicians').send(dana([])).expect(201);
+      await http().patch(`/technicians/${body.id}`).send({ name: 'Dani', version: 0 }).expect(200);
+
+      const res = await changes();
+
+      expect(res.body.map((r) => [r.action, r.name, r.before, r.after])).toEqual([
+        ['updated', 'Dani', { name: 'Dana' }, { name: 'Dani' }],
+        ['created', 'Dana', null, expect.objectContaining({ name: 'Dana' })],
+      ]);
+    });
+
+    it('logs skills changes and writes nothing for a failed or unchanged edit', async () => {
+      const elec = await skill('ELEC');
+      const { body } = await http().post('/technicians').send(dana([])).expect(201);
+      await http().patch(`/technicians/${body.id}`).send({ name: 'X', skillIds: [999], version: 0 }).expect(400);
+      await http().patch(`/technicians/${body.id}`).send({ name: 'Y', version: 5 }).expect(409);
+      await http().patch(`/technicians/${body.id}`).send({ name: 'Dana', version: 0 }).expect(200);
+      await http().patch(`/technicians/${body.id}`).send({ skillIds: [elec], version: 1 }).expect(200);
+
+      const res = await changes();
+
+      expect(res.body.map((r) => [r.action, r.before, r.after])).toEqual([
+        ['updated', { skillIds: [] }, { skillIds: [elec] }],
+        ['created', null, expect.any(Object)],
+      ]);
+    });
+
+    it('is a top-level route that does not clash with /technicians/:id, and filters by technicianId', async () => {
+      const a = (await http().post('/technicians').send(dana([])).expect(201)).body;
+      const b = (await http().post('/technicians').send({ ...dana([]), name: 'Eli' }).expect(201)).body;
+      await http().patch(`/technicians/${a.id}`).send({ name: 'Dan', version: 0 }).expect(200);
+
+      expect((await changes()).body).toHaveLength(3);
+      expect((await changes(`?technicianId=${b.id}`)).body.map((r) => r.name)).toEqual(['Eli']);
+      expect((await changes(`?technicianId=${a.id}&limit=1`)).body.map((r) => r.action)).toEqual(['updated']);
+      await http().get('/technician-changes?technicianId=abc').expect(400);
+      await http().get(`/technicians/${a.id}`).expect(200);
+    });
+
+    it('keeps the log when the technician is deleted', async () => {
+      const { body } = await http().post('/technicians').send(dana([])).expect(201);
+      await http().delete(`/technicians/${body.id}`).expect(204);
+
+      expect((await changes()).body).toHaveLength(1);
     });
   });
 });

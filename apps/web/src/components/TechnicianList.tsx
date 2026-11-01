@@ -5,6 +5,7 @@ import { sortByName } from '../i18n';
 import { Ltr, useLang, withLtrNumbers } from '../lang';
 import { routeVar, shiftLabel, skillLabel } from '../map';
 import { Anchored } from './Anchored';
+import { ChangeLog } from './ChangeLog';
 
 interface Props {
   technicians: Technician[];
@@ -16,6 +17,9 @@ interface Props {
   onAdd: () => void;
   onEdit: (technicianId: number) => void;
 }
+
+/** How many changes the panel's "Recent changes" shows. */
+const RECENT_CHANGES = 20;
 
 /** The row's overflow menu. */
 function RowMenu({ onEdit }: { onEdit: () => void }): React.JSX.Element {
@@ -84,6 +88,7 @@ export function TechnicianList({ technicians, days, skills, selected, onSelect, 
         );
       })}
     </ul>
+    <ChangeLog title="changes.title" limit={RECENT_CHANGES} roster={technicians} skills={skills} />
     </>
   );
 }
