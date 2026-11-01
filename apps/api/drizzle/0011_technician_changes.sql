@@ -8,3 +8,6 @@ CREATE TABLE "technician_changes" (
 	"before" jsonb,
 	"after" jsonb
 );
+--> statement-breakpoint
+-- Before this table, the only way a technician became inactive was migration 0010 (repeat colors past 8); log those so it is traceable.
+INSERT INTO "technician_changes" ("technician_id", "action", "name") SELECT "id", 'deactivated', "name" FROM "technicians" WHERE "active" = false ORDER BY "id";

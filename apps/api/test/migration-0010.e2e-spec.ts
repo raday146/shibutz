@@ -79,5 +79,11 @@ describe('migration 0010 (technician active flag)', () => {
     const { rows } = await db.query<{ id: number; active: boolean }>(`SELECT id, active FROM technicians ORDER BY id`);
     expect(rows.filter((r) => !r.active).map((r) => r.id)).toEqual([9, 10]);
     expect(rows.filter((r) => r.active)).toHaveLength(8);
+    // Traceable: one "deactivated" entry per technician the migration deactivated, with the name at the time.
+    const log = await db.query<{ technician_id: number; action: string; name: string }>(`SELECT technician_id, action, name FROM technician_changes ORDER BY id`);
+    expect(log.rows).toEqual([
+      { technician_id: 9, action: 'deactivated', name: 'T9' },
+      { technician_id: 10, action: 'deactivated', name: 'T10' },
+    ]);
   });
 });
