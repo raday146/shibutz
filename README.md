@@ -141,3 +141,16 @@ Accepted on purpose for this learning project (see the closed issues for the rea
 - Planned `eta`/`etd` of later stops are not rewritten when a stop is marked `done` or `in_progress`; actual times
   live in `actual_arrival`/`actual_departure`.
 - Open follow-ups are the `needs-triage` [issues](https://github.com/raday146/shibutz/issues), for example a possible lock-order deadlock between batch and status changes (#20) and per-day technician availability (#32).
+
+## Data and credits
+- Map data and tiles are © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, available under the
+  [Open Database License (ODbL)](https://opendatacommons.org/licenses/odbl/). The console shows the attribution on
+  every map. Tiles come from the public OSM tile server, which suits a demo, not heavy traffic.
+- Routing uses an [Israel and Palestine extract from Geofabrik](https://download.geofabrik.de/asia/israel-and-palestine.html)
+  of OSM data. `docker compose up` downloads it into `data/` (git-ignored); it is not part of this repository.
+- Built on [OSRM](https://project-osrm.org/) (routing), [VROOM](https://github.com/VROOM-Project/vroom) (solver),
+  [PostGIS](https://postgis.net/) and [Leaflet](https://leafletjs.com/). Fonts: Geist and Heebo (SIL OFL) via Fontsource.
+- The seed technicians and jobs are synthetic.
+
+## License
+[MIT](LICENSE), © 2026 Shlomo Raday.
