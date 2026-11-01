@@ -9,6 +9,11 @@ export const ACTIVE_CAP_MESSAGE = '8 technicians are already active';
 /** The 409 message when the version a client reviewed is no longer current; the console shows it as `review.stale`. */
 export const STALE_TECHNICIAN_MESSAGE = 'Technician changed since the review';
 
+/** The 409 message when a technician it would write to is inactive (deactivated meanwhile); the console shows it as `error.techInactive`. */
+export const INACTIVE_TECHNICIAN_MESSAGE = 'Technician is inactive';
+/** The 409 message when deactivation is refused; the response also carries every blocking date as `dates`. */
+export const DEACTIVATE_BLOCKED_MESSAGE = 'Technician has unfinished stops on a route';
+
 // Shift is a daily local (Asia/Jerusalem) wall-clock time, HH:MM:SS; end must be after start.
 const localTime = z.iso.time({ precision: 0 });
 
@@ -67,3 +72,7 @@ export const technicianChangesQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional(),
 });
 export type TechnicianChangesQuery = z.infer<typeof technicianChangesQuerySchema>;
+
+/** Body of deactivate and reactivate: the version the client reviewed. */
+export const technicianVersionSchema = z.object({ version: z.number().int().min(0) }).strict();
+export type TechnicianVersion = z.infer<typeof technicianVersionSchema>;

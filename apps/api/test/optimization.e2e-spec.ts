@@ -1,5 +1,6 @@
 import request from 'supertest';
 import { sql } from 'drizzle-orm';
+import { INACTIVE_TECHNICIAN_MESSAGE } from '@shibutz/contracts';
 import type { DayPlan, Job, LonLat, Technician } from '@shibutz/contracts';
 import { DB, type Db } from '../src/db/db.module';
 import { OsrmRoutingGateway } from '../src/gateways/osrm.gateway';
@@ -316,6 +317,43 @@ describe('POST /optimization/day/:date racing a status change', () => {
 
     expect(await countPlanRows(app().get<Db>(DB))).toBe(0);
     expect(((await http().get(`/jobs/${id}`)).body as Job).status).toBe('done');
+  });
+});
+
+describeIfUp('vroom')('POST /optimization/day/:date and inactive technicians (real VROOM, fake routing)', () => {
+  let beforeSolve: (() => Promise<void>) | undefined;
+  const routing: RoutingGateway = { ...fakeRouting, durationMatrix: async (p) => (await beforeSolve?.(), fakeRouting.durationMatrix(p)) };
+  const app = setupTestApp((b) => b.overrideProvider(ROUTING_GATEWAY).useValue(routing));
+  const http: Http = () => request(app().getHttpServer());
+  beforeEach(() => { beforeSolve = undefined; });
+
+  async function twoTechniciansAndAJob(): Promise<{ avi: number; bina: number }> {
+    const mk = async (name: string, lon: number): Promise<number> =>
+      (await http().post('/technicians').send({ name, home: at(lon), shiftStart: '08:00:00', shiftEnd: '17:00:00', skillIds: [] }).expect(201)).body.id;
+    const [avi, bina] = [await mk('Avi', 34.0), await mk('Bina', 34.1)];
+    const job = { title: 'Test job', address: '1 Test St', location: at(34.01), skillIds: [], serviceDurationS: 600, windowStart: local('08:00'), windowEnd: local('16:00'), priority: 50 };
+    await http().post('/jobs').send(job).expect(201);
+    return { avi, bina };
+  }
+
+  it('never plans a deactivated technician, even the nearest one', async () => {
+    const { avi, bina } = await twoTechniciansAndAJob();
+    await http().post(`/technicians/${avi}/deactivate`).send({ version: 0 }).expect(201);
+
+    const plan: DayPlan = (await http().post(`/optimization/day/${DATE}`).expect(201)).body;
+
+    expect(plan.routes.map((r) => r.technicianId)).toEqual([bina]);
+  });
+
+  it('returns 409 and writes nothing when a technician is deactivated after planning started', async () => {
+    const { avi, bina } = await twoTechniciansAndAJob();
+    beforeSolve = async () => void (await http().post(`/technicians/${avi}/deactivate`).send({ version: 0 }).expect(201));
+    await http().delete(`/technicians/${bina}`).expect(204); // Avi is the only technician, so the job goes to Avi
+
+    const res = await http().post(`/optimization/day/${DATE}`).expect(409);
+
+    expect(res.body.message).toBe(INACTIVE_TECHNICIAN_MESSAGE);
+    expect(await countPlanRows(app().get<Db>(DB))).toBe(0);
   });
 });
 

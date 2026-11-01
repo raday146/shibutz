@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
-import { createTechnicianSchema, technicianChangesQuerySchema, updateTechnicianSchema } from '@shibutz/contracts';
-import type { CreateTechnician, Technician, TechnicianChange, TechnicianChangesQuery, UpdateTechnician } from '@shibutz/contracts';
+import { createTechnicianSchema, technicianChangesQuerySchema, technicianVersionSchema, updateTechnicianSchema } from '@shibutz/contracts';
+import type { CreateTechnician, Technician, TechnicianChange, TechnicianChangesQuery, TechnicianVersion, UpdateTechnician } from '@shibutz/contracts';
 import { ZodValidationPipe } from '../zod-validation.pipe';
 import { TechniciansService } from './technicians.service';
 
@@ -29,6 +29,22 @@ export class TechniciansController {
     @Body(new ZodValidationPipe(updateTechnicianSchema)) body: UpdateTechnician,
   ): Promise<Technician> {
     return this.technicians.update(id, body);
+  }
+
+  @Post(':id/deactivate')
+  deactivate(
+    @Param('id', ParseIntPipe) id: number,
+    @Body(new ZodValidationPipe(technicianVersionSchema)) body: TechnicianVersion,
+  ): Promise<Technician> {
+    return this.technicians.deactivate(id, body);
+  }
+
+  @Post(':id/reactivate')
+  reactivate(
+    @Param('id', ParseIntPipe) id: number,
+    @Body(new ZodValidationPipe(technicianVersionSchema)) body: TechnicianVersion,
+  ): Promise<Technician> {
+    return this.technicians.reactivate(id, body);
   }
 
   @Delete(':id')
