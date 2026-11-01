@@ -51,8 +51,8 @@ export const skillName = (s: Skill, lang: Lang): string => (lang === 'he' ? s.na
 export const skillLabel = (ids: number[], skills: Skill[], lang: Lang): string =>
   ids.map((id) => skills.find((s) => s.id === id)).map((s, i) => (s ? skillName(s, lang) : `#${ids[i]}`)).join(', ');
 
-/** Technician color slot (1 to 8) as the DESIGN.md token. */
-export const routeVar = (slot: number): string => `var(--route-${slot})`;
+/** Technician color slot (1 to 8) as the DESIGN.md token; an inactive technician has none and renders neutral grey. */
+export const routeVar = (slot: number | null): string => (slot === null ? 'var(--ink-3)' : `var(--route-${slot})`);
 
 export const shiftLabel = (start: string, end: string): string => `${start.slice(0, 5)}-${end.slice(0, 5)}`;
 

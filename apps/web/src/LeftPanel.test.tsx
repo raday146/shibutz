@@ -6,7 +6,7 @@ import type { Routes } from './test/render';
 
 const DAY = '2026-11-02';
 const T0 = '2026-11-02T07:00:00.000Z';
-const tech = (id: number, name: string, color: number, skillIds: number[] = []) => ({ id, name, home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', skillIds, color });
+const tech = (id: number, name: string, color: number, skillIds: number[] = []) => ({ id, name, home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', active: true, version: 0, skillIds, color });
 const job = (id: number) => ({
   id, title: `Job ${id}`, address: `Addr ${id}`, location: [34.8, 32.1], skillIds: [1], serviceDurationS: 1800, windowStart: T0, windowEnd: '2026-11-02T10:00:00.000Z',
   priority: 50, status: 'unassigned', day: DAY, unassignedReason: 'NO_SKILLED_TECHNICIAN', unassignedAt: T0,

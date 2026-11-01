@@ -9,7 +9,7 @@ const DAY = '2026-11-02';
 const T0 = '2026-11-02T07:00:00.000Z';
 const T1 = '2026-11-02T07:30:00.000Z';
 const HOME = (n: number): [number, number] => [Math.round((34.7 + n / 100) * 100) / 100, 32.0];
-const tech = (id: number, name: string, color: number) => ({ id, name, home: HOME(id), shiftStart: '08:00:00', shiftEnd: '16:00:00', skillIds: [1], color });
+const tech = (id: number, name: string, color: number) => ({ id, name, home: HOME(id), shiftStart: '08:00:00', shiftEnd: '16:00:00', active: true, version: 0, skillIds: [1], color });
 const job = (id: number, status: string, x: number) => ({
   id, title: `Job ${id}`, address: `Addr ${id}`, location: [x, 32.1], skillIds: [1], serviceDurationS: 1800, windowStart: T0, windowEnd: '2026-11-02T10:00:00.000Z',
   priority: 50, status, day: DAY, unassignedReason: null, unassignedAt: null,

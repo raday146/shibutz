@@ -1,4 +1,5 @@
 import type { DaySummary, Skill, Technician } from '@shibutz/contracts';
+import { MAX_ACTIVE_TECHNICIANS } from '@shibutz/contracts';
 import { sortByName } from '../i18n';
 import { Ltr, useLang, withLtrNumbers } from '../lang';
 import { routeVar, shiftLabel, skillLabel } from '../map';
@@ -10,12 +11,22 @@ interface Props {
   selected: number | null;
   /** `opener` is the clicked row and `keyboard` tells whether it was activated from the keyboard (no animation then). */
   onSelect: (technicianId: number | null, opener?: HTMLElement, keyboard?: boolean) => void;
+  onAdd: () => void;
 }
 
-export function TechnicianList({ technicians, days, skills, selected, onSelect }: Props): React.JSX.Element {
+export function TechnicianList({ technicians, days, skills, selected, onSelect, onAdd }: Props): React.JSX.Element {
   const { lang, t } = useLang();
-  if (technicians.length === 0) return <p className="muted">{t('techs.empty')}</p>;
+  const full = technicians.filter((x) => x.active).length >= MAX_ACTIVE_TECHNICIANS;
+  const add = (
+    <div className="add-tech">
+      <button onClick={onAdd} disabled={full} aria-describedby={full ? 'add-tech-why' : undefined}>{t('tech.add')}</button>
+      {full && <p id="add-tech-why" className="muted">{t('tech.add.disabled')}</p>}
+    </div>
+  );
+  if (technicians.length === 0) return <>{add}<p className="muted">{t('techs.empty')}</p></>;
   return (
+    <>
+    {add}
     <ul aria-label={t('techs.title')}>
       {sortByName(lang, technicians).map((tech) => {
         const day = days.find((d) => d.technicianId === tech.id);
@@ -46,5 +57,6 @@ export function TechnicianList({ technicians, days, skills, selected, onSelect }
         );
       })}
     </ul>
+    </>
   );
 }

@@ -179,7 +179,7 @@ export function MapView({ date, technicians, dayJobs, skills, routes, selected, 
           key={`t${tech.id}`}
           at={tech.home}
           cls="home"
-          color={tech.color}
+          color={tech.color ?? undefined}
           text={[...tech.name][0] ?? ''}
           label={t('map.home', { name: tech.name })}
           faded={fades(tech.id)}

@@ -40,7 +40,7 @@ function server(refuse?: { status: number; message: string }) {
       return gate.hold ? new Promise((r) => (gate.release = () => r(run()))) : run();
     }
     const body: Record<string, unknown> = {
-      '/technicians': [{ id: 1, name: 'Bob', home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', skillIds: [1], color: 1 }],
+      '/technicians': [{ id: 1, name: 'Bob', home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', active: true, version: 0, skillIds: [1], color: 1 }],
       '/jobs': [1, 2, 3].map(job),
       '/skills': [{ id: 1, code: 'hvac', nameEn: 'HVAC', nameHe: 'מיזוג' }],
       [`/days/${DAY}/summary`]: daySummary(DAY, { total: 3, assigned: live.length, unassigned: 3 - live.length, done }, [

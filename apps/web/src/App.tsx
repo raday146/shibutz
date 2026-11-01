@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { DaySummary, Incident, JobStatus, InsertionOption, InsertionSuggestions, Job, LonLat, RouteView, Skill, Technician } from '@shibutz/contracts';
-import { ApiError, createJob, fetchDaySummary, fetchJobs, fetchRoute, fetchSkills, fetchSuggestions, fetchTechnicians, insertJob, runOptimization, setJobStatus } from './api';
+import { ACTIVE_CAP_MESSAGE, MAX_ACTIVE_TECHNICIANS } from '@shibutz/contracts';
+import type { CreateTechnician, DaySummary, Incident, JobStatus, InsertionOption, InsertionSuggestions, Job, LonLat, RouteView, Skill, Technician } from '@shibutz/contracts';
+import { ApiError, createJob, createTechnician, fetchDaySummary, fetchJobs, fetchRoute, fetchSkills, fetchSuggestions, fetchTechnicians, insertJob, runOptimization, setJobStatus } from './api';
 import { jerusalemToIso, today, unassignedJobs } from './map';
 import type { Key, Vars } from './i18n';
 import { useLang } from './lang';
@@ -13,6 +14,7 @@ import { PanelTabs } from './components/PanelTabs';
 import type { Tab } from './components/PanelTabs';
 import { NewJobModal } from './components/NewJobModal';
 import type { JobDraft } from './components/NewJobModal';
+import { TechnicianModal } from './components/TechnicianModal';
 import { TechnicianList } from './components/TechnicianList';
 import { TopBar } from './components/TopBar';
 import { UnassignedList } from './components/UnassignedList';
@@ -78,6 +80,7 @@ export function App(): React.JSX.Element {
   const [skills, setSkills] = useState<Skill[]>([]);
   // New-job modal: `picking` waits for a map click or the center crosshair; `suggestions` is the panel shown after the job was created.
   const [adding, setAdding] = useState(false);
+  const [addingTech, setAddingTech] = useState(false);
   const [picking, setPicking] = useState(false);
   const [at, setAt] = useState<LonLat | null>(null);
   const [createError, setCreateError] = useState<Problem | null>(null);
@@ -168,10 +171,28 @@ export function App(): React.JSX.Element {
   };
   const closeModal = useCallback((): void => {
     setAdding(false);
+    setAddingTech(false);
     setPicking(false);
     setAt(null);
     (trigger.current as HTMLElement | null)?.focus?.();
   }, []);
+
+  async function submitTechnician(body: CreateTechnician): Promise<void> {
+    setBusy(true);
+    setCreateError(null);
+    try {
+      const created = await createTechnician(body);
+      closeModal();
+      setToast({ id: Date.now(), text: t('tech.created', { name: created.name }) });
+      await reload();
+    } catch (e) {
+      const cap = e instanceof ApiError && e.status === 409 && e.message === ACTIVE_CAP_MESSAGE;
+      setCreateError(cap ? { key: 'error.action', vars: { message: t('error.activeCap') } } : problem(e));
+      if (cap) await reload(); // the roster on screen was stale
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function submitJob({ title, address, skillIds, minutes, from, to }: JobDraft): Promise<void> {
     if (!at) return;
@@ -272,7 +293,7 @@ export function App(): React.JSX.Element {
     if (!previewed || !job || !owner) return null;
     const stops = routes.find((r) => r.technicianId === owner.id)?.stops ?? [];
     const at = (id: number | null): LonLat => stops.find((s) => s.jobId === id)?.location ?? owner.home;
-    return { points: [at(previewed.position.afterJobId), job.location, at(previewed.position.beforeJobId)], color: owner.color };
+    return { points: [at(previewed.position.afterJobId), job.location, at(previewed.position.beforeJobId)], color: owner.color ?? 1 };
   })();
   selectedNow.current = selected;
   const selectTech = (id: number | null, from?: HTMLElement, keyboard = false): void => {
@@ -319,7 +340,7 @@ export function App(): React.JSX.Element {
           ) : first ? (
             <Skeleton />
           ) : current === 'technicians' ? (
-            <TechnicianList technicians={technicians} days={summary?.technicians ?? []} skills={skills} selected={selected} onSelect={selectTech} />
+            <TechnicianList technicians={technicians} days={summary?.technicians ?? []} skills={skills} selected={selected} onSelect={selectTech} onAdd={() => { trigger.current = document.activeElement; setCreateError(null); setAddingTech(true); }} />
           ) : (
             <>
               <UnassignedList
@@ -400,6 +421,20 @@ export function App(): React.JSX.Element {
           onPicking={setPicking}
           onUsePoint={() => { if (center.current) { setAt(center.current); setPicking(false); } }}
           onSubmit={(d) => void submitJob(d)}
+          onClose={closeModal}
+        />
+      )}
+      {addingTech && (
+        <TechnicianModal
+          skills={skills}
+          color={[1, 2, 3, 4, 5, 6, 7, 8].find((c) => !technicians.some((x) => x.color === c)) ?? MAX_ACTIVE_TECHNICIANS}
+          busy={busy}
+          at={at}
+          picking={picking}
+          failure={createError && t('error.action', { message: why(createError) })}
+          onPicking={setPicking}
+          onUsePoint={() => { if (center.current) { setAt(center.current); setPicking(false); } }}
+          onSubmit={(d) => void submitTechnician(d)}
           onClose={closeModal}
         />
       )}
