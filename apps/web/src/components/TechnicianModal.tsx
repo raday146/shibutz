@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import type { CreateTechnician, LonLat, Skill } from '@shibutz/contracts';
+import type { CreateTechnician, LonLat, Skill, Technician } from '@shibutz/contracts';
 import { Ltr, useLang } from '../lang';
 import { formatLatLon, routeVar, shiftLabel, skillLabel, skillName } from '../map';
 import { MiniMap } from './MiniMap';
 import { PickBar } from './PickBar';
+import { technicianWarnings } from '../techWarnings';
 
 interface Props {
   skills: Skill[];
+  /** The loaded roster, active and inactive, for the review warnings. */
+  technicians: Technician[];
   /** The route color the new technician will get (lowest free among active). */
   color: number;
   busy: boolean;
@@ -25,7 +28,7 @@ interface Props {
 const FOCUSABLE = 'input, button:not(:disabled)';
 
 /** Add a technician in two steps in one dialog: the form, then a read-only review. The form state survives going back. */
-export function TechnicianModal({ skills, color, busy, at, picking, failure, onPicking, onUsePoint, onSubmit, onClose }: Props): React.JSX.Element {
+export function TechnicianModal({ skills, technicians, color, busy, at, picking, failure, onPicking, onUsePoint, onSubmit, onClose }: Props): React.JSX.Element {
   const { lang, t } = useLang();
   const [name, setName] = useState('');
   const [skillIds, setSkillIds] = useState<number[]>([]);
@@ -82,6 +85,7 @@ export function TechnicianModal({ skills, color, busy, at, picking, failure, onP
   const confirm = (): void => {
     if (at) onSubmit({ name: name.trim(), home: at, shiftStart: `${from}:00`, shiftEnd: `${to}:00`, skillIds });
   };
+  const warnings = reviewing && at ? technicianWarnings({ name, home: at, from, to, skillIds }, technicians) : [];
   const swatch = <span className="swatch" style={{ background: routeVar(color) }} aria-hidden="true" />;
 
   return (
@@ -107,6 +111,12 @@ export function TechnicianModal({ skills, color, busy, at, picking, failure, onP
                 <dd>{swatch}</dd>
               </dl>
               {at && <MiniMap at={at} label={t('tech.field.home')} />}
+              {warnings.length > 0 && (
+                <div className="warnings">
+                  <h3>{t('review.warnings')}</h3>
+                  <ul>{warnings.map((w) => <li key={w.key}>{t(w.key, w.params)}</li>)}</ul>
+                </div>
+              )}
               {failure && <p className="error" role="alert">{failure}</p>}
               <div>
                 <button onClick={confirm} disabled={busy}>{t('review.confirm.new')}</button>{' '}

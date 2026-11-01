@@ -484,6 +484,7 @@ export function App(): React.JSX.Element {
       {addingTech && (
         <TechnicianModal
           skills={skills}
+          technicians={technicians}
           color={[1, 2, 3, 4, 5, 6, 7, 8].find((c) => !technicians.some((x) => x.color === c)) ?? MAX_ACTIVE_TECHNICIANS}
           busy={busy}
           at={at}
