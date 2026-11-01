@@ -1,10 +1,13 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, desc, eq, inArray, isNotNull, notExists, sql } from 'drizzle-orm';
-import { ACTIVE_CAP_MESSAGE, DEACTIVATE_BLOCKED_MESSAGE, INACTIVE_TECHNICIAN_MESSAGE, MAX_ACTIVE_TECHNICIANS, STALE_TECHNICIAN_MESSAGE } from '@shibutz/contracts';
+import { ACTIVE_CAP_MESSAGE, DEACTIVATE_BLOCKED_MESSAGE, INACTIVE_TECHNICIAN_MESSAGE, freeColorSlot, STALE_TECHNICIAN_MESSAGE } from '@shibutz/contracts';
 import type { CreateTechnician, Technician, TechnicianChange, TechnicianChangeFields, TechnicianChangesQuery, TechnicianVersion, UpdateTechnician } from '@shibutz/contracts';
 import { DB, type Db } from '../db/db.module';
 import { isForeignKeyViolation, isUniqueViolation, rejectInvalid } from '../db/errors';
 import { jobs, routeStops, routes, technicianChanges, technicianSkills, technicians } from '../db/schema';
+
+/** The partial unique index that lets one of two writers racing for a free color win. */
+const ACTIVE_COLOR_INDEX = 'technicians_active_color_key';
 
 const columns = {
   id: technicians.id,
@@ -66,7 +69,7 @@ export class TechniciansService {
       try {
         return await run();
       } catch (err) {
-        if (!isUniqueViolation(err)) throw err;
+        if (!isUniqueViolation(err, ACTIVE_COLOR_INDEX)) throw err;
         if (attempt === 2) throw new ConflictException('Technician color was taken concurrently; retry');
       }
     }
@@ -74,8 +77,7 @@ export class TechniciansService {
 
   /** The lowest color slot no active technician holds; 409 at the cap. */
   private async freeColor(tx: Pick<Db, 'select'>): Promise<number> {
-    const taken = new Set((await tx.select({ color: technicians.color }).from(technicians).where(isNotNull(technicians.color))).map((r) => r.color));
-    const color = Array.from({ length: MAX_ACTIVE_TECHNICIANS }, (_, i) => i + 1).find((slot) => !taken.has(slot));
+    const color = freeColorSlot((await tx.select({ color: technicians.color }).from(technicians).where(isNotNull(technicians.color))).map((r) => r.color));
     if (color === undefined) throw new ConflictException(ACTIVE_CAP_MESSAGE);
     return color;
   }

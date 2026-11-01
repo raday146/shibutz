@@ -3,6 +3,12 @@ import { lonLatSchema, nonEmpty, skillIdsSchema } from './common';
 
 /** At most this many technicians are active at once (one route color each). */
 export const MAX_ACTIVE_TECHNICIANS = 8;
+/** The lowest route color slot (1 to the cap) not in `taken`; undefined when all are taken. */
+export const freeColorSlot = (taken: Iterable<number | null>): number | undefined => {
+  const used = new Set(taken);
+  return Array.from({ length: MAX_ACTIVE_TECHNICIANS }, (_, i) => i + 1).find((slot) => !used.has(slot));
+};
+
 /** The 409 message when a create or reactivation would exceed the cap; the console shows it as `error.activeCap`. */
 export const ACTIVE_CAP_MESSAGE = '8 technicians are already active';
 

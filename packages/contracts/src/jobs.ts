@@ -5,6 +5,11 @@ import { unassignedReasonSchema } from './optimization';
 export const jobStatusSchema = z.enum(['unassigned', 'assigned', 'in_progress', 'done', 'cancelled']);
 export type JobStatus = z.infer<typeof jobStatusSchema>;
 
+/** The 409 message when a scheduling edit hits a job that has a route stop; the console shows it as `job.edit.conflict`. */
+export const JOB_ON_ROUTE_MESSAGE = 'Job is on a route';
+/** The 409 message when an edit hits a done or cancelled job; the console shows it as `job.edit.locked`. */
+export const JOB_LOCKED_MESSAGE = 'Job is done or cancelled';
+
 // ISO 8601 instant with an explicit offset; responses are always UTC (`...Z`).
 const instant = z.iso.datetime({ offset: true });
 

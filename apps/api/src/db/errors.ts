@@ -11,8 +11,10 @@ function pgError(err: unknown): PgError {
   return typeof cause === 'object' && cause !== null ? cause : {};
 }
 
-export function isUniqueViolation(err: unknown): boolean {
-  return pgError(err).code === '23505';
+/** A unique violation, optionally only of the named constraint or index. */
+export function isUniqueViolation(err: unknown, constraint?: string): boolean {
+  const pg = pgError(err);
+  return pg.code === '23505' && (constraint === undefined || pg.constraint === constraint);
 }
 
 export function isForeignKeyViolation(err: unknown): boolean {
