@@ -12,7 +12,7 @@ import type { UnassignedJob } from '../planning/prechecks';
 import { fromDaySeconds, toDaySeconds, wallClockDaySeconds } from '../planning/time';
 import { fromVroomSolution, planLocations, toVroomPayload } from '../planning/vroom-mapping';
 import type { PlanJob, PlanTechnician } from '../planning/vroom-mapping';
-import { TechniciansService } from '../technicians/technicians.service';
+import { schedulingKey, TechniciansService } from '../technicians/technicians.service';
 
 type PlannedRoutes = DayPlan['routes'];
 
@@ -50,7 +50,7 @@ export class OptimizationService {
     const { passing, unassigned } = precheckJobs(planTechnicians, planJobs);
 
     const { routes, unassigned: dropped } = await this.solve(date, planTechnicians, passing);
-    await this.replace(date, jobs.map((j) => j.id), routes, [...unassigned, ...dropped], new Map(active.map((t) => [t.id, t.version])));
+    await this.replace(date, jobs.map((j) => j.id), routes, [...unassigned, ...dropped], new Map(active.map((t) => [t.id, schedulingKey(t)])));
 
     return {
       date,
@@ -91,12 +91,12 @@ export class OptimizationService {
     return { routes, unassigned };
   }
 
-  private replace(date: string, jobIds: number[], routes: PlannedRoutes, unplaced: UnassignedJob[], versions: ReadonlyMap<number, number>): Promise<void> {
+  private replace(date: string, jobIds: number[], routes: PlannedRoutes, unplaced: UnassignedJob[], keys: ReadonlyMap<number, string>): Promise<void> {
     const at = this.clock.now();
     return this.db.transaction(async (tx) => {
       // Technicians first (lock order, see assertActive): every one written to must still be active and unchanged
       // since the candidates were read (a deactivation or edit may have committed since).
-      await this.technicians.assertActive(tx, new Map(routes.map((r) => [r.technicianId, versions.get(r.technicianId) ?? -1])));
+      await this.technicians.assertActive(tx, new Map(routes.map((r) => [r.technicianId, keys.get(r.technicianId) ?? ''])));
       // Re-check under row locks (no external calls here): a status change racing the batch either committed
       // before this point (409) or waits until we are done.
       const day = await tx.select({ status: jobsTable.status }).from(jobsTable).where(eq(jobsTable.day, date)).for('update');

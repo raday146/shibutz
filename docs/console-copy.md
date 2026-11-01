@@ -303,6 +303,7 @@ Rows store the technician's name as it was at the time, so a later rename does n
 | `changes.updated` | הפרטים של {name} עודכנו: {fields} | {name}'s details were updated: {fields} |
 | `changes.deactivated` | השבתה: {name} | Deactivated: {name} |
 | `changes.reactivated` | הפעלה מחדש: {name} | Reactivated: {name} |
+| `changes.deleted` | מחיקה: {name} | Deleted: {name} |
 | `changes.history` | היסטוריית שינויים | Change history |
 
 ## Errors from the activity rules

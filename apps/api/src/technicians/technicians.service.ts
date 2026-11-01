@@ -23,6 +23,11 @@ const columns = {
     from ${technicianSkills} where ${technicianSkills.technicianId} = ${technicians.id}), '{}')`,
 };
 
+/** What the planners read about a technician. Compared before and after a run, so a name-only edit (which bumps the version) does not stale it. */
+export function schedulingKey({ home, shiftStart, shiftEnd, skillIds }: Pick<Technician, 'home' | 'shiftStart' | 'shiftEnd' | 'skillIds'>): string {
+  return JSON.stringify([home, shiftStart, shiftEnd, [...skillIds].sort((a, b) => a - b)]);
+}
+
 /** The fields of `now` that differ from `was`, as before and after values; null when nothing changed. */
 function diff(was: TechnicianChangeFields, now: TechnicianChangeFields): { before: TechnicianChangeFields; after: TechnicianChangeFields } | null {
   const before: Record<string, unknown> = {};
@@ -85,20 +90,20 @@ export class TechniciansService {
   /**
    * For planning writers, inside their own transaction and BEFORE they lock any job or route row (lock order:
    * technicians, then jobs, then routes, as job-status start does): every technician they write to is still active
-   * and unchanged since `expected` (id to the version their candidate data was read at), else 409. A shared row lock
+   * and unchanged since `expected` (id to the `schedulingKey` their candidate data was read at), else 409. A shared row lock
    * makes a deactivation or an edit wait for the writer (and then see its stops), or the writer see them.
    */
-  async assertActive(tx: Pick<Db, 'select'>, expected: ReadonlyMap<number, number>): Promise<void> {
+  async assertActive(tx: Pick<Db, 'select'>, expected: ReadonlyMap<number, string>): Promise<void> {
     if (!expected.size) return;
     const rows = await tx
-      .select({ id: technicians.id, active: technicians.active, version: technicians.version })
+      .select(columns)
       .from(technicians)
       .where(inArray(technicians.id, [...expected.keys()]))
       .orderBy(asc(technicians.id))
       .for('share');
     if (rows.length !== expected.size || rows.some((r) => !r.active)) throw new ConflictException(INACTIVE_TECHNICIAN_MESSAGE);
     // Home, shift or skills changed since the candidates were read: the planned stops would rest on outdated data.
-    if (rows.some((r) => r.version !== expected.get(r.id))) throw new ConflictException(STALE_TECHNICIAN_MESSAGE);
+    if (rows.some((r) => schedulingKey(r) !== expected.get(r.id))) throw new ConflictException(STALE_TECHNICIAN_MESSAGE);
   }
 
   /** Locks the technician and checks the reviewed version is still current. */
@@ -213,15 +218,16 @@ export class TechniciansService {
       .where(eq(routes.technicianId, id))
       .limit(1);
     if (stop) throw new ConflictException('Technician has stops on a route; unassign or cancel those jobs first');
-    const [row] = await this.db
-      .delete(technicians)
-      .where(eq(technicians.id, id))
-      .returning({ id: technicians.id })
-      .catch((err: unknown) => {
-        // A day report or incident still refers to the technician.
-        if (isForeignKeyViolation(err)) throw new ConflictException('Technician has a day report or incidents and cannot be deleted');
-        throw err;
-      });
-    if (!row) throw new NotFoundException('Technician not found');
+    await this.db.transaction(async (tx) => {
+      const [was] = await tx.select({ name: technicians.name }).from(technicians).where(eq(technicians.id, id)).for('update');
+      if (!was) throw new NotFoundException('Technician not found');
+      // Logged first, in the same transaction; the FK sets its technician_id to NULL when the row below goes.
+      await tx.insert(technicianChanges).values({ technicianId: id, action: 'deleted', name: was.name });
+      await tx.delete(technicians).where(eq(technicians.id, id));
+    }).catch((err: unknown) => {
+      // A day report or incident still refers to the technician.
+      if (isForeignKeyViolation(err)) throw new ConflictException('Technician has a day report or incidents and cannot be deleted');
+      throw err;
+    });
   }
 }

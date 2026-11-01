@@ -53,7 +53,7 @@ export const technicianSchema = createTechnicianSchema.extend({
 });
 export type Technician = z.infer<typeof technicianSchema>;
 
-export const technicianChangeActions = ['created', 'updated', 'deactivated', 'reactivated'] as const;
+export const technicianChangeActions = ['created', 'updated', 'deactivated', 'reactivated', 'deleted'] as const;
 
 /** The technician fields a change can record; a before/after holds only the ones that changed. */
 export const technicianChangeFieldsSchema = createTechnicianSchema.partial();
@@ -63,7 +63,8 @@ export type TechnicianChangeFields = z.infer<typeof technicianChangeFieldsSchema
 export const technicianChangeSchema = z.object({
   id: z.number().int().positive(),
   at: z.iso.datetime(),
-  technicianId: z.number().int().positive(),
+  /** Null once the technician was deleted: the row stays, the name is kept in `name`. */
+  technicianId: z.number().int().positive().nullable(),
   action: z.enum(technicianChangeActions),
   name: z.string(),
   /** Null when there is no earlier state (created) or no field changed (deactivated, reactivated). */
