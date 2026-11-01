@@ -31,8 +31,9 @@ export class OptimizationService {
   async optimizeDay(date: string): Promise<DayPlan> {
     if (await this.jobs.hasStartedOn(date)) throw new ConflictException('A stop that day has already started');
     const [technicians, jobs] = await Promise.all([this.technicians.list(), this.jobs.plannableOn(date)]);
+    const active = technicians.filter((t) => t.active);
 
-    const planTechnicians: PlanTechnician[] = technicians.map((t) => ({
+    const planTechnicians: PlanTechnician[] = active.map((t) => ({
       id: t.id,
       home: t.home,
       skillIds: t.skillIds,
@@ -99,6 +100,8 @@ export class OptimizationService {
       if (day.some((j) => j.status === 'in_progress' || j.status === 'done')) {
         throw new ConflictException('A stop that day has already started');
       }
+      // Every technician written to must still be active (a deactivation may have committed since the candidates were read).
+      await this.technicians.assertActive(tx, routes.map((r) => r.technicianId));
       const existing = await tx
         .select({ id: routesTable.id, technicianId: routesTable.technicianId })
         .from(routesTable)

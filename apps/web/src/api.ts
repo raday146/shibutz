@@ -4,7 +4,7 @@ import type { Cancellation, CreateIncident, CreateTechnician, CreateJob, UpdateJ
 
 /** Carries the HTTP status so callers can tell a stale 409 from other failures. */
 export class ApiError extends Error {
-  constructor(message: string, readonly status: number) {
+  constructor(message: string, readonly status: number, readonly dates: string[] = []) {
     super(message);
   }
 }
@@ -16,8 +16,8 @@ async function request<T>(schema: z.ZodType<T>, path: string, init?: RequestInit
   const res = await fetch(path, init);
   const body: unknown = await res.json();
   if (!res.ok) {
-    const message = z.object({ message: z.string() }).safeParse(body);
-    throw new ApiError(message.success ? message.data.message : `HTTP ${res.status}`, res.status);
+    const error = z.object({ message: z.string(), dates: z.array(z.string()).optional() }).safeParse(body);
+    throw new ApiError(error.success ? error.data.message : `HTTP ${res.status}`, res.status, error.success ? error.data.dates : undefined);
   }
   return schema.parse(body);
 }
@@ -26,6 +26,10 @@ export const fetchTechnicians = (): Promise<Technician[]> => request(z.array(tec
 export const createTechnician = (technician: CreateTechnician): Promise<Technician> => request(technicianSchema, '/technicians', post(technician));
 export const updateTechnician = (id: number, patch: UpdateTechnician): Promise<Technician> =>
   request(technicianSchema, `/technicians/${id}`, json('PATCH', patch));
+export const deactivateTechnician = (id: number, version: number): Promise<Technician> =>
+  request(technicianSchema, `/technicians/${id}/deactivate`, post({ version }));
+export const reactivateTechnician = (id: number, version: number): Promise<Technician> =>
+  request(technicianSchema, `/technicians/${id}/reactivate`, post({ version }));
 export const fetchTechnicianChanges = (query: { technicianId?: number; limit?: number }): Promise<TechnicianChange[]> => {
   const params = new URLSearchParams(Object.entries(query).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)]));
   return request(z.array(technicianChangeSchema), `/technician-changes${params.size ? `?${params}` : ''}`);

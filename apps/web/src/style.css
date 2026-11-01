@@ -162,7 +162,7 @@ button.plain { min-height: 0; padding: 0; border: 0; font: inherit; font-weight:
 .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-inline-end: var(--space-2); }
 /* Leaflet sets stroke as an attribute, which cannot hold var(); a class can. */
 .route-1 { stroke: var(--route-1); } .route-2 { stroke: var(--route-2); } .route-3 { stroke: var(--route-3); } .route-4 { stroke: var(--route-4); }
-.route-5 { stroke: var(--route-5); } .route-6 { stroke: var(--route-6); } .route-7 { stroke: var(--route-7); } .route-8 { stroke: var(--route-8); }
+.route-none { stroke: var(--ink-3); } .route-5 { stroke: var(--route-5); } .route-6 { stroke: var(--route-6); } .route-7 { stroke: var(--route-7); } .route-8 { stroke: var(--route-8); }
 /* Map markers: a 24px transparent hit area (.hit) around a small visible pin. Status is a ring or glyph, never color alone. */
 .leaflet-marker-icon.hit { display: grid; place-items: center; background: none; border: 0; transition: opacity var(--dur-fast) var(--ease-out); }
 .leaflet-overlay-pane path { transition: opacity var(--dur-fast) var(--ease-out); }
@@ -311,3 +311,9 @@ button:active:not(:disabled):not(.primary):not(:is(.tabs button, .side li > butt
 .dialog .warnings ul { margin: var(--space-1) 0 0; padding-inline-start: var(--space-4); }
 .change-log ul { margin: 0; padding-inline-start: var(--space-4); max-block-size: 14rem; overflow: auto; overflow-wrap: anywhere; }
 .change-log h3 { margin-block: var(--space-3) var(--space-1); font-size: var(--text-md); }
+
+/* Inactive technicians: neutral grey, initials instead of a route color. */
+.initials { display: inline-grid; place-items: center; box-sizing: border-box; min-inline-size: 22px; block-size: 22px; padding-inline: 2px; margin-inline-end: var(--space-2); border-radius: 11px; background: var(--ink-3); color: #fff; font: 600 var(--text-xs)/1 var(--font); }
+.badge.neutral { background: var(--surface-2); color: var(--ink-2); border-color: var(--ink-3); }
+.inactive-tech > summary { cursor: pointer; padding-block: var(--space-2); }
+.dialog a { color: inherit; text-decoration: underline; }

@@ -8,7 +8,9 @@ const stop = (jobId: number) => ({
   eta: iso(`0${5 + jobId}:00`), etd: iso(`0${5 + jobId}:30`), actualArrival: null, actualDeparture: null,
 });
 const body: Record<string, unknown> = {
-  '/technicians': [{ id: 1, name: 'Bob', home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', active: true, version: 0, skillIds: [], color: 1 }],
+  '/technicians': [{ id: 1, name: 'Bob', home: [34.8, 32.1], shiftStart: '08:00:00', shiftEnd: '16:00:00', active: true, version: 0, skillIds: [], color: 1 },
+    { id: 2, name: 'Dana', home: [34.9, 32.2], shiftStart: '08:00:00', shiftEnd: '16:00:00', active: false, version: 3, skillIds: [], color: null },
+  ],
   '/jobs': [1, 2].map((id) => ({
     id, title: `Fix ${id}`, address: `Addr ${id}`, location: [34.8, 32.1], skillIds: [], serviceDurationS: 1800, windowStart: iso('05:00'), windowEnd: iso('12:00'),
     priority: 50, status: 'assigned', day: DAY, unassignedReason: null, unassignedAt: null,
@@ -54,6 +56,7 @@ async function open(page: Page, lang: 'he' | 'en', openDrawer = true): Promise<v
   await page.route('**/*.tile.openstreetmap.org/**', (r) => r.abort());
   await page.route(/\/(technicians|jobs|routes|skills|days|incidents)(\/|$)/, (route) => {
     const { pathname } = new URL(route.request().url());
+    if (route.request().method() === 'POST' && pathname === '/technicians/1/deactivate') return route.fulfill({ status: 409, json: { message: 'Technician has unfinished stops on a route', dates: ['2026-11-03', '2026-11-05'] } });
     if (route.request().method() === 'POST' && pathname === '/incidents/1/review') return route.fulfill({ json: { ...(body['/incidents/open'] as object[])[0], status: 'reviewed', reviewedAt: iso('07:00') } });
     return pathname in body
       ? route.fulfill({ json: body[pathname] })
@@ -225,6 +228,51 @@ for (const lang of ['he', 'en'] as const) {
     await expectOnScreen(page, review);
     await review.getByRole('button', { name: words[lang].back }).click();
     await expect(page.getByRole('dialog', { name: w.title }).getByLabel(w.from)).toHaveValue('09:00');
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+  });
+}
+
+const activityWords = {
+  en: { more: 'More actions', deactivate: 'Deactivate', title: 'Deactivate Bob?', inactive: /^Inactive \(1\)$/, reactivate: 'Reactivate', review: 'Review before reactivating', open: /^Open / },
+  he: { more: 'פעולות נוספות', deactivate: 'השבתה', title: 'להשבית את Bob?', inactive: /^לא פעילים \(1\)$/, reactivate: 'הפעלה מחדש', review: 'סקירה לפני הפעלה מחדש', open: /^פתיחת / },
+};
+
+for (const lang of ['he', 'en'] as const) {
+  test(`deactivate confirm dialog and blocked-dates list are laid out (${lang})`, async ({ page }) => {
+    const w = activityWords[lang];
+    await open(page, lang, false);
+    await page.getByRole('list', { name: /Technicians|טכנאים/ }).getByRole('button', { name: w.more }).click();
+    await page.getByRole('menuitem', { name: w.deactivate }).click();
+    const confirm = page.getByRole('alertdialog', { name: w.title });
+    await expect(confirm).toBeVisible();
+    await expectOnScreen(page, confirm);
+    await page.keyboard.press('Escape');
+    await expect(confirm).toHaveCount(0);
+
+    await page.getByRole('list', { name: /Technicians|טכנאים/ }).getByRole('button', { name: w.more }).click();
+    await page.getByRole('menuitem', { name: w.deactivate }).click();
+    await confirm.getByRole('button', { name: w.deactivate }).click();
+    const links = confirm.getByRole('link', { name: w.open });
+    await expect(links).toHaveCount(2);
+    await expectOnScreen(page, confirm);
+    await links.first().click();
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  });
+
+  test(`Inactive section row menu and reactivate review are laid out (${lang})`, async ({ page }) => {
+    const w = activityWords[lang];
+    await open(page, lang, false);
+    await page.getByText(w.inactive).click();
+    const trigger = page.locator('details.inactive-tech').getByRole('button', { name: w.more });
+    await trigger.click();
+    const menu = page.getByRole('menu');
+    await expectNextTo(page, menu, trigger);
+    await expect(menu.getByRole('menuitem')).toHaveCount(2);
+    await page.getByRole('menuitem', { name: w.reactivate }).click();
+    const review = page.getByRole('dialog', { name: w.review });
+    await expect(review).toBeVisible();
+    await expectOnScreen(page, review);
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });

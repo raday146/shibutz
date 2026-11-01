@@ -86,6 +86,7 @@ export function Drawer({ technician, route, date, skills, link, instant, pending
     <aside className={[instant ? 'drawer' : 'drawer animate', leaving && 'leaving'].filter(Boolean).join(' ')} aria-label={technician.name} style={{ '--c': routeVar(technician.color) } as React.CSSProperties}>
       <header>
         <h2 ref={heading} tabIndex={-1} dir="auto">{technician.name}</h2>
+        {!technician.active && <span className="badge neutral">{t('tech.inactive.badge')}</span>}
         <button onClick={(e) => { if (e.detail === 0) onClose(); else { setLeaving(true); closing.current = setTimeout(onClose, 140); } }}>{t('drawer.close')}</button>
       </header>
       <p className="muted">

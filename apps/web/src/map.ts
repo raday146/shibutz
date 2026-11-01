@@ -54,6 +54,9 @@ export const skillLabel = (ids: number[], skills: Skill[], lang: Lang): string =
 /** Technician color slot (1 to 8) as the DESIGN.md token; an inactive technician has none and renders neutral grey. */
 export const routeVar = (slot: number | null): string => (slot === null ? 'var(--ink-3)' : `var(--route-${slot})`);
 
+/** Up to two initials, for an inactive technician who has no route color. */
+export const initials = (name: string): string => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => [...w][0]).join('');
+
 export const shiftLabel = (start: string, end: string): string => `${start.slice(0, 5)}-${end.slice(0, 5)}`;
 
 /** Israel wall-clock HH:MM of an ISO instant. */

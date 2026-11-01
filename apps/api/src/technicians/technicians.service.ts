@@ -1,7 +1,7 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
-import { ACTIVE_CAP_MESSAGE, STALE_TECHNICIAN_MESSAGE } from '@shibutz/contracts';
-import type { CreateTechnician, Technician, TechnicianChange, TechnicianChangeFields, TechnicianChangesQuery, UpdateTechnician } from '@shibutz/contracts';
+import { and, asc, desc, eq, inArray, isNotNull, notExists, sql } from 'drizzle-orm';
+import { ACTIVE_CAP_MESSAGE, DEACTIVATE_BLOCKED_MESSAGE, INACTIVE_TECHNICIAN_MESSAGE, MAX_ACTIVE_TECHNICIANS, STALE_TECHNICIAN_MESSAGE } from '@shibutz/contracts';
+import type { CreateTechnician, Technician, TechnicianChange, TechnicianChangeFields, TechnicianChangesQuery, TechnicianVersion, UpdateTechnician } from '@shibutz/contracts';
 import { DB, type Db } from '../db/db.module';
 import { isForeignKeyViolation, isUniqueViolation, rejectInvalid } from '../db/errors';
 import { jobs, routeStops, routes, technicianChanges, technicianSkills, technicians } from '../db/schema';
@@ -56,11 +56,15 @@ export class TechniciansService {
     return row;
   }
 
-  async create(body: CreateTechnician): Promise<Technician> {
-    // Two creates racing for the same free color: the partial unique index lets one win; the loser retries once on fresh data.
+  create(body: CreateTechnician): Promise<Technician> {
+    return this.withColorRetry(async () => this.get(await this.createOnce(body)));
+  }
+
+  /** Two writers racing for the same free color: the partial unique index lets one win; the loser retries once on fresh data. */
+  private async withColorRetry<T>(run: () => Promise<T>): Promise<T> {
     for (let attempt = 1; ; attempt++) {
       try {
-        return await this.get(await this.createOnce(body));
+        return await run();
       } catch (err) {
         if (!isUniqueViolation(err)) throw err;
         if (attempt === 2) throw new ConflictException('Technician color was taken concurrently; retry');
@@ -68,14 +72,77 @@ export class TechniciansService {
     }
   }
 
+  /** The lowest color slot no active technician holds; 409 at the cap. */
+  private async freeColor(tx: Pick<Db, 'select'>): Promise<number> {
+    const taken = new Set((await tx.select({ color: technicians.color }).from(technicians).where(isNotNull(technicians.color))).map((r) => r.color));
+    const color = Array.from({ length: MAX_ACTIVE_TECHNICIANS }, (_, i) => i + 1).find((slot) => !taken.has(slot));
+    if (color === undefined) throw new ConflictException(ACTIVE_CAP_MESSAGE);
+    return color;
+  }
+
+  /**
+   * For planning writers, inside their own transaction: every technician they write to is still active, else 409.
+   * A shared row lock makes a deactivation wait for the writer (and then see its stops), or the writer see the deactivation.
+   */
+  async assertActive(tx: Pick<Db, 'select'>, ids: number[]): Promise<void> {
+    const wanted = new Set(ids);
+    if (!wanted.size) return;
+    const rows = await tx
+      .select({ id: technicians.id })
+      .from(technicians)
+      .where(and(inArray(technicians.id, [...wanted]), eq(technicians.active, true)))
+      .for('share');
+    if (rows.length !== wanted.size) throw new ConflictException(INACTIVE_TECHNICIAN_MESSAGE);
+  }
+
+  /** Locks the technician and checks the reviewed version is still current. */
+  private async lockAtVersion(tx: Pick<Db, 'select'>, id: number, version: number): Promise<Technician> {
+    const [was] = await tx.select(columns).from(technicians).where(eq(technicians.id, id)).for('update');
+    if (!was) throw new NotFoundException('Technician not found');
+    if (was.version !== version) throw new ConflictException(STALE_TECHNICIAN_MESSAGE);
+    return was;
+  }
+
+  /** Refused while assigned or in_progress stops exist on any date (409 listing every such date). Empty routes go with it. */
+  async deactivate(id: number, { version }: TechnicianVersion): Promise<Technician> {
+    await this.db.transaction(async (tx) => {
+      const was = await this.lockAtVersion(tx, id, version);
+      if (!was.active) throw new ConflictException('Technician is already inactive');
+      const blocking = await tx
+        .selectDistinct({ date: routes.date })
+        .from(routeStops)
+        .innerJoin(routes, eq(routes.id, routeStops.routeId))
+        .innerJoin(jobs, eq(jobs.id, routeStops.jobId))
+        .where(and(eq(routes.technicianId, id), inArray(jobs.status, ['assigned', 'in_progress'])))
+        .orderBy(asc(routes.date));
+      if (blocking.length) throw new ConflictException({ message: DEACTIVATE_BLOCKED_MESSAGE, dates: blocking.map((r) => r.date) });
+      await tx.delete(routes).where(and(eq(routes.technicianId, id), notExists(tx.select({ one: sql`1` }).from(routeStops).where(eq(routeStops.routeId, routes.id)))));
+      await tx.update(technicians).set({ active: false, color: null, version: sql`${technicians.version} + 1` }).where(eq(technicians.id, id));
+      await tx.insert(technicianChanges).values({ technicianId: id, action: 'deactivated', name: was.name });
+    });
+    return this.get(id);
+  }
+
+  /** Takes the lowest free color; 409 at the cap of active technicians. */
+  reactivate(id: number, { version }: TechnicianVersion): Promise<Technician> {
+    return this.withColorRetry(async () => {
+      await rejectInvalid(
+        this.db.transaction(async (tx) => {
+          const was = await this.lockAtVersion(tx, id, version);
+          if (was.active) throw new ConflictException('Technician is already active');
+          const color = await this.freeColor(tx);
+          await tx.update(technicians).set({ active: true, color, version: sql`${technicians.version} + 1` }).where(eq(technicians.id, id));
+          await tx.insert(technicianChanges).values({ technicianId: id, action: 'reactivated', name: was.name });
+        }),
+      );
+      return this.get(id);
+    });
+  }
+
   private createOnce({ skillIds, ...fields }: CreateTechnician): Promise<number> {
     return rejectInvalid(
       this.db.transaction(async (tx) => {
-        const taken = new Set(
-          (await tx.select({ color: technicians.color }).from(technicians).where(isNotNull(technicians.color))).map((r) => r.color),
-        );
-        const color = [1, 2, 3, 4, 5, 6, 7, 8].find((slot) => !taken.has(slot));
-        if (color === undefined) throw new ConflictException(ACTIVE_CAP_MESSAGE);
+        const color = await this.freeColor(tx);
         const [row] = await tx.insert(technicians).values({ ...fields, color }).returning({ id: technicians.id });
         if (!row) throw new Error('Insert returned no row');
         if (skillIds.length) await tx.insert(technicianSkills).values(skillIds.map((skillId) => ({ technicianId: row.id, skillId })));

@@ -75,7 +75,7 @@ export interface Props {
 // One icon per look, so a re-render never replaces a marker (and drops its keyboard focus).
 const icons = new Map<string, DivIcon>();
 /** A 24px transparent hit area around the visible `.pin`; `text` goes in as text, never HTML. */
-function pinIcon(cls: string, color: number, text: string): DivIcon {
+function pinIcon(cls: string, color: number | null, text: string): DivIcon {
   const key = `${cls}|${color}|${text}`;
   let icon = icons.get(key);
   if (!icon) {
@@ -92,7 +92,8 @@ function pinIcon(cls: string, color: number, text: string): DivIcon {
 interface PinProps {
   at: LonLat;
   cls: string;
-  color?: number;
+  /** Undefined is route 1; null is an inactive technician's neutral grey. */
+  color?: number | null;
   text?: string;
   label: string;
   faded: boolean;
@@ -114,7 +115,7 @@ function Pin({ at, cls, color = 1, text = '', label, faded, onClick, children }:
 export function MapView({ date, technicians, dayJobs, skills, routes, selected, highlighted, focus, picking, at, preview, onPick, onCenter, onSelect, onSelectStop, onSelectJob }: Props): React.JSX.Element {
   const { lang, t } = useLang();
   const jobById = new Map(dayJobs.map((j) => [j.id, j]));
-  const colorOf = (id: number): number => technicians.find((tech) => tech.id === id)?.color ?? 1;
+  const colorOf = (id: number): number | null => technicians.find((tech) => tech.id === id)?.color ?? null;
   const fades = (owner: number): boolean => selected !== null && owner !== selected;
   const mine = routes.find((r) => r.technicianId === selected);
   const home = technicians.find((tech) => tech.id === selected)?.home;
@@ -142,7 +143,7 @@ export function MapView({ date, technicians, dayJobs, skills, routes, selected, 
         return (
           <Fragment key={`r${r.technicianId}`}>
             <Polyline positions={line} pathOptions={{ color: '#fff', weight: thick ? 7 : 5, opacity }} interactive={false} />
-            <Polyline positions={line} pathOptions={{ weight: thick ? 3.5 : 2, opacity, className: `route-${colorOf(r.technicianId)}` }} interactive={false} />
+            <Polyline positions={line} pathOptions={{ weight: thick ? 3.5 : 2, opacity, className: `route-${colorOf(r.technicianId) ?? 'none'}` }} interactive={false} />
           </Fragment>
         );
       })}
@@ -174,12 +175,12 @@ export function MapView({ date, technicians, dayJobs, skills, routes, selected, 
           );
         }),
       )}
-      {technicians.map((tech) => (
+      {technicians.filter((tech) => tech.active || tech.id === selected).map((tech) => (
         <Pin
           key={`t${tech.id}`}
           at={tech.home}
           cls="home"
-          color={tech.color ?? undefined}
+          color={tech.color}
           text={[...tech.name][0] ?? ''}
           label={t('map.home', { name: tech.name })}
           faded={fades(tech.id)}
