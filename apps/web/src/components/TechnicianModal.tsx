@@ -50,6 +50,8 @@ export function TechnicianModal({ technician, skills, technicians, color, busy, 
   const [from, setFrom] = useState(technician?.shiftStart.slice(0, 5) ?? '08:00');
   const [to, setTo] = useState(technician?.shiftEnd.slice(0, 5) ?? '16:00');
   const [reviewing, setReviewing] = useState(false);
+  const [seen, setSeen] = useState<string | null>(null); // a failure the user has moved past by reviewing again
+  const message = failure === seen ? null : failure;
   const reviewed = useRef(0); // the version the user looked at when entering the review
   // An inactive technician keeps the home, shift and skills its history was built on.
   const frozen = technician !== undefined && !technician.active;
@@ -100,12 +102,15 @@ export function TechnicianModal({ technician, skills, technicians, color, busy, 
   const changes = technician && form ? techPatch(technician, form) : null;
   const nameOnly = changes !== null && Object.keys(changes).every((k) => k === 'name');
   const confirm = (): void => {
-    if (form) onSubmit(form, reviewed.current);
+    if (!form) return;
+    setSeen(null);
+    onSubmit(form, reviewed.current);
   };
   const toReview = (): void => {
     setTried(true);
     if (!Object.values(errors).every((m) => !m)) return;
     reviewed.current = technician?.version ?? 0;
+    setSeen(failure);
     if (nameOnly) confirm(); // a name-only edit needs no review
     else setReviewing(true);
   };
@@ -161,7 +166,7 @@ export function TechnicianModal({ technician, skills, technicians, color, busy, 
                   <ul>{warnings.map((w) => <li key={w.key}>{t(w.key, w.params)}</li>)}</ul>
                 </div>
               )}
-              {failure && <p className="error" role="alert">{failure}</p>}
+              {message && <p className="error" role="alert">{message}</p>}
               <div>
                 <button onClick={confirm} disabled={busy}>{t(technician ? 'review.confirm.edit' : 'review.confirm.new')}</button>{' '}
                 <button onClick={() => setReviewing(false)}>{t('review.back')}</button>
@@ -208,7 +213,7 @@ export function TechnicianModal({ technician, skills, technicians, color, busy, 
                 {error('home')}
               </div>
               {frozen ? <p className="muted">{t('tech.inactive.editHint')}</p> : <p className="muted">{swatch}{t('tech.color.note')}</p>}
-              {failure && <p className="error" role="alert">{failure}</p>}
+              {message && <p className="error" role="alert">{message}</p>}
               <div>
                 <button onClick={toReview} disabled={busy}>{t(nameOnly ? 'tech.save' : 'tech.toReview')}</button>{' '}
                 <button onClick={onClose}>{t('modal.close')}</button>
