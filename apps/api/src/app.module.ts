@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
 import { CLOCK, systemClock } from './clock/clock';
 import { DbModule } from './db/db.module';
+import { DeadlockFilter } from './db/deadlock.filter';
 import { OsrmRoutingGateway } from './gateways/osrm.gateway';
 import { ROUTING_GATEWAY, SOLVER_GATEWAY } from './gateways/ports';
 import { VroomSolverGateway } from './gateways/vroom.gateway';
@@ -39,6 +41,7 @@ import { TechniciansService } from './technicians/technicians.service';
     JobStatusService,
     InsertionService,
     NotesService,
+    { provide: APP_FILTER, useClass: DeadlockFilter },
     { provide: CLOCK, useValue: systemClock },
     { provide: ROUTING_GATEWAY, useFactory: () => new OsrmRoutingGateway(process.env.OSRM_URL ?? 'http://localhost:5001') },
     { provide: SOLVER_GATEWAY, useFactory: () => new VroomSolverGateway(process.env.VROOM_URL ?? 'http://localhost:3000') },

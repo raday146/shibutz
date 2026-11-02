@@ -78,6 +78,8 @@ export class JobStatusService {
 
     await this.db.transaction(async (tx) => {
       if (to === 'in_progress') await this.assertNoStopInProgress(tx, route.technicianId);
+      // Job row before route row: the lock order Plan day (batch replace) and insert use, so they cannot deadlock.
+      await tx.select({ id: jobs.id }).from(jobs).where(eq(jobs.id, jobId)).for('update');
       const [bumped] = await tx
         .update(routes)
         .set({ version: sql`${routes.version} + 1` })

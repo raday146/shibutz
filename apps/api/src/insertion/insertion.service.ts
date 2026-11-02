@@ -75,6 +75,8 @@ export class InsertionService {
     await this.db.transaction(async (tx) => {
       // The candidate was active, at this version, when selected; a deactivation or edit may have committed since. Locked before any job or route row.
       await this.techniciansService.assertActive(tx, new Map([[technicianId, schedulingKey(tech)]]));
+      // Job row before route row: the lock order Plan day and status changes use, so they cannot deadlock.
+      await tx.select({ id: jobs.id }).from(jobs).where(eq(jobs.id, jobId)).for('update');
       // ponytail: the expected version 0 case: make sure the row exists, then the same guarded bump as every other case.
       if (routeVersion === 0) await tx.insert(routes).values({ technicianId, date: job.day }).onConflictDoNothing({ target: [routes.technicianId, routes.date] });
       const [bumped] = await tx
