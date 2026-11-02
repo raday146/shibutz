@@ -179,10 +179,14 @@ export function App(): React.JSX.Element {
     }
   }
 
+  /** A short polite announcement in the toast live region, for changes that otherwise only move focus or counts. */
+  const announce = (key: Key): void => setToast({ id: Date.now(), text: t(key) });
+
   // Not optimistic: wait for the server, then reload (also after a refusal, which means the screen was stale).
   async function changeStatus(jobId: number, status: JobStatus, reason?: string): Promise<void> {
     try {
       await setJobStatus(jobId, status, reason);
+      if (status === 'in_progress' || status === 'done') announce(status === 'done' ? 'announce.status.finished' : 'announce.status.started');
     } finally {
       await reload();
     }
@@ -442,7 +446,7 @@ export function App(): React.JSX.Element {
   return (
     <div className="app">
       {loading && !first && <div className="progress" role="progressbar" aria-label={t('loading')} />}
-      <TopBar planError={planError && why(planError)} date={date} summary={summary} busy={busy} loading={loading} onDate={setDate} onRefresh={() => void reload()} onOptimize={() => void optimize()} onUnassigned={() => setTab('unassigned')} onAdd={openModal} technicians={technicians} onIncident={goToIncident} onIncidentReviewed={() => void reload()} />
+      <TopBar planError={planError && why(planError)} date={date} summary={summary} busy={busy} loading={loading} onDate={setDate} onRefresh={() => void reload()} onOptimize={() => void optimize()} onUnassigned={() => setTab('unassigned')} onAdd={openModal} technicians={technicians} onIncident={goToIncident} onIncidentReviewed={() => { announce('announce.incident.reviewed'); void reload(); }} />
       <div className="body">
       <aside className="side">
         {summary?.totals.total === 0 && (
@@ -528,7 +532,7 @@ export function App(): React.JSX.Element {
           onNoted={noteSaved}
           stamp={summary}
           onClose={closeDrawer}
-          onDayChanged={() => void reload()}
+          onDayChanged={(change) => { announce(change === 'added' ? 'announce.incident.added' : 'announce.incident.reviewed'); void reload(); }}
         />
       )}
       </div>
