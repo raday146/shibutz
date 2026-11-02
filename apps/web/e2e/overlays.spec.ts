@@ -166,8 +166,10 @@ for (const lang of ['he', 'en'] as const) {
     await dialog.getByLabel(w.name, { exact: true }).fill('Noa');
     await dialog.getByRole('button', { name: w.pick }).click();
     await expect(dialog).toBeHidden(); // the dialog steps aside for the map-pick
+    await expect(page.locator('.leaflet-marker-icon[tabindex="0"]')).toHaveCount(0); // no marker is a Tab stop while picking
     await page.getByRole('button', { name: w.use }).click();
     await expect(dialog).toBeVisible();
+    await expect(page.locator('.leaflet-container:not(.minimap *) .leaflet-marker-icon[tabindex="0"]').first()).toBeVisible(); // and they are back after
     await dialog.getByRole('button', { name: w.next }).click();
 
     // The mini-map has a real size inside the dialog, a rendered tile layer container and the pin.
