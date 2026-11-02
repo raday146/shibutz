@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ACTIVE_CAP_MESSAGE, INACTIVE_TECHNICIAN_MESSAGE, JOB_LOCKED_MESSAGE, JOB_ON_ROUTE_MESSAGE, STALE_TECHNICIAN_MESSAGE, freeColorSlot } from '@shibutz/contracts';
+import { ACTIVE_CAP_MESSAGE, INACTIVE_TECHNICIAN_MESSAGE, STALE_TECHNICIAN_MESSAGE, freeColorSlot } from '@shibutz/contracts';
 import type { CreateTechnician, DaySummary, Incident, JobStatus, InsertionOption, InsertionSuggestions, Job, LonLat, RouteView, Skill, Technician, UpdateJob } from '@shibutz/contracts';
 import { ApiError, createJob, createTechnician, deactivateTechnician, fetchDaySummary, fetchJobs, fetchRoute, fetchSkills, fetchSuggestions, fetchTechnicians, insertJob, reactivateTechnician, runOptimization, setJobStatus, updateJob, updateTechnician } from './api';
 import { idsKey, jerusalemToIso, today, unassignedJobs } from './map';
 import type { Key, Vars } from './i18n';
 import { useLang } from './lang';
+import { knownKey, statusKey } from './serverError';
 import { Drawer } from './components/Drawer';
 import { RegionError, Skeleton, Toasts } from './components/Feedback';
 import { Legend } from './components/Legend';
@@ -49,12 +50,10 @@ function jobPatch(job: Job, draft: JobDraft, at: LonLat): UpdateJob {
 
 /** A message to show, kept untranslated until render so a language change does not reload data. */
 interface Problem { key: Key; vars?: Vars }
-/** The job guard's English refusals that have a localized text (docs/console-copy.md, Server messages). */
-const EDIT_REFUSALS: Record<string, Key> = { [JOB_ON_ROUTE_MESSAGE]: 'job.edit.conflict', [JOB_LOCKED_MESSAGE]: 'job.edit.locked' };
-const problem = (e: unknown): Problem =>
-  e instanceof TypeError ? { key: 'error.network' } :
-  e instanceof ApiError && e.status === 409 && e.message === INACTIVE_TECHNICIAN_MESSAGE ? { key: 'error.techInactive' } :
-  e instanceof ApiError && e.status === 409 && e.message === STALE_TECHNICIAN_MESSAGE ? { key: 'review.stale' } : { key: 'error.action', vars: { message: e instanceof Error ? e.message : String(e) } };
+const problem = (e: unknown): Problem => {
+  const known = knownKey(e);
+  return known ? { key: known } : { key: 'error.action', vars: { detail: statusKey(e) } };
+};
 
 export function App(): React.JSX.Element {
   const { t } = useLang();
@@ -304,9 +303,8 @@ export function App(): React.JSX.Element {
       }
       await reload();
     } catch (e) {
-      const known = e instanceof ApiError && e.status === 409 ? EDIT_REFUSALS[e.message] : undefined;
-      setCreateError(known ? { key: known } : problem(e));
-      if (known) await reload(); // the job changed under the form: the next render shows its fields as they are now
+      setCreateError(problem(e));
+      if (knownKey(e) === 'job.edit.conflict' || knownKey(e) === 'job.edit.locked') await reload(); // the job changed under the form: the next render shows its fields as they are now
     } finally {
       setBusy(false);
     }
@@ -389,7 +387,7 @@ export function App(): React.JSX.Element {
     }
   }
 
-  const why = (p: Problem): string => (p.vars ? String(p.vars.message ?? '') : t(p.key));
+  const why = (p: Problem): string => (p.vars?.detail ? t(p.vars.detail as Key) : p.vars ? String(p.vars.message ?? '') : t(p.key));
   // First load: nothing to show yet. A reload keeps the content and shows the progress line instead.
   const first = loading && !summary;
   // A saved note changes no route on the server, so patch the loaded view instead of reloading.
@@ -543,7 +541,7 @@ export function App(): React.JSX.Element {
           busy={busy}
           at={at}
           picking={picking}
-          failure={createError && (editingJob ? t(createError.key, createError.vars) : t('create.failed', { message: why(createError) }))}
+          failure={createError && (editingJob ? (createError.vars?.detail ? t('error.action', { message: why(createError) }) : t(createError.key, createError.vars)) : t('create.failed', { message: why(createError) }))}
           onPicking={setPicking}
           onUsePoint={() => { if (center.current) { setAt(center.current); setPicking(false); } }}
           onSubmit={(d) => void (editingJob ? submitEdit(editingJob, d) : submitJob(d))}

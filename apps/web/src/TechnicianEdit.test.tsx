@@ -136,7 +136,7 @@ describe('edit technician', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: 'HVAC' }));
     await userEvent.click(screen.getByRole('button', { name: 'Continue to review' }));
     await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
-    expect((await screen.findByRole('alert')).textContent).toContain('Technician has stops on a route');
+    expect((await screen.findByRole('alert')).textContent).toContain('The technician has stops on a route');
     expect(screen.getByRole('dialog')).toBeTruthy();
   });
 

@@ -4,6 +4,7 @@ import { fetchTechnicianChanges } from '../api';
 import type { Key } from '../i18n';
 import { useLang, withLtrNumbers } from '../lang';
 import { formatLatLon, skillLabel } from '../map';
+import { errorKey } from '../serverError';
 
 interface Props {
   skills: Skill[];
@@ -23,12 +24,12 @@ export function ChangeLog({ skills, technicianId, limit, roster, title }: Props)
   const [changes, setChanges] = useState<TechnicianChange[] | null>(null);
   // Every logged change bumps a version or adds a technician, so unrelated reloads leave this unchanged.
   const rosterKey = roster.map((x) => `${x.id}:${x.version}`).join();
-  const [failed, setFailed] = useState<string | null>(null);
+  const [failed, setFailed] = useState<Key | null>(null);
   useEffect(() => {
     let current = true;
     fetchTechnicianChanges({ technicianId, limit }).then(
       (c) => { if (current) { setChanges(c); setFailed(null); } },
-      (e: unknown) => { if (current) setFailed(e instanceof Error ? e.message : String(e)); },
+      (e: unknown) => { if (current) setFailed(errorKey(e)); },
     );
     return () => { current = false; };
   }, [technicianId, limit, rosterKey]);
@@ -53,7 +54,7 @@ export function ChangeLog({ skills, technicianId, limit, roster, title }: Props)
     <section className="change-log">
       <h3>{t(title)}</h3>
       {failed ? (
-        <p className="error" role="alert">{t('error.region', { message: failed })}</p>
+        <p className="error" role="alert">{t('error.region', { message: t(failed) })}</p>
       ) : changes === null ? null : changes.length === 0 ? (
         <p className="muted">{t('changes.empty')}</p>
       ) : (

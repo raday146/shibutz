@@ -119,12 +119,12 @@ describe('start, finish and unassign from the drawer', () => {
     expect((await within(r1).findByRole('alert')).textContent).toBe('לטכנאי יש כבר עצירה בביצוע.');
   });
 
-  it('shows an unknown refusal as received after the lead sentence', async () => {
+  it('shows an unknown refusal by status after the lead sentence, never the server text', async () => {
     server({ status: 409, message: 'Cannot change a job from done to in_progress' });
     const d = await open();
     const r1 = await expand(d, 1);
     await userEvent.click(within(r1).getByRole('button', { name: 'Start' }));
-    expect((await within(r1).findByRole('alert')).textContent).toBe("That didn't go through. Cannot change a job from done to in_progress");
+    expect((await within(r1).findByRole('alert')).textContent).toBe("That didn't go through. The data changed or the action is not possible right now.");
   });
 
   it('unassigns from the overflow menu after confirmation, updating route, list, map and KPIs', async () => {

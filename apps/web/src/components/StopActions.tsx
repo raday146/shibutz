@@ -3,18 +3,10 @@ import { createPortal } from 'react-dom';
 import type { JobStatus, RouteView } from '@shibutz/contracts';
 import type { Key } from '../i18n';
 import { useLang } from '../lang';
+import { knownKey, statusKey } from '../serverError';
 import { Anchored } from './Anchored';
 
 type Stop = RouteView['stops'][number];
-
-/** The API's English refusals that have a localized text (docs/console-copy.md, Server messages). */
-const KNOWN: Record<string, Key> = {
-  'Only the first not-done stop of a route can be started': 'blocked.order',
-  'Technician already has a stop in progress': 'blocked.busy',
-  'Route changed concurrently; retry': 'error.stale',
-  'Route changed since the suggestion': 'error.stale',
-  'A stop that day has already started': 'plan.disabled',
-};
 
 interface Props {
   stop: Stop;
@@ -59,9 +51,8 @@ export function StopActions({ stop, earlier, onStatus, onEdit }: Props): React.J
     try {
       await onStatus(stop.jobId, to, why);
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      const known = KNOWN[message];
-      setFailed(e instanceof TypeError ? t('error.network') : known ? t(known) : t('error.action', { message }));
+      const known = knownKey(e);
+      setFailed(known ? t(known) : t('error.action', { message: t(statusKey(e)) }));
     } finally {
       setBusy(null);
     }

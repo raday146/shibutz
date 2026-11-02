@@ -95,7 +95,7 @@ describe('region errors', () => {
     await screen.findByText('Bob');
     await userEvent.click(screen.getByRole('button', { name: 'Plan day' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Re-plan' }));
-    expect(within(await screen.findByRole('banner')).getByRole('alert').textContent).toContain('boom');
+    expect(within(await screen.findByRole('banner')).getByRole('alert').textContent).toContain('Server error');
   });
 });
 
