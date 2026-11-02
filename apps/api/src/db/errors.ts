@@ -17,6 +17,11 @@ export function isUniqueViolation(err: unknown, constraint?: string): boolean {
   return pg.code === '23505' && (constraint === undefined || pg.constraint === constraint);
 }
 
+/** Postgres aborted this transaction to break a lock cycle; nothing was written, so the client may retry. */
+export function isDeadlock(err: unknown): boolean {
+  return pgError(err).code === '40P01';
+}
+
 export function isForeignKeyViolation(err: unknown): boolean {
   return pgError(err).code === '23503';
 }
