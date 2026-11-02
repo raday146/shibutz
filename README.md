@@ -1,6 +1,6 @@
 # shibutz
 
-A dispatch console for field technicians, built as a learning project. Technicians have skills, shifts and a home;
+A geospatial dispatch console for field technicians, built as a learning project. Technicians have skills, shifts and a home;
 jobs have a place, required skills, a service duration, a time window and a priority. A dispatcher plans a whole
 day in one batch (OSRM travel times + the VROOM solver), places a late job into existing routes with the smallest
 detour (a hand-written insertion heuristic, compared against VROOM), and follows the day as it unfolds. It
