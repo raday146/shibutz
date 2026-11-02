@@ -339,6 +339,17 @@ Rows store the technician's name as it was at the time, so a later rename does n
 | `map.home` | הבית של {name} | {name}'s home |
 | `map.stop` | עצירה {n}: {title} | Stop {n}: {title} |
 
+## Announcements
+
+Polite live-region announcements (the toast region) for changes that otherwise only move focus or a count.
+
+| Key | עברית | English |
+|---|---|---|
+| `announce.status.started` | העבודה התחילה. | Job started. |
+| `announce.status.finished` | העבודה הסתיימה. | Job finished. |
+| `announce.incident.added` | האירוע נוסף. | Incident added. |
+| `announce.incident.reviewed` | האירוע סומן כנבדק. | Incident marked reviewed. |
+
 ## Server messages
 
 The API's own messages are English only. Known ones map to keys: "Only the first not-done stop of a route can be started" is `blocked.order`, "Technician already has a stop in progress" is `blocked.busy`, "Route changed concurrently; retry", "Route changed since the suggestion" and "Concurrent change; retry" (a deadlock the API turned into a 409) are `error.stale`, and "A stop that day has already started" is `plan.disabled`. A 409 about an inactive technician is `error.techInactive`; one saying the technician changed since the data was read (a batch or insert racing a technician edit) is `review.stale` (`slot.stale` when choosing a slot); one about the 8-active cap is `error.activeCap`; the job guard's "Job is on a route" is `job.edit.conflict`. Server text is never shown. Any other refusal gets a generic text by HTTP status, after the localized lead sentence: `error.http.400` (invalid request), `error.http.404` (not found), `error.http.409` (the data changed or the action is not possible), `error.http.503` (routing or planning service unavailable), `error.http.500` (any other server error). All of it lives in `apps/web/src/serverError.ts`.

@@ -33,7 +33,7 @@ interface Props {
   stamp: unknown;
   onClose: () => void;
   /** An incident was added or reviewed. */
-  onDayChanged: () => void;
+  onDayChanged: (change: 'added' | 'reviewed') => void;
 }
 
 const GLYPH: Record<JobStatus, string> = { unassigned: '', assigned: '○', in_progress: '●', done: '✓', cancelled: '✕' };

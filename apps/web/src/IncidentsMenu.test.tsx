@@ -46,6 +46,7 @@ describe('open incidents indicator', () => {
     await userEvent.click(within(panel).getByRole('button', { name: 'Mark reviewed: Incident 2' }));
     await waitFor(() => expect(trigger.textContent).toContain('2'));
     expect(within(panel).getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.getByTestId('toasts').textContent).toBe('Incident marked reviewed.');
 
     await userEvent.click(within(panel).getByRole('button', { name: /Bob.*Customer was away/ }));
     expect(screen.queryByRole('dialog', { name: 'Incidents to review' })).toBeNull();
