@@ -3,13 +3,14 @@ import type { Incident, RouteView } from '@shibutz/contracts';
 import { addIncident, fetchIncidents, fetchReport, reviewIncident, saveReport } from '../api';
 import { useLang, withLtrNumbers } from '../lang';
 import { time } from '../map';
+import { errorKey } from '../serverError';
 
 interface Props {
   technicianId: number;
   date: string;
   stops: RouteView['stops'];
   /** An incident was added or reviewed: the day summary (badge, counts) is stale. */
-  onChanged: () => void;
+  onChanged: (change: 'added' | 'reviewed') => void;
 }
 
 type Save = 'idle' | 'saving' | 'saved' | 'error';
@@ -85,9 +86,9 @@ export function DayEnd({ technicianId, date, stops, onChanged }: Props): React.J
       setJobId('');
       draftRef.current?.focus(); // the Add button just became disabled; keep focus in the form
       setFailure(null);
-      onChanged();
+      onChanged('added');
     } catch (e) {
-      setFailure(t('error.action', { message: e instanceof Error ? e.message : String(e) }));
+      setFailure(t('error.action', { message: t(errorKey(e)) }));
     }
   };
 
@@ -97,9 +98,9 @@ export function DayEnd({ technicianId, date, stops, onChanged }: Props): React.J
       setIncidents((list) => list.map((i) => (i.id === id ? done : i)));
       listRef.current?.focus(); // the Mark reviewed button is gone
       setFailure(null);
-      onChanged();
+      onChanged('reviewed');
     } catch (e) {
-      setFailure(t('error.action', { message: e instanceof Error ? e.message : String(e) }));
+      setFailure(t('error.action', { message: t(errorKey(e)) }));
     }
   };
 

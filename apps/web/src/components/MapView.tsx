@@ -44,6 +44,18 @@ function FlyTo({ target }: { target: Point | null }): null {
   return null;
 }
 
+/** While picking, takes the markers out of the Tab order (Leaflet sets tabindex when it creates them); the pick bar and the map are the only stops. */
+function PickFocus({ picking }: { picking: boolean }): null {
+  const map = useMap();
+  useEffect(() => {
+    if (!picking) return;
+    const icons = (): NodeListOf<HTMLElement> => map.getContainer().querySelectorAll<HTMLElement>('.leaflet-marker-icon[tabindex]');
+    icons().forEach((el) => el.setAttribute('tabindex', '-1'));
+    return () => icons().forEach((el) => el.setAttribute('tabindex', '0'));
+  }); // every render: markers are created and removed as the data reloads
+  return null;
+}
+
 /** Reports the map's center, for the crosshair's "Use this point". */
 function ReportCenter({ onCenter }: { onCenter: (at: LonLat) => void }): null {
   const map = useMapEvents({ moveend: () => onCenter(fromLatLng(map.getCenter())) });
@@ -134,6 +146,7 @@ export function MapView({ date, technicians, dayJobs, skills, routes, selected, 
       <FitTo points={selected !== null ? selectedPoints : allPoints} fitKey={selected !== null ? `route${selected}|${date}|${selectedPoints.length > 0}` : 'all'} />
       <FlyTo target={focus} />
       <MapPick picking={picking} at={at} onPick={onPick} />
+      <PickFocus picking={picking} />
       <ReportCenter onCenter={onCenter} />
       {drawn.map((r) => {
         if (!r.geometry) return null;

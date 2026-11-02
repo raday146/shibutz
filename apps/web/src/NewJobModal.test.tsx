@@ -195,7 +195,7 @@ describe('new-job modal', () => {
       path.startsWith('/jobs/7/insertion-suggestions') ? Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({ message: 'osrm down' }) }) : base(path, init));
     await create();
     const row = (await screen.findAllByRole('listitem')).find((r) => r.id === 'job-7')!;
-    expect(await within(row).findByText(/osrm down/)).toBeTruthy();
+    expect(await within(row).findByText(/Server error/)).toBeTruthy();
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(fetch.mock.calls.filter(([p, i]) => p === '/jobs' && i?.method === 'POST')).toHaveLength(1);
   });
@@ -209,6 +209,6 @@ describe('new-job modal', () => {
     fetch.mockImplementation((path: string, init?: RequestInit) =>
       init?.method === 'POST' ? Promise.resolve({ ok: false, status: 400, json: () => Promise.resolve({ message: 'bad skill' }) }) : base(path, init));
     await create();
-    expect((await screen.findByText(/Couldn't create the job. bad skill/)).closest('[role=dialog]')).toBeTruthy();
+    expect((await screen.findByText(/Couldn't create the job. The request was not valid./)).closest('[role=dialog]')).toBeTruthy();
   });
 });

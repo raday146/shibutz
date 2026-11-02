@@ -79,6 +79,7 @@ describe('start, finish and unassign from the drawer', () => {
     expect(within(r1).queryByRole('button', { name: 'Finish' })).toBeNull(); // not optimistic
     await act(async () => s.gate.release?.());
     expect(await within(r1).findByRole('button', { name: 'Finish' })).toBeTruthy();
+    expect(screen.getByTestId('toasts').textContent).toBe('Job started.'); // announced for screen readers
     expect(within(r1).queryByRole('button', { name: 'Start' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Plan day' }).hasAttribute('disabled')).toBe(true);
     expect(screen.getByText("Can't re-plan: a stop that day has already started.")).toBeTruthy();
@@ -91,6 +92,7 @@ describe('start, finish and unassign from the drawer', () => {
     const r1 = await expand(d, 1);
     await userEvent.click(within(r1).getByRole('button', { name: 'Finish' }));
     await waitFor(() => expect(within(r1).getByText('Done')).toBeTruthy());
+    expect(screen.getByTestId('toasts').textContent).toBe('Job finished.');
     expect(document.activeElement).toBe(within(r1).getByRole('button', { name: /Fix 1/ })); // Finish unmounted: focus is not dropped on <body>
     const r2 = await expand(d, 2);
     expect(within(r2).getByRole('button', { name: 'Start' }).getAttribute('aria-disabled')).toBeNull();
@@ -119,12 +121,12 @@ describe('start, finish and unassign from the drawer', () => {
     expect((await within(r1).findByRole('alert')).textContent).toBe('לטכנאי יש כבר עצירה בביצוע.');
   });
 
-  it('shows an unknown refusal as received after the lead sentence', async () => {
+  it('shows an unknown refusal by status after the lead sentence, never the server text', async () => {
     server({ status: 409, message: 'Cannot change a job from done to in_progress' });
     const d = await open();
     const r1 = await expand(d, 1);
     await userEvent.click(within(r1).getByRole('button', { name: 'Start' }));
-    expect((await within(r1).findByRole('alert')).textContent).toBe("That didn't go through. Cannot change a job from done to in_progress");
+    expect((await within(r1).findByRole('alert')).textContent).toBe("That didn't go through. The data changed or the action is not possible right now.");
   });
 
   it('unassigns from the overflow menu after confirmation, updating route, list, map and KPIs', async () => {
