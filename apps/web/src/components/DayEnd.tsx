@@ -3,6 +3,7 @@ import type { Incident, RouteView } from '@shibutz/contracts';
 import { addIncident, fetchIncidents, fetchReport, reviewIncident, saveReport } from '../api';
 import { useLang, withLtrNumbers } from '../lang';
 import { time } from '../map';
+import { errorKey } from '../serverError';
 
 interface Props {
   technicianId: number;
@@ -87,7 +88,7 @@ export function DayEnd({ technicianId, date, stops, onChanged }: Props): React.J
       setFailure(null);
       onChanged();
     } catch (e) {
-      setFailure(t('error.action', { message: e instanceof Error ? e.message : String(e) }));
+      setFailure(t('error.action', { message: t(errorKey(e)) }));
     }
   };
 
@@ -99,7 +100,7 @@ export function DayEnd({ technicianId, date, stops, onChanged }: Props): React.J
       setFailure(null);
       onChanged();
     } catch (e) {
-      setFailure(t('error.action', { message: e instanceof Error ? e.message : String(e) }));
+      setFailure(t('error.action', { message: t(errorKey(e)) }));
     }
   };
 
